@@ -340,6 +340,7 @@
     <div class="panel-sub">This creates your private account — separate from the free demo — and attaches your purchase to it.</div>
 
     <div class="error-box" id="signinError"></div>
+    <p class="footer-note" id="try-different-account" style="margin-top:0; margin-bottom:10px; cursor:pointer; text-decoration:underline; display:none;" onclick="signInWithDifferentAccount()">Choose a different Google account</p>
 
     <div id="signin-needed">
       <button class="google-btn" id="googleBtn" onclick="signInWithGoogle()">
@@ -433,6 +434,8 @@
   function hideSigninError() {
     const box = document.getElementById('signinError');
     box.classList.remove('show'); box.textContent = '';
+    const tryDiff = document.getElementById('try-different-account');
+    if (tryDiff) tryDiff.style.display = 'none';
   }
   function setSigninLoading(isLoading) {
     const btn = document.getElementById('googleBtn');
@@ -441,23 +444,26 @@
     label.innerHTML = isLoading ? '<span class="btn-spinner"></span>Signing in…' : 'Continue with Google';
   }
 
-  window.signInWithGoogle = async function() {
+  // 2026-08-30 postmortem (see login.html for the full writeup): forcing
+  // prompt:'select_account' on every attempt broke sign-in outright, so
+  // that's reverted to the original default-path behavior here too. The
+  // "choose a different account" capability now lives only in
+  // window.signInWithDifferentAccount, reachable through a link that
+  // appears after a denial instead of being forced on every attempt.
+  async function doGoogleSignIn(forceAccountPicker) {
     hideSigninError();
     setSigninLoading(true);
     const provider = new GoogleAuthProvider();
-    // 2026-08-30 fix per Marcelo (same fix as login.html): force the
-    // Google account picker every time, so a denied/blocked account that
-    // gets signed out below doesn't leave the user stuck silently
-    // re-signing into that same account with no way to pick a different
-    // one.
-    provider.setCustomParameters({ prompt: 'select_account' });
+    if (forceAccountPicker) provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const result = await signInWithPopup(auth, provider);
       const blocked = await isDenylisted(result.user.email);
       setSigninLoading(false);
       if (blocked) {
         await signOut(auth);
-        showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake, or tap Continue with Google again to sign in with a different account.");
+        showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+        const tryDiff = document.getElementById('try-different-account');
+        if (tryDiff) tryDiff.style.display = 'block';
       }
     } catch (err) {
       console.warn('[subscribe] sign-in error:', err);
@@ -468,7 +474,9 @@
         showSigninError(describeSignInError(err));
       }
     }
-  };
+  }
+  window.signInWithGoogle = function() { return doGoogleSignIn(false); };
+  window.signInWithDifferentAccount = function() { return doGoogleSignIn(true); };
 
   window.signOutNow = async function() {
     try { await signOut(auth); } catch (e) {}
