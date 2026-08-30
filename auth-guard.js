@@ -7,24 +7,11 @@
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { CLIENT } from "./client.config.js";
 
-// Accounts allowed onto 'auth' (private) pages. Admin pages are gated separately
-// by the user-roles check below, but these accounts also need to appear here
-// since admin pages require BOTH an allowlisted login and the admin role.
-const ALLOWED_EMAILS = [
-  '123mja@gmail.com',
-  '123melissaca@gmail.com',
-];
-
-const FB_CONFIG = {
-  apiKey:            "AIzaSyBZEWMJbppoob8WklMvjULLJOeiglpwYDM",
-  authDomain:        "mel-the-winner.firebaseapp.com",
-  databaseURL:       "https://mel-the-winner-default-rtdb.firebaseio.com",
-  projectId:         "mel-the-winner",
-  storageBucket:     "mel-the-winner.firebasestorage.app",
-  messagingSenderId: "442263365271",
-  appId:             "1:442263365271:web:f4dd3d63a1d3b55fffabd2"
-};
+// Sourced from client.config.js so a new client instance only has to edit
+// CLIENT.firebase, not this file.
+const FB_CONFIG = CLIENT.firebase;
 
 // Hardcoded defaults — Firebase config overrides these.
 // If a page key is missing from Firebase AND from this list, defaults to 'public'.
@@ -87,6 +74,22 @@ function accessDenied() {
   window.location.replace('/index.html?denied=1');
 }
 
+// Explicit opt-OUT list — accounts here are blocked from every private page,
+// regardless of which permission path (usergroups or the legacy page-access
+// flow) would otherwise grant them access. Everyone else, including a
+// brand-new Google sign-in, is allowed onto 'auth' pages by default; this is
+// the only mechanism for manually cutting someone off (e.g. a lapsed
+// subscription) — managed from Admin Settings -> Access Denylist, no code
+// edits needed. Stored as a lowercase-email array at
+// CLIENT.dbRootPath + '/denylist'.
+async function isDenylisted(db, user) {
+  if (!user) return false;
+  const snap = await get(ref(db, CLIENT.dbRootPath + '/denylist')).catch(() => null);
+  const list = snap?.val();
+  if (!Array.isArray(list)) return false;
+  return list.map(e => String(e).toLowerCase()).includes((user.email || '').toLowerCase());
+}
+
 // Shows a full-screen PIN overlay over the page (used when page has PIN access enabled).
 // correctCode: the PIN value read from Firebase config.
 function showPinOverlay(correctCode) {
@@ -143,6 +146,35 @@ function showPinOverlay(correctCode) {
   }
 }
 
+// ── MULTI-TENANT DATA ROOT (Rule 6a in OPERATOR-NOTES.md — Tier 1 groundwork) ──
+// Historically every page hardcoded 'mel-the-winner/...' as the literal data
+// path, meaning every signed-in account shared ONE pool of data — fine when
+// this deployment was built for one person (Mel), but not once other real
+// accounts start using the same deployment's generic tools. This resolves,
+// per signed-in user, which data root their reads/writes should use:
+//   - CLIENT.primaryAdminEmail (the account this instance was built around,
+//     e.g. Mel) keeps using the original, unscoped CLIENT.dbRootPath exactly
+//     as before — zero behavior change for that account.
+//   - Every other authenticated account gets its own isolated subtree at
+//     'users/' + uid — REUSING the per-user root my-daily-tools.html's Plans/
+//     Wishlist/Money-Planner/Family-Plan-Sharing features already established
+//     (see UP in my-daily-tools.html), NOT a new path. The Firebase rule for
+//     users/$uid already exists and already covers any child key placed under
+//     it, so no new Firebase Console step is needed for features that adopt
+//     window._tenantRoot.
+// This is inert until a page's own script actually reads window._tenantRoot
+// instead of hardcoding CLIENT.dbRootPath — converting each feature over is
+// separate, incremental work (see OPERATOR-NOTES.md Rule 6a).
+function computeTenantRoot(user) {
+  if (!user) return CLIENT.dbRootPath;
+  const email = (user.email || '').toLowerCase();
+  if (email === CLIENT.primaryAdminEmail) return CLIENT.dbRootPath;
+  return 'users/' + user.uid;
+}
+// Safe default before auth resolves, so anything that reads this early still
+// gets a valid (shared/legacy) path rather than undefined.
+window._tenantRoot = CLIENT.dbRootPath;
+
 // Wire up a page's logout button (id="logout-btn"), if present.
 function setupLogout(auth) {
   const btn = document.getElementById('logout-btn');
@@ -160,8 +192,8 @@ function setupLogout(auth) {
 // fall back to ordinary page-access behavior in that case).
 async function getFeaturePermission(db, pageKey, user) {
   const [groupsSnap, permsSnap] = await Promise.all([
-    get(ref(db, 'mel-the-winner/usergroups')),
-    get(ref(db, 'mel-the-winner/permissions')),
+    get(ref(db, CLIENT.dbRootPath + '/usergroups')),
+    get(ref(db, CLIENT.dbRootPath + '/permissions')),
   ]);
   const groups = groupsSnap.val() || {};
   if (Object.keys(groups).length === 0) return null; // not configured yet
@@ -205,7 +237,7 @@ try {
 
       // PIN gate — runs FIRST, before any permission logic.
       if (!user && window.PAGE_PIN_KEY) {
-        const pinPath = 'mel-the-winner/config/' + window.PAGE_PIN_KEY;
+        const pinPath = CLIENT.dbRootPath + '/config/' + window.PAGE_PIN_KEY;
         const pinSnap = await get(ref(db, pinPath)).catch(() => null);
         const pinCfg  = pinSnap?.val() || {};
         if (pinCfg.public === true) {
@@ -220,6 +252,14 @@ try {
         }
       }
 
+      // Denylist — blocks a specific signed-in account from every gated page,
+      // ahead of either permission system below.
+      if (await isDenylisted(db, user)) {
+        await signOut(auth);
+        accessDenied();
+        return;
+      }
+
       const perm = await getFeaturePermission(db, PAGE_KEY, user).catch(() => undefined);
       if (perm === null) {
         // Not configured yet — behave exactly like a normal page-access page.
@@ -228,13 +268,13 @@ try {
       }
       if (perm === undefined) {
         // Firebase read error — fail open rather than locking the page.
-        if (user) window._authUser = user;
+        if (user) { window._authUser = user; window._tenantRoot = computeTenantRoot(user); }
         setupLogout(auth);
         reveal();
         return;
       }
       if (perm.r) {
-        if (user) { window._authUser = user; setupLogout(auth); }
+        if (user) { window._authUser = user; window._tenantRoot = computeTenantRoot(user); setupLogout(auth); }
         reveal();
       } else if (!user) {
         redirectToLogin();
@@ -261,7 +301,7 @@ try {
 async function runPageAccessFlow(db, auth) {
  try {
   // Read page access config from Firebase; fall back to hardcoded defaults
-  const snap   = await get(ref(db, 'mel-the-winner/page-access/' + PAGE_KEY));
+  const snap   = await get(ref(db, CLIENT.dbRootPath + '/page-access/' + PAGE_KEY));
   const access = snap.val() || DEFAULTS[PAGE_KEY] || 'public';
 
   if (access === 'public') {
@@ -276,8 +316,9 @@ async function runPageAccessFlow(db, auth) {
         return;
       }
 
-      // Restrict private/admin pages to allowlisted accounts only
-      if (!ALLOWED_EMAILS.includes((user.email || '').toLowerCase())) {
+      // Denylist — blocks a specific signed-in account from every gated page.
+      // Everyone else is allowed by default (open sign-in).
+      if (await isDenylisted(db, user)) {
         await signOut(auth);
         accessDenied();
         return;
@@ -285,10 +326,11 @@ async function runPageAccessFlow(db, auth) {
 
       if (access === 'admin') {
         const email = (user.email || '').toLowerCase();
-        const roleSnap = await get(ref(db, 'mel-the-winner/user-roles/' + user.uid));
-        // 123mja@gmail.com always has admin access
-        if (email === '123mja@gmail.com' || roleSnap.val() === 'admin') {
+        const roleSnap = await get(ref(db, CLIENT.dbRootPath + '/user-roles/' + user.uid));
+        // CLIENT.primaryAdminEmail always has admin access
+        if (email === CLIENT.primaryAdminEmail || roleSnap.val() === 'admin') {
           window._authUser = user;
+          window._tenantRoot = computeTenantRoot(user);
           window._authRole = 'admin';
           setupLogout(auth);
           reveal();
@@ -296,8 +338,9 @@ async function runPageAccessFlow(db, auth) {
           accessDenied();
         }
       } else {
-        // 'auth' — any logged-in allowlisted user can access
+        // 'auth' — any logged-in, non-denylisted user can access
         window._authUser = user;
+        window._tenantRoot = computeTenantRoot(user);
         setupLogout(auth);
         reveal();
       }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-  <link rel="canonical" href="https://mel.you-the-winner.com/login" />
+  <link rel="canonical" href="https://engine.you-the-winner.com/login" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sign in · Mel the Winner</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a7d6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
@@ -117,13 +117,25 @@
     vertical-align: middle; margin-right: 6px;
   }
 </style>
+<!-- Google Analytics (Engine/Tools) -->
+<script type="module">
+  import { CLIENT } from "./client.config.js";
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ dataLayer.push(arguments); };
+  var gaScript = document.createElement("script");
+  gaScript.async = true;
+  gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.toolsAnalyticsId;
+  document.head.appendChild(gaScript);
+  gtag("js", new Date());
+  gtag("config", CLIENT.toolsAnalyticsId);
+</script>
 </head>
 <body>
 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
 <div class="wrap">
   <div class="monogram"><span>M</span></div>
   <div class="heading">Sign in</div>
-  <p class="sub">melthewinner &nbsp;·&nbsp; private access</p>
+  <p class="sub">You-The-Winner Engine &nbsp;·&nbsp; private access</p>
 
   <div class="card" id="login-card">
     <div class="error-box" id="error-box"></div>
@@ -141,7 +153,7 @@
     <button class="google-btn" id="signout-btn" style="margin-top:10px;" onclick="signOutNow()">Sign out</button>
   </div>
 
-  <p class="footer-note">Access is by invitation only.</p>
+  <p class="footer-note">Sign in with Google to get started.</p>
   <p class="footer-note" style="margin-top:10px;">By signing in you agree to our <a href="terms.html" style="color:var(--accent,#2a7d6f);text-decoration:underline;">Terms of Service</a>.</p>
   <p class="footer-note" id="debug-info" style="margin-top:6px; word-break:break-word;"></p>
 </div>
@@ -151,19 +163,12 @@
   import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { CLIENT } from "./client.config.js";
 
-  // Always-allowed admin email (bypasses usergroup check)
-  const ADMIN_EMAIL = '123mja@gmail.com';
+  // Always-allowed admin email (bypasses the denylist check below)
+  const ADMIN_EMAIL = CLIENT.primaryAdminEmail;
 
-  const FB_CONFIG = {
-    apiKey:            "AIzaSyBZEWMJbppoob8WklMvjULLJOeiglpwYDM",
-    authDomain:        "mel-the-winner.firebaseapp.com",
-    databaseURL:       "https://mel-the-winner-default-rtdb.firebaseio.com",
-    projectId:         "mel-the-winner",
-    storageBucket:     "mel-the-winner.firebasestorage.app",
-    messagingSenderId: "442263365271",
-    appId:             "1:442263365271:web:f4dd3d63a1d3b55fffabd2"
-  };
+  const FB_CONFIG = CLIENT.firebase;
 
   const app  = getApps().find(a => a.name === 'guard') || initializeApp(FB_CONFIG, 'guard');
   const auth = getAuth(app);
@@ -198,27 +203,39 @@
     return params.get('return') || '/index.html';
   }
 
-  // Shared post-sign-in check: confirm the account is in a Firebase usergroup.
+  // Shared post-sign-in check.
+  // 2026-08-01 fix: this used to require the account already be a member of
+  // some Firebase usergroup — i.e. an ALLOWLIST, deny-by-default. That
+  // directly contradicted auth-guard.js's documented, intended policy for
+  // every other page in the site (see its isDenylisted() comment): "any
+  // brand-new Google sign-in is allowed by default; the denylist is the only
+  // mechanism for cutting someone off." A real new subscriber signing in
+  // with a fresh email — not yet in any usergroup, because nobody manually
+  // added them — was being rejected with "not on the access list" here even
+  // though every other page would have let them in. Rewritten to use the
+  // exact same denylist-only check as auth-guard.js's isDenylisted(): allow
+  // everyone through except accounts explicitly listed at
+  // CLIENT.dbRootPath + '/denylist' (managed from Admin Settings -> Access
+  // Denylist, no code changes needed to add/remove someone).
   // Returns true if the user is allowed and redirect should proceed.
   async function handleSignedInResult(result) {
     const email = (result.user.email || '').toLowerCase();
     // Admin always allowed
     if (email === ADMIN_EMAIL) return true;
     try {
-      const snap = await get(ref(db, 'mel-the-winner/usergroups'));
-      const groups = snap.val() || {};
-      const inGroup = Object.values(groups).some(function(g) {
-        const members = g.members || [];
-        return members.map(function(m){ return (m||'').toLowerCase(); }).includes(email);
-      });
-      if (!inGroup) {
+      const snap = await get(ref(db, CLIENT.dbRootPath + '/denylist'));
+      const list = snap.val();
+      const denied = Array.isArray(list) && list.map(function(e){ return String(e).toLowerCase(); }).includes(email);
+      if (denied) {
         await signOut(auth);
-        showError("That account isn't on the access list. Try a different account.");
+        showError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
         return false;
       }
       return true;
     } catch(e) {
-      // If Firebase read fails, fall back to blocking (fail-safe)
+      // If Firebase read fails, fall back to blocking (fail-safe) — same
+      // fail-closed behavior as before, just on a read that almost never
+      // actually blocks anyone once it succeeds.
       await signOut(auth);
       showError("Could not verify access. Check your connection and try again.");
       return false;

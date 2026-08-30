@@ -1,81 +1,178 @@
-// Shared theme toggle (Light / Medium / Dark), included on every page
-// alongside theme.css. Loaded as a plain (non-module, non-deferred) script
-// near the top of <head> so part 1 below runs and paints correctly before
-// the page becomes visible -- avoids a flash of the wrong theme for
-// returning visitors. See SKILL.md "Dark mode" section for the full writeup.
+// Shared theme picker (Calm / Vivid / Paper / Spectrum / Sunrise / Midnight),
+// included on every page alongside theme.css. Loaded as a plain (non-module,
+// non-deferred) script near the top of <head> so part 1 below runs and
+// paints correctly before the page becomes visible -- avoids a flash of the
+// wrong theme for returning visitors.
+//
+// Ported from the You-The-Winner Hub project's theme system on 2026-07-25,
+// replacing the old 3-way Light/Medium/Dark cycle button with a 6-swatch
+// picker menu. "Calm" is the default and the only theme with no data-theme
+// attribute at all, since it matches each page's plain :root variables
+// (same role "Light" used to play). The floating button (already present on
+// every page as <button class="theme-toggle" onclick="toggleTheme()">) now
+// opens the picker instead of cycling, so no per-page markup changes were
+// needed. window.setTheme(id) is also exposed directly for pages that want
+// to offer their own in-page picker (e.g. my-daily-tools.html's Settings ->
+// Appearance section) without going through the floating menu.
 (function () {
   var KEY = 'mel-theme';
-  var EXPLICIT_KEY = 'mel-theme-explicit';
-  var THEMES = ['light', 'medium', 'dark'];
-  var ICONS = { light: '☀️', medium: '🌗', dark: '🌙' };
+
+  var THEMES = [
+    { id: 'calm',     label: 'Calm (default)',  emoji: '🌿', swatch: ['#f0f5f3', '#2a7d6f', '#1a5c7a'] },
+    { id: 'vivid',    label: 'Vivid',           emoji: '🎉', swatch: ['#ffffff', '#cc0000', '#8f0000'] },
+    { id: 'paper',    label: 'Paper',           emoji: '📄', swatch: ['#ffffff', '#1f6a5c', '#16455c'] },
+    { id: 'spectrum', label: 'Spectrum',        emoji: '🎨', swatch: ['#ffffff', '#4a6cf7', '#ea4c60'] },
+    { id: 'sunrise',  label: 'Sunrise',         emoji: '🌅', swatch: ['#fbf8f2', '#e8963c', '#2a7d6f'] },
+    { id: 'midnight', label: 'Midnight (dark)', emoji: '🌙', swatch: ['#0f1720', '#4fd8bc', '#7fb8e8'] }
+  ];
+  var THEME_IDS = THEMES.map(function (t) { return t.id; });
+  window.THEME_LIST = THEMES; // exposed so pages can build their own in-page pickers (e.g. Settings → Appearance)
+
+  // Migrate old saved values from the retired 3-way system: 'dark' maps
+  // cleanly onto the new dark theme; 'medium' has no direct equivalent, so
+  // those visitors fall back to the new default (Calm) and can re-pick from
+  // the full set. 'light' also just becomes Calm.
+  function migrate(saved) {
+    if (saved === 'dark') return 'midnight';
+    if (saved === 'medium' || saved === 'light') return 'calm';
+    return saved;
+  }
 
   function currentTheme() {
     var attr = document.documentElement.getAttribute('data-theme');
-    return (attr === 'medium' || attr === 'dark') ? attr : 'light';
+    return (attr && THEME_IDS.indexOf(attr) !== -1) ? attr : 'calm';
   }
 
-  function applyTheme(theme) {
-    if (theme === 'medium' || theme === 'dark') document.documentElement.setAttribute('data-theme', theme);
+  function themeMeta(id) {
+    for (var i = 0; i < THEMES.length; i++) if (THEMES[i].id === id) return THEMES[i];
+    return THEMES[0];
+  }
+
+  function applyTheme(id) {
+    if (id && id !== 'calm') document.documentElement.setAttribute('data-theme', id);
     else document.documentElement.removeAttribute('data-theme');
   }
 
   // 1) Apply whatever this browser already remembers, immediately.
-  var saved = localStorage.getItem(KEY);
-  if (saved === 'medium' || saved === 'dark') applyTheme(saved);
+  var rawSaved = localStorage.getItem(KEY);
+  var saved = rawSaved === null ? null : migrate(rawSaved);
+  if (saved && saved !== 'calm') applyTheme(saved);
+  if (saved !== null && saved !== rawSaved) { try { localStorage.setItem(KEY, saved); } catch (e) {} }
 
   function applyIcon() {
     var btn = document.querySelector('.theme-toggle');
-    if (btn) btn.textContent = ICONS[currentTheme()];
+    if (btn) {
+      var meta = themeMeta(currentTheme());
+      btn.textContent = meta.emoji;
+      btn.setAttribute('aria-label', 'Change color theme (current: ' + meta.label + ')');
+      btn.setAttribute('title', 'Change color theme');
+    }
   }
 
-  // 2) Manual toggle, wired to the ☀️/🌗/🌙 button on every page. Each
-  //    click cycles Light -> Medium -> Dark -> Light.
-  window.toggleTheme = function () {
-    var idx = THEMES.indexOf(currentTheme());
-    var next = THEMES[(idx + 1) % THEMES.length];
-    applyTheme(next);
-    localStorage.setItem(KEY, next);
-    localStorage.setItem(EXPLICIT_KEY, '1'); // a deliberate choice always wins from here on
+  function notify(id) {
+    try { document.dispatchEvent(new CustomEvent('mel-theme-change', { detail: { theme: id } })); } catch (e) {}
+  }
+
+  // Sets the theme directly (no cycling needed now that there are 6
+  // options). Exposed on window so other in-page pickers can call it.
+  window.setTheme = function (id) {
+    if (THEME_IDS.indexOf(id) === -1) id = 'calm';
+    applyTheme(id);
+    localStorage.setItem(KEY, id);
     applyIcon();
+    closeMenu();
+    notify(id);
   };
+
+  function markActive() {
+    var menu = document.getElementById('theme-menu');
+    if (!menu) return;
+    var current = currentTheme();
+    var items = menu.querySelectorAll('.theme-menu-item');
+    for (var i = 0; i < items.length; i++) {
+      items[i].classList.toggle('active', items[i].getAttribute('data-theme-id') === current);
+    }
+  }
+
+  function buildMenu() {
+    var existing = document.getElementById('theme-menu');
+    if (existing) return existing;
+    var menu = document.createElement('div');
+    menu.className = 'theme-menu';
+    menu.id = 'theme-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Choose a color theme');
+    THEMES.forEach(function (t) {
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'theme-menu-item';
+      item.setAttribute('data-theme-id', t.id);
+      var swatchHtml = '';
+      for (var i = 0; i < t.swatch.length; i++) {
+        swatchHtml += '<span style="background:' + t.swatch[i] + '"></span>';
+      }
+      item.innerHTML =
+        '<span class="theme-swatch">' + swatchHtml + '</span>' +
+        '<span class="theme-menu-label">' + t.emoji + ' ' + t.label + '</span>';
+      item.addEventListener('click', function (e) {
+        e.stopPropagation();
+        window.setTheme(this.getAttribute('data-theme-id'));
+      });
+      menu.appendChild(item);
+    });
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  function openMenu() {
+    var menu = buildMenu();
+    markActive();
+    menu.classList.add('open');
+  }
+
+  function closeMenu() {
+    var menu = document.getElementById('theme-menu');
+    if (menu) menu.classList.remove('open');
+  }
+
+  // 2) Manual toggle, wired to the floating button on every page. Opens/
+  //    closes the swatch picker instead of cycling through a fixed order.
+  window.toggleTheme = function () {
+    var menu = document.getElementById('theme-menu');
+    if (menu && menu.classList.contains('open')) closeMenu();
+    else openMenu();
+  };
+
+  document.addEventListener('click', function (e) {
+    var menu = document.getElementById('theme-menu');
+    var btn = document.querySelector('.theme-toggle');
+    if (!menu || !menu.classList.contains('open')) return;
+    if (!menu.contains(e.target) && e.target !== btn) closeMenu();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeMenu();
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyIcon);
   else applyIcon();
 
   // 2b) When this page is embedded as an iframe, the parent may change the
-  //     theme while we're already loaded. The parent's toggleTheme() writes
-  //     to localStorage, which fires a 'storage' event in all same-origin
+  //     theme while we're already loaded. The parent's setTheme() writes to
+  //     localStorage, which fires a 'storage' event in all same-origin
   //     iframes — pick it up and repaint immediately.
   window.addEventListener('storage', function (e) {
-    if (e.key === KEY) { applyTheme(e.newValue || 'light'); applyIcon(); }
+    if (e.key === KEY) {
+      var id = migrate(e.newValue || 'calm');
+      applyTheme(id);
+      applyIcon();
+      notify(id);
+    }
   });
 
-  // 3) If this visitor has never explicitly picked a theme themselves,
-  //    keep following the admin's sitewide default (mel-the-winner/config/
-  //    theme-default, editable from admin-panel.html). Cached to localStorage
-  //    so the NEXT load paints correctly with zero flash; only flashes once,
-  //    the first time, or right after the admin changes the default.
-  if (localStorage.getItem(EXPLICIT_KEY) !== '1') {
-    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js').then(function (appMod) {
-      return import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js').then(function (dbMod) {
-        var app = appMod.getApps().find(function (a) { return a.name === 'theme'; }) || appMod.initializeApp({
-          apiKey: "AIzaSyBZEWMJbppoob8WklMvjULLJOeiglpwYDM",
-          authDomain: "mel-the-winner.firebaseapp.com",
-          databaseURL: "https://mel-the-winner-default-rtdb.firebaseio.com",
-          projectId: "mel-the-winner",
-          storageBucket: "mel-the-winner.firebasestorage.app",
-          messagingSenderId: "442263365271",
-          appId: "1:442263365271:web:f4dd3d63a1d3b55fffabd2"
-        }, 'theme');
-        return dbMod.get(dbMod.ref(dbMod.getDatabase(app), 'mel-the-winner/config/theme-default'));
-      });
-    }).then(function (snap) {
-      var v = snap && snap.val();
-      var def = (v === 'medium' || v === 'dark') ? v : 'light';
-      localStorage.setItem(KEY, def);
-      if (def !== currentTheme()) { applyTheme(def); applyIcon(); }
-    }).catch(function () { /* offline, or config/theme-default not set yet -- stays light */ });
-  }
+  // 3) Sitewide default is always Calm. Per 2026-07-21 decision: no admin
+  //    override, no Firebase fetch -- Calm is the default for every page
+  //    unless a visitor has themselves picked something else.
 })();
 
 // ── SECOND LANGUAGE LABEL ──
@@ -118,19 +215,15 @@
     if (cached !== null) applyLabel(cached);
 
     // 2. Always fetch from Firebase so the label stays in sync after admin changes it
-    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js').then(function (appMod) {
+    Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
+      import('./client.config.js')
+    ]).then(function (mods) {
+      var appMod = mods[0], CLIENT = mods[1].CLIENT;
       return import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js').then(function (dbMod) {
         var app = appMod.getApps().find(function (a) { return a.name === 'theme'; }) ||
-          appMod.initializeApp({
-            apiKey: "AIzaSyBZEWMJbppoob8WklMvjULLJOeiglpwYDM",
-            authDomain: "mel-the-winner.firebaseapp.com",
-            databaseURL: "https://mel-the-winner-default-rtdb.firebaseio.com",
-            projectId: "mel-the-winner",
-            storageBucket: "mel-the-winner.firebasestorage.app",
-            messagingSenderId: "442263365271",
-            appId: "1:442263365271:web:f4dd3d63a1d3b55fffabd2"
-          }, 'theme');
-        return dbMod.get(dbMod.ref(dbMod.getDatabase(app), 'mel-the-winner/config/lang2-label'));
+          appMod.initializeApp(CLIENT.firebase, 'theme');
+        return dbMod.get(dbMod.ref(dbMod.getDatabase(app), 'tools-you-the-winner/config/lang2-label'));
       });
     }).then(function (snap) {
       var v = snap && snap.val();

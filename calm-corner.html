@@ -532,7 +532,7 @@
     }
   } catch(e) {}
   // Also verify from Firebase (authoritative; also updates localStorage)
-  get(ref(db, 'mel-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
+  get(ref(db, 'tools-you-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
     var v = snap.val();
     try { localStorage.setItem('dt-hide-nav', v === true ? '1' : '0'); } catch(e) {}
     if (v === true) {

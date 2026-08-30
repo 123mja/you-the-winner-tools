@@ -1,0 +1,13 @@
+# Netlify build config. Added 2026-08-28 to fix "Cannot find module 'firebase-admin'"
+# (and likely 'stripe' too) at Netlify Function runtime -- nothing was previously
+# telling Netlify's build system to run `npm install` for netlify/functions/'s own
+# package.json before bundling the functions, so their npm dependencies were never
+# actually included in any deployed function. This site has no build step of its own
+# (static HTML/JS, no bundler) -- this [build] command exists solely to install the
+# functions' server-side dependencies.
+[build]
+  command = "npm install --prefix netlify/functions"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

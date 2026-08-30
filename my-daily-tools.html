@@ -1539,7 +1539,7 @@
 
   // Per-tenant data root for the core My Day data (myday/medlog/medconfig/actlog)
   // — see auth-guard.js's computeTenantRoot / OPERATOR-NOTES.md Rule 6a. Mel's own
-  // account resolves to the original unscoped 'mel-the-winner' exactly as before;
+  // account resolves to the original unscoped 'tools-you-the-winner' exactly as before;
   // any other signed-in account gets its own isolated subtree instead of reading/
   // writing Mel's data. my-daily-tools.html's own _upsertMydayFieldForDate()
   // (used by Cycle's mood mirror) reads/writes these exact same paths for a
@@ -1549,15 +1549,15 @@
   // (a separate iframe, no shared window, no demo flag ever reached it), but
   // now that My Day's code shares this document's window with the rest of
   // my-daily-tools.html, a demo visitor tapping a mood tried to write
-  // straight into Mel's real 'mel-the-winner/myday' data and was only saved
+  // straight into Mel's real 'tools-you-the-winner/myday' data and was only saved
   // by Firebase security rules rejecting it (permission_denied) -- so no
   // corruption happened, but demo saves silently did nothing. Now matches
-  // the same window._demoMode -> 'mel-the-winner/demo' convention already
+  // the same window._demoMode -> 'tools-you-the-winner/demo' convention already
   // used everywhere else in this file (see _qcRoot() below).
-  window._mydRoot = function() { return window._demoMode ? 'mel-the-winner/demo' : (window._tenantRoot || 'mel-the-winner'); };
+  window._mydRoot = function() { return window._demoMode ? 'tools-you-the-winner/demo' : (window._tenantRoot || 'tools-you-the-winner'); };
 
   // Today's Message root — FIXED 2026-07-25. It used to be hardcoded directly
-  // to the literal 'mel-the-winner/family-notes/{date}' path everywhere below,
+  // to the literal 'tools-you-the-winner/family-notes/{date}' path everywhere below,
   // for every signed-in account, with no per-tenant scoping at all (unlike
   // window._mydRoot() just above, which every OTHER My Day feature already
   // uses correctly). That meant a brand-new, completely unrelated signup saw
@@ -1570,7 +1570,7 @@
   // gets a fully isolated thread instead. NOT simply window._mydRoot() +
   // '/family-notes', because for a member of Mel's family that resolves to
   // 'users/{melUid}/family-notes' -- a path Mel herself never actually writes
-  // to (her own root stays the literal 'mel-the-winner' string) -- which
+  // to (her own root stays the literal 'tools-you-the-winner' string) -- which
   // would just move the bug rather than fix it.
   // 2026-08-08 fix: only compared myEmail against CLIENT.primaryAdminEmail
   // (a single string) — but "Mel herself" here is actually
@@ -1585,8 +1585,8 @@
   window._mydFamilyNotesRoot = function() {
     const myEmail = ((window._authUser && window._authUser.email) || '').toLowerCase();
     const _mydAdminEmails = (CLIENT.adminEmails || []).map(function(e){ return (e||'').toLowerCase(); });
-    if (_mydAdminEmails.indexOf(myEmail) !== -1) return 'mel-the-winner/family-notes'; // Mel's own household
-    if (_mydAdminEmails.indexOf((window._mydFamilyOwnerEmail||'').toLowerCase()) !== -1) return 'mel-the-winner/family-notes'; // verified member of Mel's family
+    if (_mydAdminEmails.indexOf(myEmail) !== -1) return 'tools-you-the-winner/family-notes'; // Mel's own household
+    if (_mydAdminEmails.indexOf((window._mydFamilyOwnerEmail||'').toLowerCase()) !== -1) return 'tools-you-the-winner/family-notes'; // verified member of Mel's family
     if (window._mydFamilyRoot) return window._mydFamilyRoot + '/family-notes'; // someone else's own family
     return (window._tenantRoot || 'users/' + (window._authUser && window._authUser.uid)) + '/family-notes'; // no family — isolated
   };
@@ -1742,7 +1742,7 @@
         const settingsSnap = await get(ref(db, 'users/' + uid + '/settings'));
         const s = settingsSnap.val() || {};
         if (s.familyId) {
-          const famSnap = await get(ref(db, 'mel-the-winner/families/' + s.familyId));
+          const famSnap = await get(ref(db, 'tools-you-the-winner/families/' + s.familyId));
           const fam = famSnap.val();
           // ownerEmail (2026-07-25): used by _mydFamilyNotesRoot() below to tell
           // "this family's owner is the primary account (Mel)" apart from "this
@@ -1781,7 +1781,7 @@
     try {
       const uid = window._authUser && window._authUser.uid;
       if (uid) {
-        const linksSnap = await get(ref(db, 'mel-the-winner/userlinks/' + uid));
+        const linksSnap = await get(ref(db, 'tools-you-the-winner/userlinks/' + uid));
         const links = linksSnap.val();
         window._mydLinkedAccounts = (links && Object.keys(links).length > 0) ? links : null;
       }
@@ -1805,7 +1805,7 @@
         window._mydRoot = function() { return 'users/' + uid; };
       }
       // else: no signed-in uid at all — leave window._mydRoot at its
-      // original module-top default (window._tenantRoot || 'mel-the-winner').
+      // original module-top default (window._tenantRoot || 'tools-you-the-winner').
     }
     window._mydFamilyPlanResolved = true;
     renderMydViewingSection();
@@ -1913,20 +1913,20 @@
     }, () => {});
   })();
 
-  onValue(ref(db, 'mel-the-winner/config/myday-cards'), snapshot => {
+  onValue(ref(db, 'tools-you-the-winner/config/myday-cards'), snapshot => {
     window._mydayCardsConfig = snapshot.val() || null;
     if (window.applySectionConfig) window.applySectionConfig(window._mydayCardsConfig);
   }, () => {});
 
   // Token banner visibility — toggled from admin panel
   // Load show-dollars preference
-  get(ref(db, 'mel-the-winner/config/token-show-dollars')).then(snap => {
+  get(ref(db, 'tools-you-the-winner/config/token-show-dollars')).then(snap => {
     window._tokenShowDollars = snap.val() === true; // default OFF
     renderTokenCard();
   }).catch(() => {});
 
   // Language toggle visibility (default hidden)
-  get(ref(db, 'mel-the-winner/config/myday-show-lang')).then(snap => {
+  get(ref(db, 'tools-you-the-winner/config/myday-show-lang')).then(snap => {
     const show = snap.val() === true; // default OFF
     const btn = document.getElementById('langToggle');
     if (btn) btn.style.display = show ? '' : 'none';
@@ -1936,7 +1936,7 @@
     if (btn) btn.style.display = 'none';
   });
 
-  onValue(ref(db, 'mel-the-winner/config/token-banner-visible'), snapshot => {
+  onValue(ref(db, 'tools-you-the-winner/config/token-banner-visible'), snapshot => {
     // 2026-08-06: combined with a per-user opt-in (Settings → "Show tokens
     // progress bar" on my-daily-tools.html, OFF by default), read here via
     // the same shared-origin localStorage key already used for the
@@ -1953,7 +1953,7 @@
   };
 
   // Health routine labels — configurable from admin panel
-  onValue(ref(db, 'mel-the-winner/config/myday-routine'), snapshot => {
+  onValue(ref(db, 'tools-you-the-winner/config/myday-routine'), snapshot => {
     const cfg = snapshot.val() || {};
     window._mydayRoutineConfig = cfg;          // cache so applyLang can re-apply
     const titleEl  = document.getElementById('med-tracker-title');
@@ -1965,7 +1965,7 @@
   }, () => {});
 
   // Delete permission — controlled from admin panel
-  get(ref(db, 'mel-the-winner/config/allow-delete')).then(snap => {
+  get(ref(db, 'tools-you-the-winner/config/allow-delete')).then(snap => {
     window._allowDelete = snap.val() === true;
     renderHistory(window._fbEntries || {}, false);
   }).catch(() => {});
@@ -1985,8 +1985,8 @@
       }
 
       const [groupsSnap, permsSnap] = await Promise.all([
-        get(ref(db, 'mel-the-winner/usergroups')),
-        get(ref(db, 'mel-the-winner/permissions')),
+        get(ref(db, 'tools-you-the-winner/usergroups')),
+        get(ref(db, 'tools-you-the-winner/permissions')),
       ]);
       const groups = groupsSnap.val() || {};
       const perms  = permsSnap.val() || {};
@@ -2728,7 +2728,7 @@
   // read/write state declared above, so that state now comes first.
 
   // 2026-08-22: these three config listeners now read via CLIENT.dbRootPath
-  // instead of the literal 'mel-the-winner/...' string, so a cloned client
+  // instead of the literal 'tools-you-the-winner/...' string, so a cloned client
   // instance (its own Firebase project, its own CLIENT.dbRootPath) reads its
   // own Day Flow config instead of silently reading Mel's. CLIENT is already
   // imported at the top of this module script.
@@ -3538,7 +3538,7 @@
     if (window._tokens[todayKey]) return; // already awarded today
     window._tokens[todayKey] = true;
     if (window._db && window._set && window._ref) {
-      // Fixed 2026-08-17: was (window._tenantRoot || 'mel-the-winner') directly,
+      // Fixed 2026-08-17: was (window._tenantRoot || 'tools-you-the-winner') directly,
       // same missing-demo-mode bug as window._mydRoot() above (see its comment) —
       // a demo visitor earning a token tried to write into Mel's real data and
       // got rejected by security rules. Routed through window._mydRoot() so
@@ -11492,7 +11492,7 @@ if (document.readyState === 'loading') {
 // before, same as every other device-local feature in this file.
 function _alarmCanUseFirebase() { return !!(window._melUser || window._demoMode); }
 function _alarmComputeRoot() {
-  return window._demoMode ? 'mel-the-winner/demo' : (window.MydUP || window._tenantRoot || null);
+  return window._demoMode ? 'tools-you-the-winner/demo' : (window.MydUP || window._tenantRoot || null);
 }
 
 // Waits for auth + Family Plan resolution (same pattern/timeout used
@@ -11806,7 +11806,7 @@ window.toggleWishlistPanel = window.openWishlistDialog;
 // ── MY DAY data-root helper (formerly also used by the removed Quick Check
 // tab; kept because _upsertMydayFieldForDate below still needs it) ────────
 // Demo guests have no real auth, so window._tenantRoot (auth-guard.js) still
-// resolves to the real shared 'mel-the-winner' default — checking _demoMode
+// resolves to the real shared 'tools-you-the-winner' default — checking _demoMode
 // first routes them to the sandboxed demo path instead, same fix already
 // applied to Today's Message's familyNotesRoot() earlier this session.
 // MydUP (set in _applyFamilyPlanRedirect, alongside MP/CycleUP) already
@@ -11817,7 +11817,7 @@ window.toggleWishlistPanel = window.openWishlistDialog;
 // function lives in the classic, non-module script — see "let MydUP"/"let
 // _demoMode" and every reassignment of each for where those mirrors are kept
 // in sync.
-function _qcRoot() { return window._demoMode ? 'mel-the-winner/demo' : (window.MydUP || window._tenantRoot || 'mel-the-winner'); }
+function _qcRoot() { return window._demoMode ? 'tools-you-the-winner/demo' : (window.MydUP || window._tenantRoot || 'tools-you-the-winner'); }
 
 // Finds the myday entry for a given date (MM/DD/YYYY, My Day's own stored
 // format) the same way My Day's own saveDay()/persistDayEntry() does (upsert
@@ -12328,12 +12328,12 @@ window._onValue = onValue; // added 2026-08-28 for the classic script's Alarms/C
 // call at that same call site for the GA4-side half of this).
 //
 // Two separate roots, deliberately, to avoid needing any new Firebase rule:
-//   - Signed-in (real) visitors write to 'mel-the-winner/usage-stats/...',
+//   - Signed-in (real) visitors write to 'tools-you-the-winner/usage-stats/...',
 //     which only needs auth != null — already satisfied, since reaching
 //     this page as a real user requires Google sign-in in the first place.
 //   - Demo/guest visitors (never Firebase-authenticated — _startDemo() just
 //     points UP at a shared path client-side, see that function) write to
-//     'mel-the-winner/demo/usage-stats/...' instead, inside the existing
+//     'tools-you-the-winner/demo/usage-stats/...' instead, inside the existing
 //     public-read/write 'demo' subtree, so trial visitors from a promotion
 //     push are counted too without opening up a new public-write path.
 // A day-bucketed counter (not a growing event log) keeps this cheap to
@@ -12344,7 +12344,7 @@ window._recordToolUsage = function(tabName) {
   try {
     var isDemo = !!window._demoMode;
     if (!isDemo && !(auth && auth.currentUser)) return; // not signed in yet, nothing to attribute this to
-    var root = isDemo ? 'mel-the-winner/demo/usage-stats' : 'mel-the-winner/usage-stats';
+    var root = isDemo ? 'tools-you-the-winner/demo/usage-stats' : 'tools-you-the-winner/usage-stats';
     var day = window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0, 10);
     runTransaction(ref(db, root + '/' + tabName + '/' + day), function(cur) {
       return (cur || 0) + 1;
@@ -12418,7 +12418,7 @@ window._initSettingsSync = async function(uid) {
     // intentional, so the applied default becomes this account's own saved
     // preference going forward, same as if they'd set it by hand.
     try {
-      const tdSnap = await get(ref(db, 'mel-the-winner/config/tab-defaults'));
+      const tdSnap = await get(ref(db, 'tools-you-the-winner/config/tab-defaults'));
       const td = tdSnap.val() || {};
       const remoteVersion = Number(td.forceVersion) || 0;
       const appliedVersion = Number(remote['tab-defaults-applied-version']) || 0;
@@ -18133,7 +18133,7 @@ async function requireDeletePin(callback, opts) {
   // Fetch stored PIN once per session
   if(_delPinValue === undefined) {
     try {
-      const snap = await get(ref(db, 'mel-the-winner/config/delete-pin'));
+      const snap = await get(ref(db, 'tools-you-the-winner/config/delete-pin'));
       _delPinValue = snap.exists() ? String(snap.val()).trim() : null;
     } catch(e) { _delPinValue = null; }
   }
@@ -21304,20 +21304,20 @@ try {
 var btn = document.getElementById('refresh-demo-btn');
 if (btn && showFeedback) { btn.textContent = 'Loading...'; btn.disabled = true; }
 
-// In demo mode P='mel-the-winner/demo' and onValue listeners are already
+// In demo mode P='tools-you-the-winner/demo' and onValue listeners are already
 // registered — they will populate _plansData, _accounts etc. automatically.
 // Our only job here is to write starter data to Firebase if the demo path
 // is completely empty (i.e. the very first demo visitor ever).
-var plansSnap = await get(ref(db, 'mel-the-winner/demo/plans'));
+var plansSnap = await get(ref(db, 'tools-you-the-winner/demo/plans'));
 if (!plansSnap.val()) {
   // No demo data yet — seed template plans and two starter accounts
   var seedPlans = {};
   Object.keys(DEMO_TEMPLATE_PLANS).forEach(function(k) {
     seedPlans[k] = Object.assign({}, DEMO_TEMPLATE_PLANS[k]);
   });
-  try { await set(ref(db, 'mel-the-winner/demo/plans'), seedPlans); } catch(e) { console.warn('demo seed plans:', e); }
+  try { await set(ref(db, 'tools-you-the-winner/demo/plans'), seedPlans); } catch(e) { console.warn('demo seed plans:', e); }
   try {
-    await set(ref(db, 'mel-the-winner/demo/accounts'), [
+    await set(ref(db, 'tools-you-the-winner/demo/accounts'), [
       { id:'acct-chk', name:'🏦 Checking',    balance:125.00, color:'#2a7d6f' },
       { id:'acct-abl', name:'🎯 ABLE Account', balance:350.00, color:'#1a5c7a', type:'savings' }
     ]);
@@ -21329,7 +21329,7 @@ if (!plansSnap.val()) {
 // (separate from the plans check above) so a demo account that already
 // has plans seeded but predates this feature still gets a task list on
 // its next "Refresh Demo" tap, instead of being skipped forever.
-var taskListsSnap = await get(ref(db, 'mel-the-winner/demo/task-lists'));
+var taskListsSnap = await get(ref(db, 'tools-you-the-winner/demo/task-lists'));
 var existingTaskLists = taskListsSnap.val() || {};
 // Per-key check (fixed 2026-08-29) instead of "is the node empty" -- a demo
 // path that already had tl-1 from before Digital Balance (tl-2) was added
@@ -21339,7 +21339,7 @@ if (!existingTaskLists['tl-1']) taskListsToSeed['tl-1'] = DEMO_TEMPLATE_TASKLIST
 if (!existingTaskLists['tl-2']) taskListsToSeed['tl-2'] = DEMO_TEMPLATE_TASKLIST_2;
 if (Object.keys(taskListsToSeed).length) {
   try {
-    await update(ref(db, 'mel-the-winner/demo/task-lists'), taskListsToSeed);
+    await update(ref(db, 'tools-you-the-winner/demo/task-lists'), taskListsToSeed);
   } catch(e) { console.warn('demo seed task-lists:', e); }
 }
 
@@ -21365,8 +21365,8 @@ var adminEmail = (window._melUser && window._melUser.email || '').toLowerCase();
 
 // Read user-index (uid → {email, name}) AND usergroups (email lists)
 var results = await Promise.all([
-get(ref(db, 'mel-the-winner/user-index')),
-get(ref(db, 'mel-the-winner/usergroups')),
+get(ref(db, 'tools-you-the-winner/user-index')),
+get(ref(db, 'tools-you-the-winner/usergroups')),
 ]);
 var indexed = results[0].val() || {}; // uid → {email, name}
 var groups = results[1].val() || {}; // groupKey → {label, members:[emails]}
@@ -21508,11 +21508,11 @@ tplKeys.forEach(function(k) {
 
 // ── writes ──
 await Promise.all([
-  set(ref(db, 'mel-the-winner/demo/accounts'),     accounts),
-  set(ref(db, 'mel-the-winner/demo/transactions'),  transactions),
-  set(ref(db, 'mel-the-winner/demo/plans'),         plans),
-  set(ref(db, 'mel-the-winner/demo/goal-basket'),   null),
-  set(ref(db, 'mel-the-winner/demo/goal-catalog'),  null),
+  set(ref(db, 'tools-you-the-winner/demo/accounts'),     accounts),
+  set(ref(db, 'tools-you-the-winner/demo/transactions'),  transactions),
+  set(ref(db, 'tools-you-the-winner/demo/plans'),         plans),
+  set(ref(db, 'tools-you-the-winner/demo/goal-basket'),   null),
+  set(ref(db, 'tools-you-the-winner/demo/goal-catalog'),  null),
 ]);
 
 if (statusEl) {
@@ -21624,16 +21624,16 @@ var mode = selected.value;
 var msg = document.getElementById('demo-mode-saved-msg');
 try {
 // 1. Save config (kept for legacy readers)
-await set(ref(db, 'mel-the-winner/config/demo-plans-mode'), mode);
+await set(ref(db, 'tools-you-the-winner/config/demo-plans-mode'), mode);
 
 // 2. Apply immediately to mel-the-winner/demo so persistent demo data updates now
 if (mode === 'empty') {
   // Wipe plans, leave accounts & transactions so money tab still works
   await Promise.all([
-    set(ref(db, 'mel-the-winner/demo/plans'),      null),
-    set(ref(db, 'mel-the-winner/demo/checklist'),  null),
-    set(ref(db, 'mel-the-winner/demo/goal_items'), null),
-    set(ref(db, 'mel-the-winner/demo/goal_states'),null),
+    set(ref(db, 'tools-you-the-winner/demo/plans'),      null),
+    set(ref(db, 'tools-you-the-winner/demo/checklist'),  null),
+    set(ref(db, 'tools-you-the-winner/demo/goal_items'), null),
+    set(ref(db, 'tools-you-the-winner/demo/goal_states'),null),
   ]);
 } else if (mode === 'template') {
   // Write the 10 starter template plans; leave accounts/transactions untouched
@@ -21641,20 +21641,20 @@ if (mode === 'empty') {
   Object.keys(DEMO_TEMPLATE_PLANS).forEach(function(k) {
     seedPlans[k] = Object.assign({}, DEMO_TEMPLATE_PLANS[k], {ts: Date.now()});
   });
-  await set(ref(db, 'mel-the-winner/demo/plans'), seedPlans);
+  await set(ref(db, 'tools-you-the-winner/demo/plans'), seedPlans);
 } else if (mode === 'clone') {
   // Clone from the shared mel-the-winner/* paths (legacy admin data)
   var cloneResults = await Promise.all([
-    get(ref(db, 'mel-the-winner/plans')),
-    get(ref(db, 'mel-the-winner/checklist')),
-    get(ref(db, 'mel-the-winner/goal_items')),
-    get(ref(db, 'mel-the-winner/goal_states')),
+    get(ref(db, 'tools-you-the-winner/plans')),
+    get(ref(db, 'tools-you-the-winner/checklist')),
+    get(ref(db, 'tools-you-the-winner/goal_items')),
+    get(ref(db, 'tools-you-the-winner/goal_states')),
   ]);
   await Promise.all([
-    set(ref(db, 'mel-the-winner/demo/plans'),       cloneResults[0].val() || null),
-    set(ref(db, 'mel-the-winner/demo/checklist'),   cloneResults[1].val() || null),
-    set(ref(db, 'mel-the-winner/demo/goal_items'),  cloneResults[2].val() || null),
-    set(ref(db, 'mel-the-winner/demo/goal_states'), cloneResults[3].val() || null),
+    set(ref(db, 'tools-you-the-winner/demo/plans'),       cloneResults[0].val() || null),
+    set(ref(db, 'tools-you-the-winner/demo/checklist'),   cloneResults[1].val() || null),
+    set(ref(db, 'tools-you-the-winner/demo/goal_items'),  cloneResults[2].val() || null),
+    set(ref(db, 'tools-you-the-winner/demo/goal_states'), cloneResults[3].val() || null),
   ]);
 }
 // mode === 'keep' → do nothing to demo data
@@ -21764,7 +21764,7 @@ window._applyFamilyPlanRedirect = async function(uid) {
     const s = settingsSnap.val() || {};
     if (!s.familyId) return; // not in any family — nothing to redirect
 
-    const famSnap = await get(ref(db, 'mel-the-winner/families/' + s.familyId));
+    const famSnap = await get(ref(db, 'tools-you-the-winner/families/' + s.familyId));
     const fam = famSnap.val();
     const stillMember = fam && fam.members && fam.members[uid];
     if (!fam || !stillMember) {
@@ -21789,7 +21789,7 @@ window._applyFamilyPlanRedirect = async function(uid) {
     let ownerEmail = fam.ownerEmail || null;
     if (isOwner && !ownerEmail) {
       ownerEmail = (window._melUser && window._melUser.email || '').toLowerCase() || null;
-      if (ownerEmail) update(ref(db, 'mel-the-winner/families/' + s.familyId), { ownerEmail: ownerEmail }).catch(function(){});
+      if (ownerEmail) update(ref(db, 'tools-you-the-winner/families/' + s.familyId), { ownerEmail: ownerEmail }).catch(function(){});
     }
 
     // careRole (added 2026-07-31): 'caregiver'/'parent' vs 'child'/loved-one —
@@ -21805,7 +21805,7 @@ window._applyFamilyPlanRedirect = async function(uid) {
     let careRole = stillMember.role;
     if (careRole !== 'caregiver' && careRole !== 'child') {
       careRole = isOwner ? 'caregiver' : 'child';
-      set(ref(db, 'mel-the-winner/families/' + s.familyId + '/members/' + uid + '/role'), careRole).catch(function(){});
+      set(ref(db, 'tools-you-the-winner/families/' + s.familyId + '/members/' + uid + '/role'), careRole).catch(function(){});
     }
 
     if (isOwner) {
@@ -21860,14 +21860,14 @@ window.createFamilyPlan = async function(name) {
     const familyId = 'fam_' + uid.slice(0, 8) + '_' + Date.now().toString(36);
     let code = _sixCharCode();
     // Extremely unlikely to collide, but check once and regenerate if it does.
-    const existing = await get(ref(db, 'mel-the-winner/family-invite-codes/' + code));
+    const existing = await get(ref(db, 'tools-you-the-winner/family-invite-codes/' + code));
     if (existing.exists()) code = _sixCharCode() + Math.floor(Math.random()*9);
 
     const ownerName = window._melUser.displayName || (window._melUser.email||'').split('@')[0] || 'Owner';
     // ownerEmail (2026-07-25): lets familyNotesRoot() below tell "this family's
     // owner is the primary account (You)" from "this is someone else's own,
     // independent family" without needing a second lookup — see its comment.
-    await set(ref(db, 'mel-the-winner/families/' + familyId), {
+    await set(ref(db, 'tools-you-the-winner/families/' + familyId), {
       ownerUid: uid, ownerName: ownerName, ownerEmail: (window._melUser.email||'').toLowerCase(),
       name: name, inviteCode: code, createdAt: Date.now(),
       // role: 'caregiver' — whoever creates the plan defaults to the
@@ -21876,7 +21876,7 @@ window.createFamilyPlan = async function(name) {
       // any existing caregiver, PIN-gated, same as any other member's role.
       members: { [uid]: { name: ownerName, joinedAt: Date.now(), role: 'caregiver' } }
     });
-    await set(ref(db, 'mel-the-winner/family-invite-codes/' + code), familyId);
+    await set(ref(db, 'tools-you-the-winner/family-invite-codes/' + code), familyId);
     await update(ref(db, 'users/' + uid + '/settings'), { familyId: familyId, familyRole: 'owner' });
 
     if (msgEl) { msgEl.textContent = 'Family created ✓'; msgEl.style.color = 'var(--accent)'; }
@@ -21904,7 +21904,7 @@ window.renameFamilyPlan = async function(newName) {
   if (!name) { window.showToast && window.showToast('Give it a name first'); return; }
   var msgEl = document.getElementById('family-plan-msg');
   try {
-    await update(ref(db, 'mel-the-winner/families/' + window._familyInfo.familyId), { name: name });
+    await update(ref(db, 'tools-you-the-winner/families/' + window._familyInfo.familyId), { name: name });
     window._familyInfo.name = name;
     if (msgEl) { msgEl.textContent = 'Renamed ✓'; msgEl.style.color = 'var(--accent)'; }
     window.showToast && window.showToast('Renamed ✓');
@@ -21928,18 +21928,18 @@ window.joinFamilyPlan = async function(code, careRole) {
   if (!code) { if (msgEl) { msgEl.textContent = 'Enter an invite code first.'; msgEl.style.color = 'var(--gold)'; } return; }
   if (msgEl) { msgEl.textContent = 'Joining…'; msgEl.style.color = 'var(--muted)'; }
   try {
-    const codeSnap = await get(ref(db, 'mel-the-winner/family-invite-codes/' + code));
+    const codeSnap = await get(ref(db, 'tools-you-the-winner/family-invite-codes/' + code));
     const familyId = codeSnap.val();
     if (!familyId) { if (msgEl) { msgEl.textContent = "That code doesn't match a family. Double-check it and try again."; msgEl.style.color = '#d94f4f'; } return; }
 
-    const famSnap = await get(ref(db, 'mel-the-winner/families/' + familyId));
+    const famSnap = await get(ref(db, 'tools-you-the-winner/families/' + familyId));
     const fam = famSnap.val();
     if (!fam) { if (msgEl) { msgEl.textContent = 'That family no longer exists.'; msgEl.style.color = '#d94f4f'; } return; }
     if (fam.ownerUid === uid) { if (msgEl) { msgEl.textContent = "That's your own family. Nothing to join."; msgEl.style.color = 'var(--gold)'; } return; }
 
     const myName = window._melUser.displayName || (window._melUser.email||'').split('@')[0] || 'Member';
-    await set(ref(db, 'mel-the-winner/families/' + familyId + '/members/' + uid), { name: myName, joinedAt: Date.now(), role: careRole });
-    await set(ref(db, 'mel-the-winner/family-plan-members/' + fam.ownerUid + '/' + uid), true);
+    await set(ref(db, 'tools-you-the-winner/families/' + familyId + '/members/' + uid), { name: myName, joinedAt: Date.now(), role: careRole });
+    await set(ref(db, 'tools-you-the-winner/family-plan-members/' + fam.ownerUid + '/' + uid), true);
     await update(ref(db, 'users/' + uid + '/settings'), { familyId: familyId, familyRole: 'member' });
 
     if (msgEl) { msgEl.textContent = "Joined ✓ Loading " + (fam.ownerName || fam.name) + "'s shared plan…"; msgEl.style.color = 'var(--accent)'; }
@@ -21957,8 +21957,8 @@ window.leaveFamilyPlan = async function() {
   if (!uid || !info || info.role !== 'member') return;
   if (!confirm("Leave this family plan? You'll go back to your own private task list. Nothing shared gets deleted.")) return;
   try {
-    await remove(ref(db, 'mel-the-winner/families/' + info.familyId + '/members/' + uid));
-    await remove(ref(db, 'mel-the-winner/family-plan-members/' + info.ownerUid + '/' + uid));
+    await remove(ref(db, 'tools-you-the-winner/families/' + info.familyId + '/members/' + uid));
+    await remove(ref(db, 'tools-you-the-winner/family-plan-members/' + info.ownerUid + '/' + uid));
     await update(ref(db, 'users/' + uid + '/settings'), { familyId: null, familyRole: null });
     location.reload();
   } catch (e) {
@@ -21983,14 +21983,14 @@ async function _doRemoveFamilyPlanMember(memberUid) {
   const info = window._familyInfo;
   if (!info) return;
   try {
-    await remove(ref(db, 'mel-the-winner/families/' + info.familyId + '/members/' + memberUid));
+    await remove(ref(db, 'tools-you-the-winner/families/' + info.familyId + '/members/' + memberUid));
     // 2026-07-31 fix: this used to key off the CURRENT user's uid, which only
     // happened to be correct when the caller was always the owner (the only
     // person who used to see this button). Now a non-owner caregiver can
     // remove members too, so this must always use the family's actual
     // ownerUid — family-plan-members is keyed by owner, not by whoever's
     // acting.
-    await remove(ref(db, 'mel-the-winner/family-plan-members/' + info.ownerUid + '/' + memberUid));
+    await remove(ref(db, 'tools-you-the-winner/family-plan-members/' + info.ownerUid + '/' + memberUid));
     await renderFamilyPlanSection();
   } catch (e) {
     alert('Error removing member: ' + e.message);
@@ -22015,7 +22015,7 @@ async function _doSetFamilyMemberRole(memberUid, newRole) {
   const info = window._familyInfo;
   if (!info) return;
   try {
-    await set(ref(db, 'mel-the-winner/families/' + info.familyId + '/members/' + memberUid + '/role'), newRole);
+    await set(ref(db, 'tools-you-the-winner/families/' + info.familyId + '/members/' + memberUid + '/role'), newRole);
     if (memberUid === (window._melUser && window._melUser.uid)) info.careRole = newRole; // keep my own cached role current
     await renderFamilyPlanSection();
   } catch (e) {
@@ -22053,15 +22053,15 @@ async function _doDeleteFamilyPlan() {
   const uid = window._melUser && window._melUser.uid;
   if (!uid || !info) return;
   try {
-    const famSnap = await get(ref(db, 'mel-the-winner/families/' + info.familyId));
+    const famSnap = await get(ref(db, 'tools-you-the-winner/families/' + info.familyId));
     const fam = famSnap.val() || {};
     const members = fam.members || {};
     for (const memberUid of Object.keys(members)) {
       if (memberUid === uid) continue;
-      await remove(ref(db, 'mel-the-winner/family-plan-members/' + uid + '/' + memberUid));
+      await remove(ref(db, 'tools-you-the-winner/family-plan-members/' + uid + '/' + memberUid));
     }
-    if (fam.inviteCode) await remove(ref(db, 'mel-the-winner/family-invite-codes/' + fam.inviteCode));
-    await remove(ref(db, 'mel-the-winner/families/' + info.familyId));
+    if (fam.inviteCode) await remove(ref(db, 'tools-you-the-winner/family-invite-codes/' + fam.inviteCode));
+    await remove(ref(db, 'tools-you-the-winner/families/' + info.familyId));
     await update(ref(db, 'users/' + uid + '/settings'), { familyId: null, familyRole: null });
     await renderFamilyPlanSection();
   } catch (e) {
@@ -22087,7 +22087,7 @@ window.startOwnershipTransfer = async function(newOwnerUid, newOwnerName) {
   if (!info || info.role !== 'owner' || info.careRole !== 'caregiver') return;
   if (!confirm('Offer ownership to ' + newOwnerName + '? Nothing changes until they accept. You can cancel any time before then.')) return;
   try {
-    await update(ref(db, 'mel-the-winner/families/' + info.familyId), {
+    await update(ref(db, 'tools-you-the-winner/families/' + info.familyId), {
       pendingOwnerTransfer: { uid: newOwnerUid, name: newOwnerName, requestedAt: Date.now() }
     });
     await window._applyFamilyPlanRedirect(window._melUser.uid);
@@ -22102,7 +22102,7 @@ window.cancelOwnershipTransfer = async function() {
   const info = window._familyInfo;
   if (!info || info.role !== 'owner') return;
   try {
-    await update(ref(db, 'mel-the-winner/families/' + info.familyId), { pendingOwnerTransfer: null });
+    await update(ref(db, 'tools-you-the-winner/families/' + info.familyId), { pendingOwnerTransfer: null });
     await window._applyFamilyPlanRedirect(window._melUser.uid);
     await renderFamilyPlanSection();
   } catch (e) {
@@ -22115,7 +22115,7 @@ window.declineOwnershipTransfer = async function() {
   const info = window._familyInfo;
   if (!info || !info.pendingTransferToMe) return;
   try {
-    await update(ref(db, 'mel-the-winner/families/' + info.familyId), { pendingOwnerTransfer: null });
+    await update(ref(db, 'tools-you-the-winner/families/' + info.familyId), { pendingOwnerTransfer: null });
     await window._applyFamilyPlanRedirect(window._melUser.uid);
     await renderFamilyPlanSection();
   } catch (e) {
@@ -22155,20 +22155,20 @@ window.acceptOwnershipTransfer = async function() {
 
     // 2) Make it official — families/* and family-plan-members/* are open to
     //    any signed-in user, so this write is unrestricted.
-    await update(ref(db, 'mel-the-winner/families/' + info.familyId), {
+    await update(ref(db, 'tools-you-the-winner/families/' + info.familyId), {
       ownerUid: myUid, ownerName: myName, pendingOwnerTransfer: null
     });
 
     // 3) Rebuild the access allow-list under my own uid so every existing
     //    member (including the outgoing owner) can keep reading/writing the
     //    list, now that it lives under my account.
-    const famSnap = await get(ref(db, 'mel-the-winner/families/' + info.familyId));
+    const famSnap = await get(ref(db, 'tools-you-the-winner/families/' + info.familyId));
     const members = (famSnap.val() || {}).members || {};
     await Promise.all(Object.keys(members).filter(function(u){ return u !== myUid; }).map(function(memberUid) {
-      return set(ref(db, 'mel-the-winner/family-plan-members/' + myUid + '/' + memberUid), true);
+      return set(ref(db, 'tools-you-the-winner/family-plan-members/' + myUid + '/' + memberUid), true);
     }));
     // Drop my own now-stale membership entry under the old owner's key.
-    await remove(ref(db, 'mel-the-winner/family-plan-members/' + oldOwnerUid + '/' + myUid));
+    await remove(ref(db, 'tools-you-the-winner/family-plan-members/' + oldOwnerUid + '/' + myUid));
 
     if (msgEl) { msgEl.textContent = 'You are now the owner ✓ Reloading…'; msgEl.style.color = 'var(--accent)'; }
     setTimeout(function(){ location.reload(); }, 900);
@@ -22215,7 +22215,7 @@ window.renderFamilyPlanSection = async function() {
   }
 
   const canManage = info.careRole === 'caregiver';
-  const famSnap = await get(ref(db, 'mel-the-winner/families/' + info.familyId));
+  const famSnap = await get(ref(db, 'tools-you-the-winner/families/' + info.familyId));
   const fam = famSnap.val() || {};
   const members = fam.members || {};
 
@@ -22797,7 +22797,7 @@ window.switchToOwnAccount = async function() {
 // picking up newly-added links without requiring a fresh sign-in.
 window._refreshLinkedAccounts = function() {
   if (!window._melUser) return;
-  return get(ref(db, 'mel-the-winner/userlinks/' + window._melUser.uid)).then(function(snap) {
+  return get(ref(db, 'tools-you-the-winner/userlinks/' + window._melUser.uid)).then(function(snap) {
     var links = snap.val();
     window._linkedAccounts = (links && Object.keys(links).length > 0) ? links : null;
     _renderCaregiverSwitcher();
@@ -22975,7 +22975,7 @@ if (demoCard) demoCard.style.display = 'none';
 // Register this user in user-index (email → uid mapping for clone feature)
 try {
 var emailKey = (user.email || '').toLowerCase().replace(/\./g,'_').replace(/@/g,'__at__');
-set(ref(db, 'mel-the-winner/user-index/'+user.uid), {
+set(ref(db, 'tools-you-the-winner/user-index/'+user.uid), {
 email: (user.email||'').toLowerCase(),
 name: user.displayName || '',
 emailKey: emailKey,
@@ -22993,7 +22993,7 @@ if ((user.email || '').toLowerCase() === CLIENT.primaryAdminEmail) {
 var demoSetup = document.getElementById('demo-setup-card');
 if (demoSetup) {
 demoSetup.style.display = '';
-get(ref(db, 'mel-the-winner/config/demo-plans-mode')).then(function(snap) {
+get(ref(db, 'tools-you-the-winner/config/demo-plans-mode')).then(function(snap) {
 var mode = snap.val() || 'clone';
 var radio = document.querySelector('input[name="demo-plans-mode"][value="'+mode+'"]');
 if (radio) radio.checked = true;
@@ -23072,7 +23072,7 @@ if(cb) cb.checked = on;
 // setPlansSimpleStatusShared() below, which now applies the toggle
 // in-memory for the rest of the demo session instead of rejecting it.
 };
-onValue(ref(db, 'mel-the-winner/config/plans-simple-status'), function(snap) {
+onValue(ref(db, 'tools-you-the-winner/config/plans-simple-status'), function(snap) {
 // 2026-08-01: default ON when this shared config has never been explicitly
 // set (snap doesn't exist yet), instead of defaulting to the full 5-option
 // status picker. Matters most for first-time sign-ins and demo — before
@@ -23116,7 +23116,7 @@ try { renderPlans(); } catch(e) {}
 return;
 }
 try {
-await set(ref(db, 'mel-the-winner/config/plans-simple-status'), on);
+await set(ref(db, 'tools-you-the-winner/config/plans-simple-status'), on);
 } catch(e) {
 window.showToast && window.showToast('⚠️ Could not save: ' + (e.message || 'Permission denied'));
 // Revert the toggle UI on failure since the write didn't take.
@@ -23298,22 +23298,22 @@ var plansFamilyNoteEls = null;
 // membership either, so her familyNotesRoot() fell all the way through to
 // her own fully-isolated `users/{uid}/family-notes` — a completely
 // different Firebase node than Marcelo's messages (which always hit the
-// flat 'mel-the-winner/family-notes' path via the email match). Root cause
+// flat 'tools-you-the-winner/family-notes' path via the email match). Root cause
 // of "caregiver and supported individual sent messages but neither saw the
 // other's" reported 2026-08-08. Fixed by checking membership in the full
 // CLIENT.adminEmails list instead of equality against the single
 // primaryAdminEmail string — matches what the surrounding code comments
 // already described as the intent.
 function familyNotesRoot() {
-  if (_demoMode) return 'mel-the-winner/demo/family-notes';
+  if (_demoMode) return 'tools-you-the-winner/demo/family-notes';
   if (window._viewingAs && window._viewingAs.uid) {
     return 'users/' + window._viewingAs.uid + '/family-notes';
   }
   const myEmail = ((window._melUser && window._melUser.email) || '').toLowerCase();
   const _familyAdminEmails = (CLIENT.adminEmails || []).map(function(e){ return (e||'').toLowerCase(); });
-  if (_familyAdminEmails.indexOf(myEmail) !== -1) return 'mel-the-winner/family-notes'; // Mel's own household
+  if (_familyAdminEmails.indexOf(myEmail) !== -1) return 'tools-you-the-winner/family-notes'; // Mel's own household
   if (window._familyInfo && _familyAdminEmails.indexOf((window._familyInfo.ownerEmail||'').toLowerCase()) !== -1) {
-    return 'mel-the-winner/family-notes'; // verified member of Your own family
+    return 'tools-you-the-winner/family-notes'; // verified member of Your own family
   }
   if (window._familyInfo) return 'users/' + window._familyInfo.ownerUid + '/family-notes'; // someone else's own family
   return UP + '/family-notes'; // no family at all — fully isolated
@@ -25077,7 +25077,7 @@ if (status) status.textContent = "Couldn't send. Try again.";
 
 async function awardTokenIfNeeded(dateKey) {
 try {
-var tokPath = (window._tenantRoot || 'mel-the-winner') + '/tokens/' + dateKey;
+var tokPath = (window._tenantRoot || 'tools-you-the-winner') + '/tokens/' + dateKey;
 var snap = await get(ref(db, tokPath));
 if (!snap.exists()) {
 await set(ref(db, tokPath), true);
@@ -25132,7 +25132,7 @@ var startAuth = Date.now();
 while (!window._guardAuthReady && Date.now() - startAuth < 4000) {
 await new Promise(function(r){ setTimeout(r, 100); });
 }
-var tokensPath = (window._tenantRoot || 'mel-the-winner') + '/tokens';
+var tokensPath = (window._tenantRoot || 'tools-you-the-winner') + '/tokens';
 onValue(ref(db, tokensPath), function(snapshot) {
 _plansTokens = snapshot.val() || {};
 renderPlansTokenCard();
@@ -25149,18 +25149,18 @@ window._reapplyTokenBannerVisibility = function() {
 var banner = document.getElementById('plans-token-banner');
 if (banner) banner.style.display = (_tokenBannerAdminVisible && _tokenBannerUserEnabled) ? '' : 'none';
 };
-onValue(ref(db, 'mel-the-winner/config/token-banner-visible'), function(snapshot) {
+onValue(ref(db, 'tools-you-the-winner/config/token-banner-visible'), function(snapshot) {
 _tokenBannerAdminVisible = snapshot.val() !== false; // default ON if key missing
 window._reapplyTokenBannerVisibility();
 }, function(){});
 
-get(ref(db, 'mel-the-winner/config/token-show-dollars')).then(function(snap) {
+get(ref(db, 'tools-you-the-winner/config/token-show-dollars')).then(function(snap) {
 _plansTokenShowDollars = snap.val() === true; // default OFF
 renderPlansTokenCard();
 }).catch(function(){});
 
 // Hide-nav: read config and cache to localStorage so guests can use it too
-get(ref(db, 'mel-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
+get(ref(db, 'tools-you-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
 var v = snap.val();
 try { localStorage.setItem('dt-hide-nav', v === true ? '1' : '0'); } catch(e) {}
 if (v === true) {
@@ -25382,10 +25382,10 @@ try {
 } catch(e) {}
 
 // Point to a shared demo Firebase path so all changes persist across sessions
-P  = 'mel-the-winner/demo';
-UP = 'mel-the-winner/demo';
+P  = 'tools-you-the-winner/demo';
+UP = 'tools-you-the-winner/demo';
 PlansUP = UP; // demo has no Family Plan concept — always equals UP
-MP = 'mel-the-winner/demo'; // money writes now go through MP, not P directly — see FAMILY PLAN SHARING
+MP = 'tools-you-the-winner/demo'; // money writes now go through MP, not P directly — see FAMILY PLAN SHARING
 CycleUP = UP;
 window.CycleUP = UP;
 MydUP = UP;
@@ -25396,7 +25396,7 @@ _canWrite = true; // lets guardWrite() pass without the pin modal
 
 // My Schedule — registered directly against UP like Plans/checklist just
 // below, same reason (this whole block only runs once demo mode's UP
-// already points at the shared 'mel-the-winner/demo' sandbox — see that
+// already points at the shared 'tools-you-the-winner/demo' sandbox — see that
 // comment further down). Seeds a few illustrative shifts once, only if the
 // shared demo node is genuinely empty, so a demo visitor sees the feature
 // doing something rather than an empty grid — "only fill gaps", same
@@ -25434,7 +25434,7 @@ onValue(ref(db, UP+'/schedule'), function(snap) {
 // (which registers its own onValue right here in _startDemo()) nothing ever
 // did the equivalent for Task Lists. Result: _taskListsData stayed {}
 // forever for every demo visitor, even after loadDemoPlans() successfully
-// wrote seed data to 'mel-the-winner/demo/task-lists' -- the Level Up Board
+// wrote seed data to 'tools-you-the-winner/demo/task-lists' -- the Level Up Board
 // tab showed "Nothing here yet" regardless of what Firebase actually held.
 // Confirmed live: Firebase had tl-1 ("Home & Kindness") fully populated,
 // demo UI still showed the empty state. Mirrors the Schedule listener just
@@ -25488,7 +25488,7 @@ onValue(ref(db, UP+'/goal_items'), function(snap) { _goalItems = snap.val() || {
 // above rather than reusing _registerPlanListeners() itself, same reason
 // Plans/accounts/goal-catalog get their own hand-rolled onValue calls in
 // this function instead: this whole block only runs once demo mode's UP
-// already points at the shared 'mel-the-winner/demo' sandbox. Substitutes
+// already points at the shared 'tools-you-the-winner/demo' sandbox. Substitutes
 // the illustrative _demoRewardsSample() (defined near REWARDS_EARN_DEFAULTS)
 // whenever the shared demo node is genuinely empty, same "only fill gaps"
 // pattern as Today's Message/Requests -- and being a real listener (not a
@@ -25559,7 +25559,7 @@ document.documentElement.style.setProperty('--sn-h', '0px');
 }
 } catch(e) {}
 // Also try Firebase
-get(ref(db, 'mel-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
+get(ref(db, 'tools-you-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
 if (snap.val() === true) {
 var nav3 = document.getElementById('mel-site-nav');
 if (nav3) nav3.style.display = 'none';
@@ -25576,7 +25576,7 @@ if (cached === 'small' || cached === 'large' || cached === 'normal') {
 _plansFontSize = cached;
 } else {
 // Fall back to Firebase (handles first visit on a new device)
-get(ref(db, 'mel-the-winner/demo/settings/plans-font-size')).then(function(snap) {
+get(ref(db, 'tools-you-the-winner/demo/settings/plans-font-size')).then(function(snap) {
 var v = snap.val();
 if (v === 'small' || v === 'large' || v === 'normal') {
 _plansFontSize = v;

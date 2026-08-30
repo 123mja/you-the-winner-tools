@@ -1,0 +1,55 @@
+/*
+  X-Robots-Tag: noai, noimageai
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: unload=*
+
+# Shared framework files (theme.css/js, client.config.js, auth-guard.js,
+# site-nav.js) are linked with a plain filename -- no cache-busting query
+# string or content hash -- from every page in the project. Without an
+# explicit Cache-Control, browsers can keep serving an old cached copy for a
+# while after a deploy, so a real fix (like the 2026-07-25 theme rewrite)
+# can look "not applied yet" even though the server already has the new
+# file, until the visitor happens to hard-refresh.
+#
+# "no-cache" does NOT mean "never cache" -- it means the browser must
+# revalidate with the server (a fast conditional request) before reusing a
+# cached copy, so every deploy is picked up on the very next normal load
+# instead of requiring a manual hard-refresh.
+/theme.css
+  Cache-Control: no-cache
+
+/theme.js
+  Cache-Control: no-cache
+
+/client.config.js
+  Cache-Control: no-cache
+
+/auth-guard.js
+  Cache-Control: no-cache
+
+/site-nav.js
+  Cache-Control: no-cache
+
+# calm-corner.html is linked by plain filename from tab-nav-shared.js and
+# my-daily-tools.html's Calm card grid, same stale-cache risk as above
+# (2026-08-09: added after a "sounds aren't showing anymore" report that
+# didn't reproduce live -- most likely a stale cached copy of this page).
+/calm-corner.html
+  Cache-Control: no-cache
+
+# my-daily-tools.html and daily-tools-landing.html are the most frequently
+# updated files in the project (demo mode, Plans, Rewards, etc.) and were
+# missing from this list -- confirmed 2026-08-09 as the cause of a demo-mode
+# report ("Good afternoon, Mel" and no Today's Message card showing) right
+# after a deploy that had already fixed both. Root domain (/) inherits
+# my-daily-tools.html's header automatically wherever it's served as the
+# index (tools./demo. subdomains), but add it explicitly too for safety.
+/my-daily-tools.html
+  Cache-Control: no-cache
+
+/daily-tools-landing.html
+  Cache-Control: no-cache
+
+/
+  Cache-Control: no-cache

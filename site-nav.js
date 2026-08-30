@@ -14,43 +14,23 @@
 
   // Always visible top-bar links (minimal)
   const PUBLIC_LINKS = [
-    { href: 'index.html',   label: '🏠 Home' },
-    { href: 'about.html',   label: '⭐ About' },
-    { href: 'contact.html', label: '📞 Contact' },
+    { href: 'daily-tools-landing.html', label: '🏠 Home' },
   ];
 
-  // "My Projects" dropdown — Mel's public-facing work
-  const PROJECTS_LINKS = [
-    { href: 'piano.html',        label: '🎹 Piano' },
-    { href: 'teach.html',        label: '📚 Teach' },
-    { href: 'daycare.html',      label: '👶 Childcare' },
-    { href: 'digital-film.html', label: '🎬 Film' },
-    { href: 'winner-story.html', label: '📖 My Story' },
-    { href: 'resume.html',       label: '📄 Resume' },
-    { href: 'room-remodel.html', label: '🏠 Room' },
-    { href: 'shop.html',         label: '🛒 Shop' },
-  ];
+  // "My Projects" dropdown — not used on Tools (that's Mel/Engine-instance
+  // content, lives in its own project now). Left empty rather than removed
+  // so buildNav()'s existing "hide if nothing visible" logic just works.
+  const PROJECTS_LINKS = [];
 
   // "My Tools" dropdown — shown only when signed in
   const TOOLS_LINKS = [
-    { href: 'my-daily-tools.html',   label: '🌿 My Daily Tools' },
-    { href: 'agenda-schedule.html',  label: '📅 Agenda' },
-    { href: 'calm-corner.html',      label: '🌊 Calm Corner' },
-    { href: 'timeaway.html',         label: '✈️ Time Away' },
-    { href: 'time-money.html',       label: '⏰ Time & Money' },
-    { href: 'money-planner.html',    label: '💊 Money Planner' },
-    { href: 'emergency-binder.html', label: '🚨 Emergency Binder' },
-    { href: 'quizzes.html',          label: '🎯 Quizzes' },
+    { href: 'my-daily-tools.html', label: '🌿 My Daily Tools' },
+    { href: 'calm-corner.html',    label: '🌊 Calm Corner' },
   ];
 
   // Admin-only extras (shown inside My Tools when admin)
   const ADMIN_LINKS = [
-    { href: 'admin-settings.html',           label: '⚙️ Admin Panel' },
-    { href: 'coach-alignment.html',       label: '🤝 Coach Alignment' },
-    { href: 'mel-coach-briefing.html',    label: '📋 Coach Briefing' },
-    { href: 'announce.html',              label: '📢 Announce' },
-    { href: 'room-remodel-internal.html', label: '🔧 Room (internal)' },
-    { href: 'habits.html',                label: '✨ Habits' },
+    { href: 'migrate-to-users.html', label: '🔧 Migrate Data' },
   ];
 
   // ── CSS ─────────────────────────────────────────────────────────────
@@ -226,7 +206,7 @@
 
     return `
 <div class="nav-inner">
-  <a class="nav-logo" href="index.html"><span class="logo-trophy">🏆</span>mel</a>
+  <a class="nav-logo" href="daily-tools-landing.html"><span class="logo-trophy">🏆</span>daily tools</a>
   <div class="nav-sep"></div>
   <nav class="nav-links" aria-label="Main navigation">
     ${publicLinksHtml}

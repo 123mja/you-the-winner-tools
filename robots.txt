@@ -1,0 +1,52 @@
+# Mel the Winner — mel.you-the-winner.com
+# This site is a personal project. Content and design are protected by copyright.
+# AI training crawlers and scrapers are not permitted.
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+# Standard search indexing (Google/Bing allowed for discoverability)
+User-agent: *
+Crawl-delay: 10
+Disallow: /myday
+Disallow: /myday.html
+Disallow: /about
+Disallow: /about.html
+Disallow: /resume
+Disallow: /resume.html

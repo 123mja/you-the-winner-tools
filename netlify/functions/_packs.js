@@ -23,7 +23,7 @@
  *   STRIPE_PRICE_{BASE,WELLNESS,GOALS,CALENDAR,COMPLETE}_{MONTHLY,ANNUAL}_{TEST,LIVE}
  *     (10 Price IDs per mode, 20 total once both modes are fully configured)
  * "Which mode is active for new purchases" is NOT a Netlify env var -- it's
- * a single string at Firebase mel-the-winner/config/stripe-mode ('test' |
+ * a single string at Firebase tools-you-the-winner/config/stripe-mode ('test' |
  * 'live'), read fresh on every create-checkout-session.js call via
  * getStripeMode() below, and toggled from admin-settings.html's "Stripe
  * billing mode" section (Site tab) with zero redeploy needed. Defaults to
@@ -52,19 +52,19 @@ function getFirebaseAdmin() {
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     throw new Error(
       'FIREBASE_SERVICE_ACCOUNT_KEY env var is not set. Generate a service ' +
-      'account key for the mel-the-winner Firebase project (Project Settings ' +
+      'account key for the you-the-winner-tools Firebase project (Project Settings ' +
       '-> Service Accounts -> Generate new private key) and paste the whole ' +
       'JSON file as this Netlify env var\'s value.'
     );
   }
   _app = admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)),
-    databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://mel-the-winner-default-rtdb.firebaseio.com',
+    databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://you-the-winner-tools-default-rtdb.firebaseio.com',
   });
   return _app;
 }
 
-// Reads mel-the-winner/config/stripe-mode -- 'live' only if explicitly set
+// Reads tools-you-the-winner/config/stripe-mode -- 'live' only if explicitly set
 // to that string, 'test' for every other value (unset, 'test', anything
 // unexpected). Used by create-checkout-session.js to decide which
 // STRIPE_SECRET_KEY_* / STRIPE_PRICE_*_* env vars to build a NEW checkout
@@ -72,7 +72,7 @@ function getFirebaseAdmin() {
 // this.
 async function getStripeMode() {
   getFirebaseAdmin();
-  const snap = await admin.database().ref('mel-the-winner/config/stripe-mode').once('value');
+  const snap = await admin.database().ref('tools-you-the-winner/config/stripe-mode').once('value');
   return snap.val() === 'live' ? 'live' : 'test';
 }
 
