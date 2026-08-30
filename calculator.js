@@ -1,175 +1,124 @@
-/**
- * calculator.js — simple four-function calculator dialog + running history,
- * used by the "🧮 Calculator" button on the Money tab of my-daily-tools.html
- * (see #calc-dialog-overlay there).
- *
- * Recreated 2026-08-30: this file was missing entirely from the deployed
- * site (my-daily-tools.html's <script src="calculator.js"> 404'd in
- * production -- reported live on Calm Corner's console, which loads the
- * same script) even though my-daily-tools.html's own comment says it was
- * "extracted 2026-08-14 into its own file." Rebuilt from the button wiring
- * still present in that file's calculator dialog markup (onclick=
- * calcDigit/calcOp/calcEquals/calcClear/calcBackspace/calcClearHistory,
- * plus openCalcDialog/closeCalcDialog on the trigger button and overlay),
- * which is the only surviving record of its exact API -- so every function
- * name here is load-bearing, not just a convenient choice.
- *
- * Plain classic script (no import/export), loaded directly so its
- * window.calc... / openCalcDialog / closeCalcDialog exports are ready before
- * anything could call them.
- */
-(function () {
-  'use strict';
+/* calculator.js
+   Extracted from my-daily-tools.html's inline classic <script> block
+   (2026-08-14) — the calculator was already fully self-contained (only
+   localStorage + its own local state, no Firebase/UP/shared-state
+   dependency), so this is a plain <script src> file, not a module; every
+   window.calc..., openCalcDialog, closeCalcDialog exports below work exactly
+   as they did inline. Content is unchanged, just moved.
 
-  var HISTORY_KEY = 'calc-history';
-  var HISTORY_MAX = 20;
+   Restored 2026-08-30: this file had gone missing from the repo entirely
+   (my-daily-tools.html's <script src="calculator.js"> 404'd in production),
+   despite the comment above saying it was extracted rather than deleted.
+   Recovered verbatim from a still-live stale copy being served by
+   tools.you-the-winner.com's CDN edge (which had this exact file cached
+   from before it disappeared, discovered while chasing an unrelated
+   Netlify cache-staleness issue on that domain) -- this is the original
+   file's real content, not a reconstruction.
+*/
 
-  var display = '0';         // what's currently shown
-  var stored = null;         // first operand, once an operator is pressed
-  var pendingOp = null;      // '÷' | '×' | '−' | '+'
-  var justEvaluated = false; // true right after "=" -- next digit starts fresh
+/* ── CALCULATOR ── */
+// A basic calculator with a running history log — the log matters for
+// accessibility here: someone who needs a calculator for daily math may also
+// need to look back and check what they just did, rather than relying on
+// remembering it. History persists in localStorage (device-local, not synced
+// to Firebase — it's a personal scratch tool, not app data) capped at the 20
+// most recent operations.
+var _calcCurrent = '0';
+var _calcPrevValue = null;
+var _calcPendingOp = null;
+var _calcStartNew = false; // true right after "=" or an operator — next digit starts fresh instead of appending
+var CALC_HISTORY_KEY = 'dt-calc-history';
 
-  function fmt(n) {
-    if (!isFinite(n)) return 'Error';
-    // Trim floating-point noise (0.1+0.2 etc.) without mangling a
-    // legitimate long decimal.
-    var r = Math.round(n * 1e10) / 1e10;
-    return String(r);
+function _calcGetHistory() {
+  try { return JSON.parse(localStorage.getItem(CALC_HISTORY_KEY) || '[]'); } catch(e) { return []; }
+}
+function _calcSaveHistory(list) {
+  try { localStorage.setItem(CALC_HISTORY_KEY, JSON.stringify(list.slice(-20))); } catch(e) {}
+}
+function _calcRenderHistory() {
+  var el = document.getElementById('calc-history-list');
+  if (!el) return;
+  var list = _calcGetHistory();
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--muted);padding:6px 0;">No calculations yet.</div>';
+    return;
   }
-
-  function renderDisplay() {
-    var el = document.getElementById('calc-display');
-    if (el) el.textContent = display;
+  el.innerHTML = list.slice().reverse().map(function(h) {
+    return '<div style="padding:5px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;">'
+      + '<span style="color:var(--muted);">' + h.expr + '</span>'
+      + '<span style="font-weight:700;">= ' + h.result + '</span></div>';
+  }).join('');
+}
+function _calcUpdateDisplay() {
+  var el = document.getElementById('calc-display');
+  if (el) el.textContent = _calcCurrent;
+}
+window.openCalcDialog = function() {
+  var ov = document.getElementById('calc-dialog-overlay');
+  if (ov) ov.style.display = 'flex';
+  _calcRenderHistory();
+};
+window.closeCalcDialog = function() {
+  var ov = document.getElementById('calc-dialog-overlay');
+  if (ov) ov.style.display = 'none';
+};
+window.calcDigit = function(d) {
+  if (_calcStartNew) { _calcCurrent = '0'; _calcStartNew = false; }
+  if (d === '.' && _calcCurrent.includes('.')) return;
+  _calcCurrent = (_calcCurrent === '0' && d !== '.') ? d : _calcCurrent + d;
+  _calcUpdateDisplay();
+};
+window.calcBackspace = function() {
+  _calcCurrent = _calcCurrent.length > 1 ? _calcCurrent.slice(0, -1) : '0';
+  _calcUpdateDisplay();
+};
+window.calcClear = function() {
+  _calcCurrent = '0'; _calcPrevValue = null; _calcPendingOp = null; _calcStartNew = false;
+  _calcUpdateDisplay();
+};
+function _calcApply(a, b, op) {
+  a = parseFloat(a); b = parseFloat(b);
+  if (op === '+') return a + b;
+  if (op === '−') return a - b;
+  if (op === '×') return a * b;
+  if (op === '÷') return b === 0 ? NaN : a / b;
+  return b;
+}
+function _calcRound(n) {
+  // Trim float drift (0.1+0.2 etc.) without over-truncating real decimals.
+  return Math.round(n * 1e10) / 1e10;
+}
+window.calcOp = function(op) {
+  if (_calcPendingOp && !_calcStartNew) {
+    var result = _calcRound(_calcApply(_calcPrevValue, _calcCurrent, _calcPendingOp));
+    _calcPrevValue = String(result);
+    _calcCurrent = String(result);
+  } else {
+    _calcPrevValue = _calcCurrent;
   }
-
-  function escapeCalcHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  _calcPendingOp = op;
+  _calcStartNew = true;
+  _calcUpdateDisplay();
+};
+window.calcEquals = function() {
+  if (!_calcPendingOp || _calcPrevValue === null) return;
+  var expr = _calcPrevValue + ' ' + _calcPendingOp + ' ' + _calcCurrent;
+  var result = _calcRound(_calcApply(_calcPrevValue, _calcCurrent, _calcPendingOp));
+  var resultStr = isNaN(result) ? 'Error' : String(result);
+  _calcCurrent = resultStr;
+  _calcUpdateDisplay();
+  if (!isNaN(result)) {
+    var list = _calcGetHistory();
+    list.push({ expr: expr, result: resultStr, ts: Date.now() });
+    _calcSaveHistory(list);
+    _calcRenderHistory();
   }
-
-  function loadHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) { return []; }
-  }
-  function saveHistory(list) {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX))); } catch (e) {}
-  }
-  function renderHistory() {
-    var el = document.getElementById('calc-history-list');
-    if (!el) return;
-    var list = loadHistory();
-    if (!list.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:.78rem;padding:4px 0;">No calculations yet</div>';
-      return;
-    }
-    el.innerHTML = list.map(function (entry) {
-      return '<div style="padding:5px 0;border-top:1px solid var(--border);">'
-        + '<div style="color:var(--muted);font-size:.74rem;">' + escapeCalcHtml(entry.expr) + '</div>'
-        + '<div style="font-weight:700;">' + escapeCalcHtml(entry.result) + '</div>'
-        + '</div>';
-    }).join('');
-  }
-  function pushHistory(expr, result) {
-    var list = loadHistory();
-    list.unshift({ expr: expr, result: result });
-    saveHistory(list);
-    renderHistory();
-  }
-
-  function compute(a, op, b) {
-    switch (op) {
-      case '+': return a + b;
-      case '−': return a - b;
-      case '×': return a * b;
-      case '÷': return b === 0 ? NaN : a / b;
-      default:  return b;
-    }
-  }
-
-  window.calcDigit = function (d) {
-    if (justEvaluated) { display = '0'; justEvaluated = false; }
-    if (d === '.') {
-      if (display.indexOf('.') !== -1) return; // one decimal point only
-      display = display + '.';
-      renderDisplay();
-      return;
-    }
-    display = (display === '0') ? d : display + d;
-    renderDisplay();
-  };
-
-  window.calcOp = function (op) {
-    if (pendingOp && stored !== null && !justEvaluated) {
-      // Chain without pressing "=" first, e.g. 5 + 3 + -- evaluate the
-      // pending 5+3 immediately, then continue from that result.
-      var r = compute(stored, pendingOp, parseFloat(display));
-      stored = r;
-      display = fmt(r);
-    } else {
-      stored = parseFloat(display);
-    }
-    pendingOp = op;
-    justEvaluated = false;
-    renderDisplay();
-  };
-
-  window.calcEquals = function () {
-    if (pendingOp === null || stored === null) return;
-    var b = parseFloat(display);
-    var r = compute(stored, pendingOp, b);
-    var expr = fmt(stored) + ' ' + pendingOp + ' ' + fmt(b);
-    var resultStr = fmt(r);
-    pushHistory(expr, resultStr);
-    display = resultStr;
-    stored = null;
-    pendingOp = null;
-    justEvaluated = true;
-    renderDisplay();
-  };
-
-  window.calcClear = function () {
-    display = '0';
-    stored = null;
-    pendingOp = null;
-    justEvaluated = false;
-    renderDisplay();
-  };
-
-  window.calcBackspace = function () {
-    if (justEvaluated) { window.calcClear(); return; }
-    display = display.length > 1 ? display.slice(0, -1) : '0';
-    renderDisplay();
-  };
-
-  window.calcClearHistory = function () {
-    saveHistory([]);
-    renderHistory();
-  };
-
-  window.openCalcDialog = function () {
-    var ov = document.getElementById('calc-dialog-overlay');
-    if (!ov) return;
-    window.calcClear();
-    renderHistory();
-    ov.style.display = 'flex';
-  };
-
-  window.closeCalcDialog = function () {
-    var ov = document.getElementById('calc-dialog-overlay');
-    if (ov) ov.style.display = 'none';
-  };
-
-  // Keyboard support while the dialog is open -- digits, operators,
-  // Enter/= to evaluate, Backspace, Escape to close.
-  document.addEventListener('keydown', function (e) {
-    var ov = document.getElementById('calc-dialog-overlay');
-    if (!ov || ov.style.display === 'none' || !ov.style.display) return;
-    if (e.key >= '0' && e.key <= '9') { window.calcDigit(e.key); return; }
-    if (e.key === '.') { window.calcDigit('.'); return; }
-    if (e.key === '+') { window.calcOp('+'); return; }
-    if (e.key === '-') { window.calcOp('−'); return; }
-    if (e.key === '*') { window.calcOp('×'); return; }
-    if (e.key === '/') { e.preventDefault(); window.calcOp('÷'); return; }
-    if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); window.calcEquals(); return; }
-    if (e.key === 'Backspace') { window.calcBackspace(); return; }
-    if (e.key === 'Escape') { window.closeCalcDialog(); return; }
-  });
-})();
+  _calcPendingOp = null;
+  _calcPrevValue = null;
+  _calcStartNew = true;
+};
+window.calcClearHistory = function() {
+  if (!confirm('Clear the calculator history?')) return;
+  _calcSaveHistory([]);
+  _calcRenderHistory();
+};
