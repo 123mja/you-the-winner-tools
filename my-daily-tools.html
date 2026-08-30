@@ -12055,6 +12055,7 @@ let _modalType = 'got';
 function openMoneyModal(type) {
   setModalType(type || 'got');
   document.getElementById('modal-note').value = '';
+  _moneyAmtSliderMax = 200; // reset the slider's grown range from any previous entry
   window.moneyAmtSliderInput(0);
   try { populateModalSelects(); } catch(e) { console.warn('populateModalSelects:', e); }
   document.getElementById('money-modal').classList.add('open');
@@ -12087,7 +12088,20 @@ window.setModalType = setModalType;
 // Amount slider/display <-> #modal-amount number input, kept in sync both
 // directions (2026-08-30, replaces the old fixed-preset selectQA/.qa-btn
 // row -- see the HTML comment above the money-amt-wrap markup).
+//
+// 2026-08-30 (2nd pass), per Marcelo: "based on 10 does not make sense, if
+// input is 10000 then slide is useless" -- correct. The first version had
+// a fixed slider max of 200, which caused real data loss: type $10,000 into
+// the number field, then so much as touch the slider, and it would silently
+// snap the amount down to whatever the slider's stale 0-200 range reported.
+// Fixed by making the slider's range grow to fit whatever amount is
+// current (_moneyAmtSliderMax, expanded via _moneyAmtGrowMaxFor), so the
+// slider handle always sits at a position that actually represents the
+// current amount instead of being clamped against a ceiling from a
+// smaller-amount assumption. It resets to a sane 200 default each time the
+// modal opens (see openMoneyModal) since most entries here are small.
 let _moneyAmtTapTimer = null;
+let _moneyAmtSliderMax = 200;
 window.handleMoneyAmtTap = function() {
   if (_moneyAmtTapTimer) {
     clearTimeout(_moneyAmtTapTimer);
@@ -12100,8 +12114,25 @@ window.handleMoneyAmtTap = function() {
 function _moneyAmtFmt(amt) {
   return Number.isInteger(amt) ? String(amt) : amt.toFixed(2);
 }
+// Grows _moneyAmtSliderMax (never shrinks it mid-session) to a round number
+// comfortably above the current amount, and sets a coarser step once the range is big --
+// dragging across, say, $50,000 in $1 steps would need an enormous swipe
+// to move the number at all, so the step scales with the range.
+function _moneyAmtGrowMaxFor(amt) {
+  if (amt > _moneyAmtSliderMax) {
+    const target = amt * 1.25;
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(target, 1))));
+    _moneyAmtSliderMax = Math.ceil(target / mag) * mag;
+  }
+  const slider = document.getElementById('money-amt-slider');
+  if (slider) {
+    slider.max = _moneyAmtSliderMax;
+    slider.step = _moneyAmtSliderMax > 2000 ? 50 : _moneyAmtSliderMax > 500 ? 10 : 1;
+  }
+}
 window.moneyAmtSliderInput = function(v) {
   const amt = Math.max(0, Number(v) || 0);
+  _moneyAmtGrowMaxFor(amt);
   const slider = document.getElementById('money-amt-slider');
   if (slider) slider.value = amt;
   const disp = document.getElementById('money-amt-display');
@@ -12111,8 +12142,9 @@ window.moneyAmtSliderInput = function(v) {
 };
 window.moneyAmtNumberInput = function(v) {
   const amt = Math.max(0, Number(v) || 0);
+  _moneyAmtGrowMaxFor(amt);
   const slider = document.getElementById('money-amt-slider');
-  if (slider) slider.value = Math.min(Number(slider.max) || 200, amt);
+  if (slider) slider.value = amt;
   const disp = document.getElementById('money-amt-display');
   if (disp) disp.textContent = '$' + _moneyAmtFmt(amt);
 };
