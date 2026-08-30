@@ -1,0 +1,62 @@
+{
+  "type": "ytw-level-up-board-list",
+  "version": 1,
+  "title": "2. Over 18? Learn What the USA Needs You to Know",
+  "icon": "🗳️",
+  "subtitle": "Four things every new adult in the U.S. should know",
+  "recurring": false,
+  "awardsToken": false,
+  "tokenPoints": 1,
+  "items": [
+    {
+      "description": "Register to vote",
+      "instructions": "Once you turn 18, you can register to vote in every state. You can usually register online, by mail, or in person at your local election office. Some states will even register you automatically when you get a driver's license or state ID.",
+      "link": "https://vote.gov",
+      "questions": [
+        {
+          "type": "single",
+          "text": "Where can you go online to register to vote?",
+          "options": ["vote.gov", "Your school library website", "You cannot register online", "Only through a lawyer"],
+          "correct": [0]
+        }
+      ]
+    },
+    {
+      "description": "Register with Selective Service",
+      "instructions": "If you are male, U.S. law requires you to register with Selective Service within 30 days of turning 18. It takes just a few minutes online at sss.gov, and it keeps you eligible for federal student aid and many government jobs.",
+      "link": "https://www.sss.gov",
+      "questions": [
+        {
+          "type": "single",
+          "text": "How soon after turning 18 must you register with Selective Service?",
+          "options": ["Within 30 days", "Within 1 year", "There is no deadline", "Within 6 months"],
+          "correct": [0]
+        }
+      ]
+    },
+    {
+      "description": "Get your own state ID or driver's license",
+      "instructions": "A state ID card or driver's license is your own official proof of who you are. You can get one at your state's DMV even if you don't drive. Bring proof of your birthdate and address, such as a birth certificate and a piece of mail.",
+      "questions": [
+        {
+          "type": "multi",
+          "text": "Which of these can help prove who you are at the DMV? Choose all that apply.",
+          "options": ["Birth certificate", "A recent piece of mail with your name and address", "Social Security card", "A photo you took of yourself"],
+          "correct": [0, 1, 2]
+        }
+      ]
+    },
+    {
+      "description": "Learn about your age 18 benefits review",
+      "instructions": "If you receive SSI, Social Security reviews your case using adult rules around the time you turn 18. This is called an age 18 redetermination. It's a normal step, and your family or caregiver can help you get ready for it.",
+      "questions": [
+        {
+          "type": "single",
+          "text": "What is it called when Social Security reviews an SSI case using adult rules around age 18?",
+          "options": ["An age 18 redetermination", "A driving test", "A credit check", "A voter check"],
+          "correct": [0]
+        }
+      ]
+    }
+  ]
+}

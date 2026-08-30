@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Daily Tools — Whole-Account Migration</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #0f1f1c; color: #7ec8a0; padding: 32px; max-width: 660px; margin: auto; }
+    h2 { color: #2a7d6f; margin-bottom: 10px; }
+    p  { color: #6b8c85; font-size: .85rem; line-height: 1.6; margin-bottom: 8px; }
+    .uid-box { background: #1a2e2a; border-radius: 6px; padding: 10px 14px; margin: 14px 0; font-size: .8rem; color: #7ec8a0; display: none; }
+    .slot { background: #1a2e2a; border: 1.5px solid #2a5c50; border-radius: 8px; padding: 14px 16px; margin: 18px 0; }
+    .slot label { display: block; font-size: .8rem; color: #2a7d6f; margin-bottom: 8px; font-weight: bold; }
+    .slot input[type=file] { font-size: .75rem; color: #7ec8a0; width: 100%; }
+    .slot .hint { font-size: .7rem; color: #6b8c85; margin-top: 6px; line-height: 1.5; }
+    .slot.loaded { border-color: #7ec8a0; }
+    .keylist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .keychip { background: #14251f; border: 1px solid #2a5c50; border-radius: 99px; padding: 3px 10px; font-size: .68rem; color: #a8c4bc; }
+    .log { background: #1a2e2a; border-radius: 8px; padding: 16px; margin-top: 16px; min-height: 120px; white-space: pre-wrap; font-size: .82rem; line-height: 1.7; max-height: 380px; overflow-y: auto; }
+    .ok  { color: #7ec8a0; }
+    .err { color: #f4845f; }
+    .dim { color: #6b8c85; }
+    .warn { color: #f9a825; }
+    .btns { display: flex; gap: 10px; margin-top: 16px; }
+    button { padding: 11px 24px; background: #2a7d6f; color: #fff; border: none; border-radius: 8px; font-size: .9rem; cursor: pointer; font-family: monospace; }
+    button:disabled { background: #3a5c55; cursor: not-allowed; }
+    #step2 { display: none; }
+  </style>
+</head>
+<body>
+<h2>🌿 Daily Tools — Whole-Account Migration</h2>
+<p>Moves everything under <code>users/{uid}/</code> from another You-The-Winner project into this one, for the account you sign in with. Never overwrites a key that already has data here.</p>
+
+<!-- Step 1: Sign in -->
+<div id="step1">
+  <p style="margin-top:14px;">Step 1 — sign in as the account you're migrating INTO (this project, this account).</p>
+  <div class="btns"><button id="btn-signin" onclick="doSignIn()">Sign In with Google</button></div>
+</div>
+
+<!-- Step 2: Upload + migrate -->
+<div id="step2">
+  <div class="uid-box" id="uid-box"></div>
+  <p style="margin-top:4px;">Step 2 — attach one JSON file: the whole-account export.</p>
+
+  <div class="slot" id="slot-whole">
+    <label>Whole-account export</label>
+    <input type="file" accept=".json" onchange="loadFile(this)" />
+    <div class="hint">
+      From the OLD project's Firebase Console → Realtime Database → Data →
+      navigate to <code>users/{that account's old UID}</code> → ⋮ → Export JSON.
+      Upload that file as-is, don't edit it.
+    </div>
+    <div class="keylist" id="keylist"></div>
+  </div>
+
+  <div class="btns">
+    <button id="btn-migrate" onclick="runMigration()" disabled>Migrate →</button>
+  </div>
+</div>
+
+<div class="log" id="log"><span class="dim">Waiting…</span></div>
+
+<script type="module">
+import { initializeApp }                              from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get }                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { CLIENT } from "./client.config.js";
+
+const app = initializeApp(CLIENT.firebase);
+const db   = getDatabase(app);
+const auth = getAuth(app);
+
+let _uid = null;
+let _loadedTree = null; // { key: value, ... } parsed from the whole-account export
+
+function log(msg, cls='ok') {
+  const el = document.getElementById('log');
+  if (el.innerHTML.includes('Waiting')) el.innerHTML = '';
+  el.innerHTML += `<span class="${cls}">${msg}\n</span>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+window.doSignIn = async function() {
+  document.getElementById('btn-signin').disabled = true;
+  log('Signing in…', 'dim');
+  try {
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    _uid = result.user.uid;
+    log(`✓ Signed in as ${result.user.email}`);
+    log(`  UID on THIS project: ${_uid}\n`);
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    const box = document.getElementById('uid-box');
+    box.textContent = `Migrating into: users/${_uid}`;
+    box.style.display = 'block';
+  } catch(e) {
+    log('✗ Sign-in failed: ' + e.message, 'err');
+    document.getElementById('btn-signin').disabled = false;
+  }
+};
+
+window.loadFile = function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Expected a JSON object of top-level keys (an Export JSON of a users/{uid} node)');
+      }
+      _loadedTree = parsed;
+      const keys = Object.keys(parsed);
+      document.getElementById('slot-whole').classList.add('loaded');
+      document.getElementById('keylist').innerHTML = keys.map(k => `<span class="keychip">${k}</span>`).join('');
+      document.getElementById('btn-migrate').disabled = false;
+      log(`📂 Loaded ${file.name} — ${keys.length} top-level key(s): ${keys.join(', ')}`, 'dim');
+    } catch(err) {
+      log(`✗ Could not parse ${file.name}: ${err.message}`, 'err');
+      _loadedTree = null;
+      document.getElementById('btn-migrate').disabled = true;
+    }
+  };
+  reader.readAsText(file);
+};
+
+window.runMigration = async function() {
+  if (!_uid) { log('Not signed in.', 'err'); return; }
+  if (!_loadedTree) { log('No file loaded yet.', 'warn'); return; }
+  const keys = Object.keys(_loadedTree);
+  if (keys.length === 0) {
+    log('The file has no top-level keys — nothing to migrate.', 'warn');
+    return;
+  }
+  document.getElementById('btn-migrate').disabled = true;
+  log('\nStarting migration…');
+
+  const UP = 'users/' + _uid;
+  let ok = 0, skip = 0, err = 0;
+
+  for (const key of keys) {
+    const dest = UP + '/' + key;
+    log(`Writing  → ${dest} …`, 'dim');
+    try {
+      const destSnap = await get(ref(db, dest));
+      if (destSnap.exists()) {
+        log(`  ⚠️  already has data here — skipped to avoid overwrite`, 'warn');
+        skip++; continue;
+      }
+      await set(ref(db, dest), _loadedTree[key]);
+      const val = _loadedTree[key];
+      const count = (val && typeof val === 'object') ? Object.keys(val).length : 1;
+      log(`  ✓  written (${count} item(s) at the top of this key)`);
+      ok++;
+    } catch(e) {
+      log(`  ✗ ${e.message}`, 'err');
+      err++;
+    }
+  }
+
+  log(`\n── Done ──`);
+  log(`  Written : ${ok} key(s)`);
+  if (skip) log(`  Skipped : ${skip} key(s) — already had data on this project. Clear that key first if you actually want Engine's version to replace it, then re-run.`, 'warn');
+  if (err)  log(`  Errors  : ${err}`, 'err');
+  if (!err) log(`\nAll good. You can close this page.`);
+  else      log(`\nSome paths failed — check Firebase rules allow users/$uid writes for this account.`, 'err');
+  document.getElementById('btn-migrate').disabled = false;
+};
+</script>
+</body>
+</html>
