@@ -445,13 +445,19 @@
     hideSigninError();
     setSigninLoading(true);
     const provider = new GoogleAuthProvider();
+    // 2026-08-30 fix per Marcelo (same fix as login.html): force the
+    // Google account picker every time, so a denied/blocked account that
+    // gets signed out below doesn't leave the user stuck silently
+    // re-signing into that same account with no way to pick a different
+    // one.
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const result = await signInWithPopup(auth, provider);
       const blocked = await isDenylisted(result.user.email);
       setSigninLoading(false);
       if (blocked) {
         await signOut(auth);
-        showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+        showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake, or tap Continue with Google again to sign in with a different account.");
       }
     } catch (err) {
       console.warn('[subscribe] sign-in error:', err);

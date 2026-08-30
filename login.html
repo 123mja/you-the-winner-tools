@@ -228,7 +228,7 @@
       const denied = Array.isArray(list) && list.map(function(e){ return String(e).toLowerCase(); }).includes(email);
       if (denied) {
         await signOut(auth);
-        showError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+        showError("This account doesn't have access. Contact the site owner if you think this is a mistake, or tap Continue with Google again to sign in with a different account.");
         return false;
       }
       return true;
@@ -281,6 +281,16 @@ function describeSignInError(err) {
     hideError();
     setLoading(true);
     const provider = new GoogleAuthProvider();
+    // 2026-08-30 fix per Marcelo: "when user is not yet authorize it it
+    // should at least provide to choose another user otherwise we don't
+    // get out of the error login screen" -- without this, a denied
+    // account gets signed out (see handleSignedInResult below) but tapping
+    // Continue with Google again could silently reuse that same Google
+    // session/account (the browser/Google remembers it), never showing the
+    // account picker -- a real dead end with no way out. Forcing the
+    // chooser every time guarantees there's always a path to a different
+    // account.
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const result = await signInWithPopup(auth, provider);
       const ok = await handleSignedInResult(result);
