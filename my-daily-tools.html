@@ -12518,6 +12518,64 @@ const SYNCED_SETTINGS_KEYS = [
 let _settingsSyncReady = false;
 const _settingsWriteDebounce = {};
 
+// ── Admin-defined tab ENABLED defaults (added 2026-08-30, per Marcelo) ──
+// admin-settings.html -> My Daily Tools settings -> Tab bar defaults now
+// also carries an optional per-tab enabled/disabled default alongside the
+// existing "Icons before More" + order push. UNLIKE that push (which
+// force-overwrites every account's own choice whenever the admin bumps
+// forceVersion), this only ever fills in a tab's enabled flag for someone
+// who has NEVER touched it on this browser -- "local configuration should
+// overwrite this," so once a caregiver has flipped a tab on/off (here or
+// synced from another device), that choice is permanent and this function
+// leaves it alone forever. Applies equally to a brand-new signed-in
+// account and a guest/demo visitor who's never signed in at all, since
+// both start with these keys unset in localStorage. Cheap to call on every
+// load: the synchronous localStorage scan below skips the Firebase read
+// entirely once every tracked key has a real value.
+var TAB_ENABLED_DEFAULT_KEYS = {
+  home: 'home-tab-enabled', plans: 'plans-tab-enabled', tasklists: 'tasklists-tab-enabled',
+  myday: 'myday-tab-enabled', calendar: 'calendar-tab-enabled', cycle: 'cycle-tracker-enabled',
+  calm: 'calm-tab-enabled', roadmap: 'roadmap-tab-enabled', wishlist: 'wishlist-tab-enabled',
+  things: 'things-tab-enabled', rewards: 'rewards-tab-enabled', help: 'help-tab-enabled',
+  settings: 'settings-tab-visible'
+};
+window._applyAdminTabEnabledDefaults = async function() {
+  var anyUnset = Object.keys(TAB_ENABLED_DEFAULT_KEYS).some(function(tabKey) {
+    try { return localStorage.getItem(TAB_ENABLED_DEFAULT_KEYS[tabKey]) === null; } catch (e) { return false; }
+  });
+  if (!anyUnset) return false;
+  var changedAny = false;
+  try {
+    var tdSnap = await get(ref(db, 'tools-you-the-winner/config/tab-defaults'));
+    var enabledDefaults = (tdSnap.val() || {}).enabled || {};
+    Object.keys(TAB_ENABLED_DEFAULT_KEYS).forEach(function(tabKey) {
+      if (enabledDefaults[tabKey] === undefined) return;
+      var lsKey = TAB_ENABLED_DEFAULT_KEYS[tabKey];
+      try {
+        if (localStorage.getItem(lsKey) === null) {
+          localStorage.setItem(lsKey, enabledDefaults[tabKey] ? '1' : '0');
+          changedAny = true;
+        }
+      } catch (e) {}
+    });
+  } catch (e) {}
+  return changedAny;
+};
+// Also fire once immediately on page load, independent of sign-in state --
+// otherwise a guest or demo visitor who never signs in would never pick up
+// an admin default at all (the call above only runs from inside
+// _initSettingsSync, which requires a real signed-in P path). Separate
+// sessionStorage guard from _initSettingsSync's own per-uid reload flag so
+// the two can never fight over the same key.
+try {
+  window._applyAdminTabEnabledDefaults().then(function(changed) {
+    if (changed && !sessionStorage.getItem('_adminTabDefaultsReload')) {
+      sessionStorage.setItem('_adminTabDefaultsReload', '1');
+      location.reload();
+    }
+  });
+} catch (e) {}
+
 // Called once, right after P is set on real sign-in. Pulls this account's saved
 // settings from Firebase and, if anything differs from what's cached locally on this
 // device, writes it into localStorage and reloads ONCE so every part of the page
@@ -12564,6 +12622,14 @@ window._initSettingsSync = async function(uid) {
         localStorage.setItem('tab-defaults-applied-version', String(remoteVersion));
         changed = true;
       }
+    } catch (e) {}
+
+    // Per-tab enabled/disabled defaults (see _applyAdminTabEnabledDefaults
+    // above) -- a true default, not a push: only fills in tabs this account
+    // has never touched, checked against both the synced remote settings
+    // pulled in just above AND this browser's own localStorage.
+    try {
+      if (await window._applyAdminTabEnabledDefaults()) changed = true;
     } catch (e) {}
 
     // Per-uid reload flag (not a single global one) so switching between accounts in
@@ -14029,20 +14095,30 @@ function _calendarAutoOpenOnLanding() {
   try {
     var params = new URLSearchParams(window.location.search);
     var urlTab = params.get('tab');
+    var urlView = params.get('view'); // 'week' | 'month' | 'year'
     // Bookmarkable deep link straight to Week view + Payroll Report, e.g.
     // ".../my-daily-tools.html?tab=calendar&payroll=1" -- added 2026-08-30
     // per Marcelo, so a browser/phone "home" shortcut can open straight to
     // this dialog without relying on the in-app "default landing tab"
     // setting (which only applies after sign-in, on a bare tab-less URL).
     var directPayrollLink = urlTab === 'calendar' && params.get('payroll') === '1';
+    // Plain view-only deep link, no Payroll popup, e.g.
+    // ".../my-daily-tools.html?tab=calendar&view=week" -- added 2026-08-30
+    // per Marcelo, for a bookmark/shortcut that just wants the schedule
+    // itself, not the Payroll Report on top of it.
+    var directViewLink = urlTab === 'calendar' && (urlView === 'week' || urlView === 'month' || urlView === 'year');
     var defaultTab = null;
     try { defaultTab = localStorage.getItem('default-landing-tab'); } catch (e) {}
-    if (!directPayrollLink && (urlTab || defaultTab !== 'calendar')) return; // only the true default-landing case, or an explicit ?payroll=1 deep link, not a bare ?tab= deep link
+    if (!directPayrollLink && !directViewLink && (urlTab || defaultTab !== 'calendar')) return; // only the true default-landing case, or an explicit ?payroll=1 / ?view= deep link, not a bare ?tab= deep link
     var activePane = document.querySelector('.tab-pane.active');
     var landedTab = activePane ? activePane.id.replace(/^pane-/, '') : '';
     if (landedTab !== 'calendar') return;
-    window.setSchedViewMode('week');
-    window.openPayrollModal();
+    if (directViewLink) {
+      window.setSchedViewMode(urlView);
+    } else {
+      window.setSchedViewMode('week');
+      window.openPayrollModal();
+    }
   } catch (e) {}
 }
 

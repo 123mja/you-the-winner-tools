@@ -3,6 +3,15 @@
 # and reverted: it requires the custom domain's OAuth redirect URI to be
 # registered in Google Cloud Console, which broke "Continue with Google"
 # with an "Access blocked" error. Firebase Auth now uses its default
-# mel-the-winner.firebaseapp.com authDomain again.)
-/.netlify/functions/*  /.netlify/functions/:splat  200
-/*   /index.html   200
+# mel-the-winner.firebaseapp.com authDomain again.
+#
+# Removed 2026-08-30: two stale rules used to live here --
+#   /.netlify/functions/*  /.netlify/functions/:splat  200
+#   /*   /index.html   200
+# The first is invalid (Netlify rejects any redirect FROM a /.netlify/*
+# path -- that namespace is reserved and functions are already served
+# there automatically, so the rule did nothing but fail every build).
+# The second pointed at index.html, which doesn't exist in this repo --
+# this is a multi-page static site (each real page is its own .html
+# file; netlify/edge-functions/root-redirect.js handles "/"), not an SPA
+# needing a catch-all fallback, so it could never have worked either.)

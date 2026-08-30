@@ -211,7 +211,7 @@
   <div class="nav-sep"></div>
   <nav class="nav-links" aria-label="Main navigation">
     ${publicLinksHtml}
-    <button class="nav-dropdown-btn${projActive}" id="snProjectsBtn" aria-haspopup="true" aria-expanded="false">🌟 My Projects ▾</button>
+    ${PROJECTS_LINKS.length ? `<button class="nav-dropdown-btn${projActive}" id="snProjectsBtn" aria-haspopup="true" aria-expanded="false">🌟 My Projects ▾</button>` : ''}
   </nav>
   <div class="nav-right">
     <a href="login.html" id="snSignInLink" style="display:none;align-items:center;gap:4px;padding:7px 13px;border-radius:99px;border:1.5px solid var(--border,#cfddd8);font-family:'Nunito',sans-serif;font-size:0.7rem;font-weight:800;color:var(--muted,#6b8c85);text-decoration:none;white-space:nowrap;transition:all 0.15s;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent,#2a7d6f)';this.style.color='var(--accent,#2a7d6f)';" onmouseout="this.style.borderColor='var(--border,#cfddd8)';this.style.color='var(--muted,#6b8c85)';">🔑 Sign in</a>
@@ -223,10 +223,10 @@
   </div>
 </div>
 <!-- Projects dropdown (desktop) -->
-<div id="mel-projects-dropdown" class="sn-dropdown" role="menu" aria-label="My Projects">
+${PROJECTS_LINKS.length ? `<div id="mel-projects-dropdown" class="sn-dropdown" role="menu" aria-label="My Projects">
   <div class="sn-section-label">🌟 My Projects</div>
   ${PROJECTS_LINKS.map(l => navLink(l, ' role="menuitem"')).join('')}
-</div>
+</div>` : ''}
 <!-- Tools dropdown (desktop) -->
 <div id="mel-tools-dropdown" class="sn-dropdown" role="menu" aria-label="Daily Tools">
   <div class="sn-section-label">🔐 Daily Tools</div>
@@ -243,12 +243,12 @@
   <div class="dr-grid">
     ${PUBLIC_LINKS.map(l => navLink(l)).join('')}
   </div>
-  <div id="sn-drawer-projects">
+  ${PROJECTS_LINKS.length ? `<div id="sn-drawer-projects">
     <div class="dr-section-label">🌟 My Projects</div>
     <div class="dr-grid">
       ${PROJECTS_LINKS.map(l => navLink(l)).join('')}
     </div>
-  </div>
+  </div>` : ''}
   <div id="sn-drawer-signin" style="display:none;">
     <div class="dr-grid" style="grid-template-columns:1fr;">
       <a href="login.html" style="background:var(--accent,#2a7d6f);color:#fff;border-radius:10px;padding:11px 14px;font-weight:800;justify-content:center;">🔑 Sign in</a>

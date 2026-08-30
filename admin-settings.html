@@ -62,7 +62,7 @@
   // habits) were dropped entirely from this fork — see auth-guard.js /
   // client.config.js for the Tools/Mel split.
   var ADMIN_SECTION_TAB = {
-    toolusage:'tools', dailytools:'tools', 'delete-pin':'tools', caregiver:'tools', familyplans:'tools',
+    toolusage:'tools', tabdefaults:'tools', dailytools:'tools', 'delete-pin':'tools', caregiver:'tools', familyplans:'tools',
     voicecleanup:'tools', mydaycards:'tools', 'token-banner':'tools', mydayprot:'tools',
     mydaypin:'tools', mydayroutine:'tools', 'dayflow-activities':'tools',
     denylist:'site', groups:'site', perms:'site', stripemode:'site'
@@ -503,6 +503,7 @@
 
   <div class="admin-quicknav" id="adminQuicknav">
     <button class="admin-quicknav-btn" onclick="jumpToSection('toolusage')">Most Used Tools</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('tabdefaults')">Tab Bar Defaults</button>
     <button class="admin-quicknav-btn" onclick="jumpToSection('dailytools')">Daily Tools</button>
     <button class="admin-quicknav-btn" onclick="jumpToSection('mydaycards')">My Day sections</button>
     <button class="admin-quicknav-btn" onclick="jumpToSection('token-banner')">Tokens</button>
@@ -550,6 +551,41 @@
     <div id="toolusage-content"><div class="review-row-empty">Loading…</div></div>
     <button class="save-btn" onclick="loadToolUsage()" style="margin-top:12px;">🔄 Refresh</button>
     <span class="status-msg" id="toolusage-msg" style="margin-left:10px;"></span>
+  </div>
+
+<!-- Tab bar defaults — added 2026-08-08, promoted to its own collapsible
+     section 2026-08-30 per Marcelo (was a subsection of "My Daily Tools
+     settings"; now sits right under Most Used Tools, closed by default like
+     every other section here). Each account has its own "Icons before More"
+     count, tab order, and per-tab enabled/disabled state (Settings → Tabs —
+     Visibility & Order in my-daily-tools.html), stored per-user and synced
+     across that person's devices. This section sets the site-wide DEFAULT
+     for all three, and also seeds what the public demo starts with.
+     "Icons before More" and Tab order are a one-time PUSH: because "Save &
+     reset" stamps a version number, they force every account -- including
+     ones that already customized their own tab bar -- back to this default
+     the next time they open My Daily Tools; anyone can still re-customize
+     afterward. Per-tab "Enabled by default" (added 2026-08-30) works
+     differently on purpose, per Marcelo's "Local configuration should
+     overwrite this": it's a true default that only ever fills in a tab's
+     on/off state for someone who has NEVER touched that specific toggle
+     (a brand-new sign-up, or a demo/guest visitor) -- it never overwrites
+     anyone's own existing choice, no matter how many times this is saved. -->
+<div class="section-label collapsible" id="sec-tabdefaults" style="margin-top:40px;" onclick="toggleSection('tabdefaults')">Tab bar defaults<span class="section-chevron" id="tabdefaults-chevron">▾</span></div>
+  <div id="tabdefaults-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:14px;">Sets the default "Icons before More" count, tab order, and which tabs are on by default for My Daily Tools — including the public demo. "Icons before More" and order reset EVERY account, even ones that already customized their own tab bar. "Enabled by default" only fills in for accounts that have never touched that tab's own toggle; anyone's existing choice is always kept.</p>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:6px;">Icons before "More"</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;" id="admin-tb-max-visible-group"></div>
+    </div>
+
+    <div style="font-size:.8rem;font-weight:700;margin-bottom:2px;">Tab order &amp; defaults</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Tap ↑ ↓ to reorder. "Enabled by default" sets what a brand-new account or the demo starts with — it never changes an account that's already made its own choice.</div>
+    <div id="admin-tab-order-list" style="margin-bottom:14px;"></div>
+
+    <button class="save-btn" onclick="saveTabDefaults()">Save &amp; reset all accounts</button>
+    <span class="status-msg" id="tab-defaults-msg" style="margin-left:10px;"></span>
   </div>
 
 <div class="section-label collapsible" id="sec-dailytools" style="margin-top:40px;" onclick="toggleSection('dailytools')">My Daily Tools settings<span class="section-chevron" id="dailytools-chevron">▾</span></div>
@@ -600,31 +636,6 @@
       <span class="status-msg" id="dt-demo-msg" style="margin-left:10px;"></span>
     </div>
 
-    <!-- Tab bar defaults — added 2026-08-08. Each account has its own
-         "Icons before More" count and tab order (Settings → Tabs — Visibility
-         & Order in my-daily-tools.html), stored per-user and synced across
-         that person's devices. This block sets the site-wide DEFAULT for both
-         of those, and — because "Save & reset" also stamps a version number —
-         forces every account, including ones that already customized their
-         own tab bar, back to this default the next time they open My Daily
-         Tools. Anyone can still re-customize their own afterward; this is a
-         one-time push, not a lock. -->
-    <div style="padding:14px 0;border-top:1px solid var(--border);">
-      <div style="font-size:.85rem;font-weight:700;margin-bottom:2px;">Tab bar defaults</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;">Sets the default "Icons before More" count and tab order for My Daily Tools. Saving resets EVERY account (new sign-ups and accounts that already customized their own tab bar) back to what's configured below, the next time they open the page.</div>
-
-      <div style="margin-bottom:14px;">
-        <div style="font-size:.8rem;font-weight:700;margin-bottom:6px;">Icons before "More"</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;" id="admin-tb-max-visible-group"></div>
-      </div>
-
-      <div style="font-size:.8rem;font-weight:700;margin-bottom:2px;">Tab order</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Tap ↑ ↓ to reorder: e.g. Home, Plans, Calm, Calendar, Cycle, Value of Things.</div>
-      <div id="admin-tab-order-list" style="margin-bottom:14px;"></div>
-
-      <button class="save-btn" onclick="saveTabDefaults()">Save &amp; reset all accounts</button>
-      <span class="status-msg" id="tab-defaults-msg" style="margin-left:10px;"></span>
-    </div>
   </div>
 
 <div class="section-label collapsible" id="sec-delete-pin" style="margin-top:40px;" onclick="toggleSection('delete-pin')">Delete PIN (Wish List &amp; Goals)<span class="section-chevron" id="delete-pin-chevron">▾</span></div>
@@ -1274,6 +1285,21 @@
   const ADMIN_TAB_META = TN.TAB_META || {};
   let adminTabOrder = (TN.DEFAULT_TAB_ORDER || []).slice();
   let adminTabMaxVisible = TN.MAX_VISIBLE_DEFAULT || 5;
+  // Tab never gets an "Enabled by default" toggle -- it's the one tab that
+  // stays truly always-on in my-daily-tools.html (see that file's TAB_ENABLED
+  // comment). Every other key here mirrors that file's own hardcoded
+  // fallback defaults exactly, since tab-nav-shared.js's FLAGS doesn't
+  // carry a 'plans' entry (it treats Plans as always-on too, which
+  // my-daily-tools.html itself no longer does -- see its own comment on
+  // _plansTabEnabled) and this admin control has to match the real product,
+  // not the slightly-stale shared file.
+  const ADMIN_ALWAYS_ON_TAB = 'welcome';
+  const ADMIN_TAB_ENABLED_FALLBACK = {
+    home: true, plans: true, tasklists: false, myday: true, calendar: true,
+    cycle: false, calm: false, roadmap: false, wishlist: false, things: false,
+    rewards: false, help: true, settings: true,
+  };
+  let adminTabEnabled = Object.assign({}, ADMIN_TAB_ENABLED_FALLBACK);
 
   (async function loadTabDefaults() {
     try {
@@ -1287,6 +1313,11 @@
       const min = TN.MAX_VISIBLE_MIN || 3, max = TN.MAX_VISIBLE_MAX || 7;
       if (typeof cfg.maxVisible === 'number' && cfg.maxVisible >= min && cfg.maxVisible <= max) {
         adminTabMaxVisible = cfg.maxVisible;
+      }
+      if (cfg.enabled && typeof cfg.enabled === 'object') {
+        Object.keys(ADMIN_TAB_ENABLED_FALLBACK).forEach(t => {
+          if (typeof cfg.enabled[t] === 'boolean') adminTabEnabled[t] = cfg.enabled[t];
+        });
       }
     } catch (e) {}
     renderAdminTabMaxVisible();
@@ -1317,8 +1348,14 @@
     list.innerHTML = rows.map(function(tab, i) {
       const isFirst = i === 0, isLast = i === rows.length - 1;
       const meta = ADMIN_TAB_META[tab] || {};
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;' + (i > 0 ? 'border-top:1px solid var(--border);' : '') + '">'
-        + '<div style="flex:1;min-width:0;font-weight:700;font-size:.84rem;">' + (meta.icon || '') + ' ' + (meta.label || tab) + '</div>'
+      const canToggle = tab !== ADMIN_ALWAYS_ON_TAB && ADMIN_TAB_ENABLED_FALLBACK.hasOwnProperty(tab);
+      const isOn = canToggle ? adminTabEnabled[tab] !== false : true;
+      const enabledCell = canToggle
+        ? '<span class="toggle-switch ' + (isOn ? 'on' : '') + '" onclick="window.toggleAdminTabEnabled(\'' + tab + '\')" style="flex-shrink:0;"><span class="track"></span><span class="toggle-label" style="min-width:70px;">' + (isOn ? 'Enabled' : 'Disabled') + ' by default</span></span>'
+        : '<span style="flex-shrink:0;font-size:.72rem;color:var(--muted);min-width:70px;">Always on</span>';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap;' + (i > 0 ? 'border-top:1px solid var(--border);' : '') + '">'
+        + '<div style="flex:1;min-width:120px;font-weight:700;font-size:.84rem;">' + (meta.icon || '') + ' ' + (meta.label || tab) + '</div>'
+        + enabledCell
         + '<button onclick="window.moveAdminTab(\'' + tab + '\',-1)" style="' + arrowBtn + (isFirst ? 'opacity:.25;cursor:default;' : '') + '" ' + (isFirst ? 'disabled' : '') + '>↑</button>'
         + '<button onclick="window.moveAdminTab(\'' + tab + '\',1)" style="' + arrowBtn + (isLast ? 'opacity:.25;cursor:default;' : '') + '" ' + (isLast ? 'disabled' : '') + '>↓</button>'
         + '</div>';
@@ -1331,16 +1368,22 @@
     const tmp = adminTabOrder[idx]; adminTabOrder[idx] = adminTabOrder[newIdx]; adminTabOrder[newIdx] = tmp;
     renderAdminTabOrderList();
   };
+  window.toggleAdminTabEnabled = function(tab) {
+    if (!ADMIN_TAB_ENABLED_FALLBACK.hasOwnProperty(tab)) return;
+    adminTabEnabled[tab] = adminTabEnabled[tab] === false;
+    renderAdminTabOrderList();
+  };
   window.saveTabDefaults = async function() {
     const msg = document.getElementById('tab-defaults-msg');
-    if (!confirm('This resets EVERY account\'s "Icons before More" count and tab order back to what\'s configured here, including accounts that already customized their own tab bar. Continue?')) return;
+    if (!confirm('This resets EVERY account\'s "Icons before More" count and tab order back to what\'s configured here, including accounts that already customized their own tab bar ("Enabled by default" is the exception -- it only fills in for accounts that have never touched a given tab\'s toggle). Continue?')) return;
     try {
       await set(ref(db, 'tools-you-the-winner/config/tab-defaults'), {
         maxVisible: adminTabMaxVisible,
         order: adminTabOrder,
+        enabled: adminTabEnabled,
         forceVersion: Date.now(),
       });
-      flashStatus(msg, '✓ Saved. Every account resets to this the next time they open My Daily Tools.');
+      flashStatus(msg, '✓ Saved. Order/count reset every account now; "Enabled by default" applies the next time an account that\'s never touched a tab\'s toggle opens My Daily Tools (or the demo).');
     } catch (e) { flashStatus(msg, 'Error: ' + e.message, true); }
   };
 
