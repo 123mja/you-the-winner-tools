@@ -2,7 +2,7 @@
  * site-nav.js — Mel The Winner shared navigation
  * Drop ONE line anywhere in <body>: <script src="site-nav.js"></script>
  * The script injects CSS + sticky top nav + mobile drawer automatically.
- * Auth-aware: Mel's Tools links appear only when signed in.
+ * Auth-aware: Daily Tools links appear only when signed in.
  */
 (function () {
   'use strict';
@@ -228,8 +228,8 @@
   ${PROJECTS_LINKS.map(l => navLink(l, ' role="menuitem"')).join('')}
 </div>
 <!-- Tools dropdown (desktop) -->
-<div id="mel-tools-dropdown" class="sn-dropdown" role="menu" aria-label="Mel's Tools">
-  <div class="sn-section-label">🔐 Mel's Tools</div>
+<div id="mel-tools-dropdown" class="sn-dropdown" role="menu" aria-label="Daily Tools">
+  <div class="sn-section-label">🔐 Daily Tools</div>
   ${TOOLS_LINKS.map(l => navLink(l, ' role="menuitem"')).join('')}
   <div id="sn-admin-section" style="display:none;">
     <div class="sn-divider"></div>
@@ -255,7 +255,7 @@
     </div>
   </div>
   <div id="sn-drawer-tools" style="display:none;">
-    <div class="dr-section-label">🔐 Mel's Tools</div>
+    <div class="dr-section-label">🔐 Daily Tools</div>
     <div class="dr-grid">
       ${TOOLS_LINKS.map(l => navLink(l)).join('')}
     </div>
