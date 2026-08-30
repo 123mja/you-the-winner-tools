@@ -60,7 +60,9 @@
 
   /* ── HEADER ── */
   .page-back { display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--muted); text-decoration:none; margin-bottom:16px; transition:color 0.2s; }
+  @media (hover:hover) {
   .page-back:hover { color:var(--accent); }
+  }
   .page-header { text-align:center; margin-bottom:36px; }
   .page-emoji { font-size:3rem; line-height:1; margin-bottom:8px; display:block; }
   .page-title { font-family:'Nunito',sans-serif; font-size:clamp(1.6rem,5vw,2.2rem); font-weight:900; color:var(--text); }
@@ -88,7 +90,9 @@
     border-radius:16px; padding:14px 10px; cursor:pointer; transition:all 0.2s;
     min-width:80px; min-height:90px; font-family:'Nunito',sans-serif;
   }
+  @media (hover:hover) {
   .feeling-btn:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
+  }
   .feeling-btn.selected { transform:translateY(-4px) scale(1.05); box-shadow:0 8px 24px rgba(0,0,0,0.15); }
   .feeling-btn[data-level="1"].selected { border-color:#ef4444; background:#fee2e2; }
   .feeling-btn[data-level="2"].selected { border-color:#f97316; background:#ffedd5; }
@@ -116,7 +120,9 @@
     display:flex; align-items:center; gap:14px;
     min-height:60px;
   }
+  @media (hover:hover) {
   .strategy-card:hover { border-color:var(--accent); background:#e8f5f0; }
+  }
   .strategy-card.expanded { border-color:var(--accent); background:#e8f5f0; }
   .strategy-emoji { font-size:2rem; flex-shrink:0; }
   .strategy-text { flex:1; }
@@ -151,7 +157,9 @@
     padding:14px 28px; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.95rem;
     cursor:pointer; transition:all 0.2s; min-height:52px;
   }
+  @media (hover:hover) {
   .breath-btn:hover { filter:brightness(1.1); }
+  }
   .breath-btn.secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
   .breath-type-select {
     display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:16px;
@@ -172,7 +180,9 @@
     border-radius:14px; padding:16px 14px; text-align:center;
     cursor:pointer; transition:all 0.2s; min-height:90px;
   }
+  @media (hover:hover) {
   .sensory-card:hover { border-color:var(--accent); background:#e8f5f0; transform:translateY(-2px); }
+  }
   .sensory-emoji { font-size:2.2rem; margin-bottom:6px; }
   .sensory-name { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.88rem; color:var(--text); }
   .sensory-tip { font-size:0.75rem; color:var(--muted); margin-top:3px; line-height:1.4; }
@@ -235,7 +245,9 @@
     background:var(--surface2); border:2px solid var(--border);
     border-radius:14px; padding:16px 18px; cursor:pointer; transition:all 0.2s;
   }
+  @media (hover:hover) {
   .talk-prompt:hover { border-color:var(--accent); background:#e8f5f0; }
+  }
   .talk-prompt-q { font-family:'Nunito',sans-serif; font-weight:700; font-size:0.92rem; color:var(--text); margin-bottom:6px; }
   .talk-answer {
     width:100%; background:var(--surface); border:1.5px solid var(--border);
@@ -293,9 +305,13 @@
     padding:10px 22px; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.88rem;
     cursor:pointer; transition:all 0.2s; min-height:44px;
   }
+  @media (hover:hover) {
   .brain-nav-btn:hover { background:#e0f2fe; }
+  }
   .brain-nav-btn.primary { background:#0ea5e9; border-color:#0ea5e9; color:white; }
+  @media (hover:hover) {
   .brain-nav-btn.primary:hover { filter:brightness(1.1); }
+  }
 
   /* Brain SVG animations */
   @keyframes alarmPulse { 0%,100%{transform:scale(1);fill:#f87171;} 50%{transform:scale(1.18);fill:#ef4444;} }
@@ -326,7 +342,9 @@
     border-radius:14px; padding:12px 8px; cursor:pointer; transition:all 0.25s;
     text-align:center; color:var(--text); position:relative; overflow:hidden;
   }
+  @media (hover:hover) {
   .sound-btn:hover { background:#e8f5f0; border-color:var(--accent); transform:translateY(-2px); }
+  }
   .sound-btn.playing { background:#e8f5f0; border-color:var(--accent); box-shadow:0 0 0 3px rgba(42,125,111,0.15); }
   .sound-btn-icon { font-size:1.7rem; margin-bottom:5px; display:block; }
   .sound-btn-name { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.82rem; color:var(--text); }
@@ -369,7 +387,10 @@
      and overflow rule as my-daily-tools.html's tab bar (see tab-nav-shared.js). */
   .ssb-more-popover{display:none;position:fixed;z-index:1400;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 6px 24px rgba(15,31,28,.16);padding:6px;min-width:170px;}
   .ssb-more-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:9px;border:none;background:none;color:var(--text);text-decoration:none;font-family:'Quicksand',sans-serif;font-size:.82rem;text-align:left;}
-  .ssb-more-item:hover,.ssb-more-item.active{background:var(--surface2);color:var(--accent);}
+  @media (hover:hover) {
+  .ssb-more-item:hover{background:var(--surface2);color:var(--accent);}
+  }
+  .ssb-more-item.active{background:var(--surface2);color:var(--accent);}
 
   /* ── MY LOG / STREAK ── */
   .log-card { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:white; border-radius:var(--radius); padding:24px; text-align:center; }

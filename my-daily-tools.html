@@ -6110,55 +6110,71 @@
      siblings (Plan edit, Wishlist, etc.) — same 400px width, same fields,
      just less vertical air between them. -->
 <div id="rm-dialog-overlay" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeRmDialog()">
-  <div style="width:100%;max-width:400px;background:var(--surface);border-radius:18px;box-shadow:0 8px 40px rgba(15,31,28,.22);max-height:90vh;overflow-y:auto;">
+  <div style="width:100%;max-width:400px;background:var(--surface);border-radius:16px;box-shadow:0 8px 40px rgba(15,31,28,.22);max-height:90vh;overflow-y:auto;">
 
-    <!-- Sticky header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1.5px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1;border-radius:18px 18px 0 0;">
+    <!-- Sticky header (compacted 2026-08-30 per Marcelo: "roadmap line edit
+         dialog should be more compact") -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px 7px;border-bottom:1.5px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1;border-radius:16px 16px 0 0;">
       <div>
-        <div id="rm-dlg-icon" style="font-size:1.35rem;line-height:1;margin-bottom:2px;"></div>
-        <div id="rm-dlg-title" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);"></div>
-        <div id="rm-dlg-desc" style="font-size:.72rem;color:var(--muted);margin-top:1px;"></div>
+        <div id="rm-dlg-icon" style="font-size:1.15rem;line-height:1;margin-bottom:1px;"></div>
+        <div id="rm-dlg-title" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;color:var(--text);"></div>
+        <div id="rm-dlg-desc" style="font-size:.68rem;color:var(--muted);margin-top:1px;"></div>
       </div>
-      <button onclick="closeRmDialog()" style="background:var(--surface2);border:none;width:28px;height:28px;border-radius:50%;font-size:1.05rem;line-height:1;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:10px;">×</button>
+      <button onclick="closeRmDialog()" style="background:var(--surface2);border:none;width:24px;height:24px;border-radius:50%;font-size:.95rem;line-height:1;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:10px;">×</button>
     </div>
 
-    <div style="padding:14px 16px 16px;">
+    <div style="padding:10px 14px 12px;">
 
       <!-- Editable title -->
-      <div style="font-family:'Nunito',sans-serif;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px;">My name for this step</div>
-      <input id="rm-dlg-custom-title" type="text" placeholder="" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:10px;font-family:'Nunito',sans-serif;font-size:.86rem;background:var(--bg);color:var(--text);outline:none;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;">My name for this step</div>
+      <input id="rm-dlg-custom-title" type="text" placeholder="" style="width:100%;padding:6px 10px;border:2px solid var(--border);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.82rem;background:var(--bg);color:var(--text);outline:none;margin-bottom:8px;box-sizing:border-box;">
 
       <!-- Status -->
-      <div style="font-family:'Nunito',sans-serif;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;">Where am I with this?</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
-        <button onclick="setRmStatus('not-started')" id="rm-st-not-started" class="rm-st-btn" style="width:100%;padding:9px 14px;border-radius:10px;border:2px solid var(--border);background:var(--bg);font-size:.84rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:1rem;">😴</span> Not started yet
+      <div style="font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;">Where am I with this?</div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:9px;">
+        <button onclick="setRmStatus('not-started')" id="rm-st-not-started" class="rm-st-btn" style="width:100%;padding:6px 11px;border-radius:9px;border:2px solid var(--border);background:var(--bg);font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;">
+          <span style="font-size:.92rem;">😴</span> Not started yet
         </button>
-        <button onclick="setRmStatus('working-on-it')" id="rm-st-working-on-it" class="rm-st-btn" style="width:100%;padding:9px 14px;border-radius:10px;border:2px solid var(--border);background:var(--bg);font-size:.84rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:1rem;">🔥</span> I am working on it!
+        <button onclick="setRmStatus('working-on-it')" id="rm-st-working-on-it" class="rm-st-btn" style="width:100%;padding:6px 11px;border-radius:9px;border:2px solid var(--border);background:var(--bg);font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;">
+          <span style="font-size:.92rem;">🔥</span> I am working on it!
         </button>
-        <button onclick="setRmStatus('achieved')" id="rm-st-achieved" class="rm-st-btn" style="width:100%;padding:9px 14px;border-radius:10px;border:2px solid var(--border);background:var(--bg);font-size:.84rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:1rem;">🏆</span> I did it!
+        <button onclick="setRmStatus('achieved')" id="rm-st-achieved" class="rm-st-btn" style="width:100%;padding:6px 11px;border-radius:9px;border:2px solid var(--border);background:var(--bg);font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;">
+          <span style="font-size:.92rem;">🏆</span> I did it!
         </button>
       </div>
 
-      <!-- Goal date -->
-      <div style="font-family:'Nunito',sans-serif;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px;">Goal date (when I want this done)</div>
-      <input id="rm-dlg-date" type="date" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:10px;font-family:'Nunito',sans-serif;font-size:.86rem;background:var(--bg);color:var(--text);outline:none;margin-bottom:12px;box-sizing:border-box;">
+      <!-- Goal date + Support link, side by side (2026-08-30: merged into
+           one row -- both are short single-line inputs, so pairing them
+           saves a whole label+input's worth of vertical space vs stacking
+           them, which is most of this dialog's compaction; also adds the
+           new support-link field Marcelo asked for). -->
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;">Goal date</div>
+          <input id="rm-dlg-date" type="date" style="width:100%;padding:6px 8px;border:2px solid var(--border);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.78rem;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Support link</span>
+            <span onclick="window.rmOpenSupportLink()" title="Open link" style="cursor:pointer;color:var(--accent);font-size:.72rem;font-weight:800;line-height:1;">↗</span>
+          </div>
+          <input id="rm-dlg-link" type="url" placeholder="https://…" style="width:100%;padding:6px 8px;border:2px solid var(--border);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.78rem;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;">
+        </div>
+      </div>
 
       <!-- My note -->
-      <div style="font-family:'Nunito',sans-serif;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px;">My notes and memories</div>
-      <textarea id="rm-dlg-note" rows="2" placeholder="Write a thought, a plan, or a memory about this goal…" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:10px;font-family:'Nunito',sans-serif;font-size:.84rem;background:var(--bg);color:var(--text);outline:none;resize:none;box-sizing:border-box;margin-bottom:12px;line-height:1.4;"></textarea>
+      <div style="font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;">My notes and memories</div>
+      <textarea id="rm-dlg-note" rows="2" placeholder="Write a thought, a plan, or a memory about this goal…" style="width:100%;padding:6px 10px;border:2px solid var(--border);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.8rem;background:var(--bg);color:var(--text);outline:none;resize:none;box-sizing:border-box;margin-bottom:8px;line-height:1.35;"></textarea>
 
-      <!-- Last updated (2026-08-17 (2), read-only) — set automatically to
-           "now" every time this record is saved (dialog Save or a quick
-           status-cycle tap on the mini card), so there's always an honest
-           record of when it last changed. Hidden entirely until a record
-           has actually been saved once. -->
-      <div id="rm-dlg-updated" style="font-size:.68rem;color:var(--muted);margin-bottom:12px;display:none;"></div>
+      <!-- Last updated (read-only) -- set automatically to "now" every time
+           this record is saved (dialog Save or a quick status-cycle tap on
+           the mini card), so there's always an honest record of when it
+           last changed. Hidden entirely until a record has actually been
+           saved once. -->
+      <div id="rm-dlg-updated" style="font-size:.64rem;color:var(--muted);margin-bottom:9px;display:none;"></div>
 
       <!-- Save -->
-      <button onclick="saveRmDialog()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;cursor:pointer;letter-spacing:.02em;">Save my update</button>
+      <button onclick="saveRmDialog()" style="width:100%;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:11px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;letter-spacing:.02em;">Save my update</button>
     </div>
   </div>
 </div>
@@ -6321,6 +6337,8 @@ window.openRmDialog = function(id) {
   });
   const di = document.getElementById('rm-dlg-date');
   if(di) di.value = d.targetDate||'';
+  const li = document.getElementById('rm-dlg-link');
+  if(li) li.value = d.supportLink||'';
   const ni = document.getElementById('rm-dlg-note');
   if(ni) ni.value = d.note||'';
   const ui = document.getElementById('rm-dlg-updated');
@@ -6336,6 +6354,12 @@ window.closeRmDialog = function() {
   if(ov) ov.style.display='none';
   _rmCurrentId = null;
 };
+window.rmOpenSupportLink = function() {
+  var v = ((document.getElementById('rm-dlg-link')||{}).value||'').trim();
+  if(!v) { window.showToast && window.showToast('No support link saved yet'); return; }
+  if(!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  window.open(v, '_blank', 'noopener');
+};
 window.setRmStatus = function(st) {
   ['not-started','working-on-it','achieved'].forEach(function(s){
     const b = document.getElementById('rm-st-'+s);
@@ -6347,10 +6371,11 @@ window.saveRmDialog = function() {
   const statusBtn = document.querySelector('.rm-st-btn.rm-active-st');
   const st = statusBtn ? statusBtn.id.replace('rm-st-','') : 'not-started';
   const targetDate = (document.getElementById('rm-dlg-date')||{}).value||'';
+  const supportLink = ((document.getElementById('rm-dlg-link')||{}).value||'').trim();
   const note = ((document.getElementById('rm-dlg-note')||{}).value||'').trim();
   const customTitle = ((document.getElementById('rm-dlg-custom-title')||{}).value||'').trim();
   const prev = (_rmData[_rmCurrentId]||{}).status;
-  _rmData[_rmCurrentId] = { status:st, targetDate, note, updatedAt: Date.now(), ...(customTitle ? {customTitle} : {}) };
+  _rmData[_rmCurrentId] = { status:st, targetDate, note, updatedAt: Date.now(), ...(customTitle ? {customTitle} : {}), ...(supportLink ? {supportLink} : {}) };
   // save via firebase module (exposed as window.saveRoadmapMilestone)
   if(window.saveRoadmapMilestone) window.saveRoadmapMilestone(_rmCurrentId, _rmData[_rmCurrentId]);
   window.closeRmDialog();
@@ -6648,6 +6673,18 @@ window.removeRmMilestone = function(pi, mi) {
     <div style="padding:18px 20px 22px;">
       <div style="font-size:.76rem;color:var(--muted);margin-bottom:14px;line-height:1.5;">Every tool here was designed to be clear, calm, and easy to use, especially for people who benefit from structure and low visual noise.</div>
 
+      <!-- Home (2026-08-30: added, was missing entirely -- per Marcelo,
+           "Home tab capabilities not included for today's message
+           exchange, requests, shared alarms". Internally this tab's id is
+           "welcome" (pane-welcome); the tab literally labeled "Home" in
+           the app, not to be confused with the tab labeled "Money" which
+           happens to use the id "home" -- see TAB_META in the module
+           script if that ever needs untangling again. -->
+      <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:14px;">
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;margin-bottom:4px;">🏠 Home</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> Your day at a glance: a weather-aware greeting, Today's Message back and forth with your caregiver or the person you support, a Requests inbox for asking for things like a ride, a budget, or an opinion on a plan, plus alarms and a countdown timer.<br><strong style="color:var(--text);">How to use:</strong> Tap 💌 Today's Message to write or read the day's note. Tap 📋 Requests to submit a new request or check whether an existing one is still pending, approved, or not approved. Tap the small clock icon next to the date/time to set one or more alarms (once, or repeating on chosen weekdays) or start a countdown timer.<br><strong style="color:var(--text);">Accessibility tip:</strong> Today's Message and Requests are built for exactly this: staying in touch with a caregiver or supported person without needing a live conversation. Alarms and the countdown are saved on this device only, so they won't follow you to a different phone or computer.</div>
+      </div>
+
       <!-- Plans -->
       <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:14px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;margin-bottom:4px;">🌱 Plans</div>
@@ -6673,10 +6710,14 @@ window.removeRmMilestone = function(pi, mi) {
         <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> A daily check-in for how you feel: mood, energy, sleep, medication, and activities. Also works as a <strong style="color:var(--text);">caregiver daily report</strong>: when someone with special needs is in a group setting or away from family, the staff or caregiver fills it in each day, and parents can review the History tab to know exactly how their loved one is doing (mood, sleep, meds, activities) even when they're not nearby. It's a calm, structured way for families to stay connected and feel at ease.<br><strong style="color:var(--text);">How to use:</strong> Fill in the cards each day. Tap the emoji that matches your mood. Check any activity you did. View past entries in History.<br><strong style="color:var(--text);">Accessibility tip:</strong> Each card can be opened or closed. Start with just mood if everything else feels like too much.</div>
       </div>
 
-      <!-- Calendar -->
+      <!-- Calendar (rewritten 2026-08-30, per Marcelo: "Calendar it is not
+           incorporating the new ytw schedule capabilities" -- this section
+           still described the old Google-Calendar-only behavior from
+           before the native YTW Schedule (shifts, Payroll Report, ICS
+           feed) existed. -->
       <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:14px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;margin-bottom:4px;">📅 Calendar</div>
-        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> Opens your shared Google Calendar in a new tab.<br><strong style="color:var(--text);">How to use:</strong> Enable the Calendar tab in Settings above, then tap it any time to see your schedule. Requires being signed in.<br><strong style="color:var(--text);">Accessibility tip:</strong> Useful if you like seeing your week before starting tasks. Keep it off if it creates too much visual noise.</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> Two ways to see your schedule, switchable at the top: the built-in 🗓️ YTW Schedule (add and track your own shifts, right in the app, no Google account needed) or your existing Google Calendar.<br><strong style="color:var(--text);">How to use:</strong> Enable the Calendar tab in Settings, then tap "🗓️ YTW Schedule" or "Google Calendar" to switch views. On YTW Schedule: add a shift, confirm it as worked once it's done, and browse by Month, Week or Year. The ☰ menu on Week view has Paste a Week, Copy Last Week, and Duplicate Day for fast repeat scheduling. Tap the payroll icon on Week view to open the Payroll Report and estimate hours, pay, and take-home for the week, pay period, month, or year (set your hourly rate in Settings first). Turn on "🔗 Publish My Schedule" in Settings to get a private link that Google Calendar, Apple Calendar, or Outlook can subscribe to.<br><strong style="color:var(--text);">Accessibility tip:</strong> YTW Schedule keeps everything shift-based, predictable, and requires no sign-in of its own; switch to Google Calendar instead if that's where your appointments already live.</div>
       </div>
 
       <!-- Cycle -->
@@ -6688,7 +6729,7 @@ window.removeRmMilestone = function(pi, mi) {
       <!-- Roadmap -->
       <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:14px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;margin-bottom:4px;">🗺️ Roadmap for Life</div>
-        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> A visual life milestone tracker: big life goals organized in phases, like a game you are winning.<br><strong style="color:var(--text);">How to use:</strong> Tap any step to update its status (Not started, Working on it, I did it!). Add a personal note or goal date. Rename steps or add new phases in Roadmap Settings.<br><strong style="color:var(--text);">Accessibility tip:</strong> The phases break big goals into smaller, less overwhelming pieces. You can rename any step to match your own words and goals.</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> A visual life milestone tracker: big life goals organized in phases, like a game you are winning.<br><strong style="color:var(--text);">How to use:</strong> Tap any step to update its status (Not started, Working on it, I did it!). Add a personal note, a goal date, and now a support link (a job posting, an enrollment page, anything useful for that step). Rename steps or add new phases in Roadmap Settings.<br><strong style="color:var(--text);">Accessibility tip:</strong> The phases break big goals into smaller, less overwhelming pieces. You can rename any step to match your own words and goals.</div>
       </div>
 
       <!-- Calm Corner -->
@@ -8416,8 +8457,23 @@ window.removeRmMilestone = function(pi, mi) {
       <select class="modal-select" id="modal-acct-2"></select>
     </div>
     <label class="modal-label">How much?</label>
-    <div class="quick-amounts" id="quick-amounts"></div>
-    <input class="amount-input" id="modal-amount" type="number" min="0" placeholder="$0.00" inputmode="decimal">
+    <!-- Redesigned 2026-08-30 per Marcelo: "no need to show predefined
+         values because it is unknown what will be entered" -- the old
+         6-button quick-amounts row (5 fixed dollar presets + "Other...")
+         is gone. In its place: a big tap target showing the current
+         amount (double-tap it to seed a $10 starting point -- see
+         window.handleMoneyAmtTap, same click-timer double-tap pattern as
+         the Roadmap cards use, since native dblclick is unreliable on
+         touch) plus a slider to drag it up or down from there. The plain
+         number input below still exists for typing an exact amount --
+         both stay in sync with each other via window.moneyAmtSliderInput /
+         window.moneyAmtNumberInput, and submitTransaction() still just
+         reads #modal-amount's value, unchanged. -->
+    <div class="money-amt-wrap">
+      <div class="money-amt-display" id="money-amt-display" onclick="window.handleMoneyAmtTap()">$0</div>
+      <input type="range" class="money-amt-slider" id="money-amt-slider" min="0" max="200" step="1" value="0" oninput="window.moneyAmtSliderInput(this.value)" aria-label="Drag to set amount">
+    </div>
+    <input class="amount-input amount-input-compact" id="modal-amount" type="number" min="0" placeholder="or type an exact amount" inputmode="decimal" oninput="window.moneyAmtNumberInput(this.value)">
     <div id="modal-cat-wrap">
       <label class="modal-label" id="modal-cat-label">Category</label>
       <select class="modal-select" id="modal-cat"></select>
@@ -11996,12 +12052,10 @@ window.toggleSection = toggleSection;
 
 /* ── MONEY MODAL ── */
 let _modalType = 'got';
-const QUICK_AMOUNTS = [10, 20, 50, 100, 200];
 function openMoneyModal(type) {
   setModalType(type || 'got');
-  document.getElementById('modal-amount').value = '';
   document.getElementById('modal-note').value = '';
-  document.querySelectorAll('.qa-btn').forEach(b=>b.classList.remove('selected'));
+  window.moneyAmtSliderInput(0);
   try { populateModalSelects(); } catch(e) { console.warn('populateModalSelects:', e); }
   document.getElementById('money-modal').classList.add('open');
 }
@@ -12017,12 +12071,6 @@ function setModalType(type) {
     if(!btn) return;
     btn.className = 'type-tab' + (t===type ? ' active-'+t : '');
   });
-  // Quick amounts
-  const qa = document.getElementById('quick-amounts');
-  if(qa) {
-    qa.innerHTML = QUICK_AMOUNTS.map(a=>`<button class="qa-btn" onclick="selectQA(this,${a})">${type==='spent'?'-':'+'}$${a}</button>`).join('') +
-      `<button class="qa-btn" onclick="document.getElementById('modal-amount').focus()">Other…</button>`;
-  }
   // Acct2 visibility
   document.getElementById('modal-acct-2-wrap').style.display = type==='move' ? '' : 'none';
   document.getElementById('modal-cat-wrap').style.display = type==='move' ? 'none' : '';
@@ -12036,12 +12084,38 @@ function setModalType(type) {
 }
 window.setModalType = setModalType;
 
-function selectQA(btn, amt) {
-  document.querySelectorAll('.qa-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-  document.getElementById('modal-amount').value = amt;
+// Amount slider/display <-> #modal-amount number input, kept in sync both
+// directions (2026-08-30, replaces the old fixed-preset selectQA/.qa-btn
+// row -- see the HTML comment above the money-amt-wrap markup).
+let _moneyAmtTapTimer = null;
+window.handleMoneyAmtTap = function() {
+  if (_moneyAmtTapTimer) {
+    clearTimeout(_moneyAmtTapTimer);
+    _moneyAmtTapTimer = null;
+    window.moneyAmtSliderInput(10); // double-tap: seed a $10 starting point to slide from
+    return;
+  }
+  _moneyAmtTapTimer = setTimeout(function () { _moneyAmtTapTimer = null; }, 320);
+};
+function _moneyAmtFmt(amt) {
+  return Number.isInteger(amt) ? String(amt) : amt.toFixed(2);
 }
-window.selectQA = selectQA;
+window.moneyAmtSliderInput = function(v) {
+  const amt = Math.max(0, Number(v) || 0);
+  const slider = document.getElementById('money-amt-slider');
+  if (slider) slider.value = amt;
+  const disp = document.getElementById('money-amt-display');
+  if (disp) disp.textContent = '$' + _moneyAmtFmt(amt);
+  const input = document.getElementById('modal-amount');
+  if (input) input.value = amt ? amt : '';
+};
+window.moneyAmtNumberInput = function(v) {
+  const amt = Math.max(0, Number(v) || 0);
+  const slider = document.getElementById('money-amt-slider');
+  if (slider) slider.value = Math.min(Number(slider.max) || 200, amt);
+  const disp = document.getElementById('money-amt-display');
+  if (disp) disp.textContent = '$' + _moneyAmtFmt(amt);
+};
 
 function populateModalSelects() {
   const accts = getAccounts();
