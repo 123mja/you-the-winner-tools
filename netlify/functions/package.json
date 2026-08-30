@@ -1,0 +1,9 @@
+{
+  "name": "you-the-winner-engine-functions",
+  "private": true,
+  "description": "Dependencies for netlify/functions/*.js, installed by Netlify at deploy time. Nothing here ships to the browser -- the rest of this project has no build step and no npm dependencies at all; this package.json exists only because the Stripe webhook/checkout functions in this folder need server-side packages a static HTML/JS site can't load from a CDN <script> tag.",
+  "dependencies": {
+    "stripe": "^16.0.0",
+    "firebase-admin": "^12.0.0"
+  }
+}

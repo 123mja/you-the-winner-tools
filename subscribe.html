@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+  REAL SUBSCRIBE FLOW -- wired to the live Netlify Functions backend as of
+  2026-08-21 (SUBSCRIPTION-ARCHITECTURE.md step 4). Was a design-only
+  preview before this date (fake setTimeout "Redirecting..." step, no real
+  account or payment) -- see the you-the-winner-engine-SKILL.md changelog
+  entry for this date for the full rebuild notes.
+
+  Flow: Step 1 picks Base (always included) + optional Wellness / Goals &
+  Motivation / Calendar packs and a Monthly/Annual interval, computing a
+  live total from the real Stripe prices. Step 2 requires Google sign-in
+  (reusing the same Firebase Auth + denylist-check pattern as login.html)
+  so there's a Firebase uid to attach the purchase to. Step 3 POSTs
+  {uid, email, interval, packs} to /.netlify/functions/create-checkout-session
+  and redirects the browser to the Stripe-hosted Checkout URL it returns --
+  from there the page navigates AWAY to Stripe, then Stripe sends the
+  browser to my-daily-tools.html?checkout=success (or back here with
+  ?checkout=canceled) per that function's success_url/cancel_url. There is
+  no in-page "Done" step anymore for that reason.
+
+  Whether this charges a real card or Stripe's fake test card depends
+  entirely on admin-settings.html's "Stripe billing mode" toggle -- this
+  page has no mode picker of its own, by design; that decision lives in one
+  admin-only place, not scattered across every entry point into checkout.
+-->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscribe · You the Winner</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232a7d6f'/><text x='16' y='23' font-family='Nunito,sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'>M</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <!-- Google Analytics (Engine/Tools funnel) -->
+  <script type="module">
+    import { CLIENT } from "./client.config.js";
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function(){ dataLayer.push(arguments); };
+    var gaScript = document.createElement("script");
+    gaScript.async = true;
+    gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.toolsAnalyticsId;
+    document.head.appendChild(gaScript);
+    gtag("js", new Date());
+    gtag("config", CLIENT.toolsAnalyticsId);
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #f0f5f3;
+      --surface:     #ffffff;
+      --surface2:    #e8f0ed;
+      --surface3:    #ddeee8;
+      --border:      #cfddd8;
+      --text:        #0f1f1c;
+      --muted:       #6b8c85;
+      --accent:      #2a7d6f;
+      --accent2:     #1a5c7a;
+      --accent-light: #e0eeea;
+      --gold:        #f9a825;
+      --gold-bg:     #fefbe8;
+      --error:       #c0392b;
+      --error-bg:    #fdecea;
+    }
+    body {
+      font-family: 'Quicksand', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+    a { color: inherit; }
+
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 480px; margin: 0 auto; padding: 16px 18px 4px;
+    }
+    .back-link {
+      font-size: .78rem; font-weight: 700; color: var(--muted);
+      text-decoration: none; display: flex; align-items: center; gap: 4px;
+    }
+    .brand {
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .78rem;
+      color: var(--accent); display: flex; align-items: center; gap: 6px;
+    }
+
+    .wrap { max-width: 480px; margin: 0 auto; padding: 10px 18px 20px; }
+
+    .canceled-note {
+      display: none; font-size: .78rem; color: var(--error); background: var(--error-bg);
+      border: 1px solid #f3b7b0; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px;
+    }
+    .canceled-note.show { display: block; }
+
+    /* ── STEP INDICATOR ── */
+    .steps {
+      display: flex; align-items: center; justify-content: center;
+      gap: 4px; margin: 10px 0 22px;
+    }
+    .step-dot {
+      display: flex; align-items: center; gap: 4px;
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .66rem;
+      color: var(--muted);
+    }
+    .step-dot .num {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .66rem; color: var(--muted); transition: all .2s;
+    }
+    .step-dot.active .num { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .step-dot.done .num { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+    .step-dot.active .label, .step-dot.done .label { color: var(--text); }
+    .step-line { width: 18px; height: 1.5px; background: var(--border); }
+    .step-dot .label { display: none; }
+    @media (min-width: 420px) { .step-dot .label { display: inline; } }
+
+    /* ── STEP PANELS ── */
+    .step-panel { display: none; }
+    .step-panel.active { display: block; animation: fadeIn .25s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to {opacity:1; transform:translateY(0);} }
+
+    .panel-title {
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.3rem;
+      margin-bottom: 4px;
+    }
+    .panel-sub { font-size: .8rem; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+
+    /* ── INTERVAL TOGGLE (step 1) ── */
+    .interval-toggle {
+      display: flex; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 99px; padding: 3px; margin-bottom: 16px;
+    }
+    .interval-btn {
+      flex: 1; text-align: center; padding: 8px 6px; border-radius: 99px; cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .78rem; color: var(--muted);
+      transition: all .15s; user-select: none;
+    }
+    .interval-btn.active { background: var(--accent); color: #fff; }
+    .interval-btn small { display: block; font-weight: 600; font-size: .62rem; margin-top: 1px; }
+
+    /* ── PLAN / PACK CARDS (step 1) ── */
+    .plan-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+    .plan-card {
+      background: var(--surface); border: 2px solid var(--border);
+      border-radius: 14px; padding: 14px 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .plan-card.base { cursor: default; }
+    .plan-card:hover:not(.base) { border-color: var(--soft, var(--accent)); }
+    .plan-card.selected { border-color: var(--accent); box-shadow: 0 4px 16px rgba(42,125,111,.15); background: linear-gradient(160deg,#f0faf7 0%,#fff 100%); }
+    .plan-card .radio {
+      width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 12px;
+    }
+    .plan-card.base .radio { border-radius: 50%; }
+    .plan-card.selected .radio { border-color: var(--accent); background: var(--accent); }
+    .plan-card.selected .radio::after { content:'✓'; color:#fff; font-size: .68rem; font-weight: 800; }
+    .plan-card.base.selected .radio::after { content:''; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+    .plan-info { display: flex; align-items: center; flex: 1; }
+    .plan-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .92rem; }
+    .plan-tag {
+      font-size: .6rem; font-weight: 700; color: var(--accent); background: var(--accent-light);
+      border-radius: 6px; padding: 1px 6px; margin-left: 7px; vertical-align: middle;
+    }
+    .plan-desc { font-size: .72rem; color: var(--muted); margin-top: 1px; }
+    .plan-price { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.05rem; text-align: right; white-space: nowrap; }
+    .plan-price small { display: block; font-size: .62rem; font-weight: 600; color: var(--muted); }
+
+    .bundle-hint {
+      font-size: .68rem; color: var(--accent); background: var(--accent-light);
+      border-radius: 8px; padding: 8px 10px; margin: 10px 0; line-height: 1.5; display: none;
+    }
+    .bundle-hint.show { display: block; }
+
+    .total-row {
+      display: flex; align-items: baseline; justify-content: space-between;
+      background: var(--surface3); border-radius: 12px; padding: 12px 16px; margin: 16px 0;
+    }
+    .total-lbl { font-size: .76rem; color: var(--muted); font-weight: 700; }
+    .total-amt { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.2rem; }
+    .total-amt small { font-size: .68rem; font-weight: 600; color: var(--muted); }
+
+    /* ── SIGN IN (step 2) ── */
+    .google-btn {
+      width: 100%; background: var(--surface); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 12px; padding: 13px;
+      font-family: 'Quicksand', sans-serif; font-size: 0.92rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .google-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+    .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .google-btn img { width: 18px; height: 18px; }
+    .signed-in-box {
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .signed-in-box .who { font-size: .84rem; }
+    .signed-in-box .who small { display:block; color: var(--muted); font-size: .68rem; }
+    .link-btn { background:none; border:none; color: var(--muted); font-size: .72rem; text-decoration: underline; cursor: pointer; }
+    .error-box {
+      background: var(--error-bg); border: 1px solid #f5c6c4; border-radius: 10px;
+      padding: 10px 14px; font-size: 0.82rem; color: var(--error); margin-bottom: 14px; display: none;
+    }
+    .error-box.show { display: block; }
+
+    /* ── PAYMENT (step 3) ── */
+    .confirm-summary {
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; text-align: left; margin: 0 0 16px; font-size: .8rem; line-height: 2;
+    }
+    .confirm-summary .row { display: flex; justify-content: space-between; }
+    .confirm-summary .lbl { color: var(--muted); }
+    .pay-note {
+      font-size: .68rem; color: var(--muted); text-align: center; line-height: 1.5; margin-top: 10px;
+    }
+
+    .redirect-box { display: none; text-align: center; padding: 30px 10px; }
+    .redirect-box.active { display: block; }
+    .spinner {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 3px solid var(--border); border-top-color: var(--accent);
+      margin: 0 auto 14px; animation: spin 0.8s linear infinite;
+    }
+    .btn-spinner {
+      display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      margin-right: 6px; vertical-align: middle; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .redirect-title { font-family:'Nunito',sans-serif; font-weight: 800; font-size: .95rem; margin-bottom: 4px; }
+    .redirect-sub { font-size: .76rem; color: var(--muted); }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      width: 100%; padding: 13px 8px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 14px;
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .92rem;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(42,125,111,.25);
+    }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+    .btn-text {
+      width: 100%; padding: 10px 8px; margin-top: 8px;
+      background: none; border: none; color: var(--muted);
+      font-family: 'Quicksand', sans-serif; font-weight: 600; font-size: .78rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Change color theme" aria-label="Change color theme">🌿</button>
+
+<div class="top-bar">
+  <a class="back-link" href="daily-tools-landing.html">← Back</a>
+  <div class="brand">🌿 You the Winner</div>
+</div>
+
+<div class="wrap">
+
+  <div class="canceled-note" id="canceledNote">Checkout was canceled — no charge was made. Pick your plan below to try again.</div>
+
+  <div class="steps" id="stepIndicator">
+    <div class="step-dot active" data-step="1"><span class="num">1</span><span class="label">Plan</span></div>
+    <div class="step-line"></div>
+    <div class="step-dot" data-step="2"><span class="num">2</span><span class="label">Sign in</span></div>
+    <div class="step-line"></div>
+    <div class="step-dot" data-step="3"><span class="num">3</span><span class="label">Payment</span></div>
+  </div>
+
+  <!-- ── STEP 1: PLAN & PACKS ── -->
+  <div class="step-panel active" id="panel-1">
+    <div class="panel-title">Build your plan</div>
+    <div class="panel-sub">The Base plan is always included. Add any packs you want — cancel or change anytime.</div>
+
+    <div class="interval-toggle">
+      <div class="interval-btn active" data-interval="month" onclick="selectInterval('month')">Monthly</div>
+      <div class="interval-btn" data-interval="year" onclick="selectInterval('year')">Annual<small>save on packs</small></div>
+    </div>
+
+    <div class="plan-grid">
+      <div class="plan-card base selected">
+        <div class="plan-info">
+          <div class="radio"></div>
+          <div>
+            <div class="plan-name">Base Plan <span class="plan-tag">Included</span></div>
+            <div class="plan-desc">Core Daily Tools — always part of every plan</div>
+          </div>
+        </div>
+        <div class="plan-price" id="price-base">$7.99<small>/ month</small></div>
+      </div>
+      <div class="plan-card" data-pack="wellness" onclick="togglePack('wellness')">
+        <div class="plan-info">
+          <div class="radio"></div>
+          <div>
+            <div class="plan-name">Wellness Pack</div>
+            <div class="plan-desc">Cycle tracking, mood &amp; wellbeing tools</div>
+          </div>
+        </div>
+        <div class="plan-price" id="price-wellness">$10.98<small>/ month</small></div>
+      </div>
+      <div class="plan-card" data-pack="goals" onclick="togglePack('goals')">
+        <div class="plan-info">
+          <div class="radio"></div>
+          <div>
+            <div class="plan-name">Goals &amp; Motivation Pack</div>
+            <div class="plan-desc">Roadmap, rewards &amp; goal tracking</div>
+          </div>
+        </div>
+        <div class="plan-price" id="price-goals">$11.98<small>/ month</small></div>
+      </div>
+      <div class="plan-card" data-pack="calendar" onclick="togglePack('calendar')">
+        <div class="plan-info">
+          <div class="radio"></div>
+          <div>
+            <div class="plan-name">Calendar</div>
+            <div class="plan-desc">Shared schedule &amp; agenda tools</div>
+          </div>
+        </div>
+        <div class="plan-price" id="price-calendar">$9.48<small>/ month</small></div>
+      </div>
+    </div>
+
+    <div class="bundle-hint" id="bundleHint">🎉 All three packs selected — you're automatically getting the <b>Complete</b> bundle price instead of paying for each separately.</div>
+
+    <div class="total-row">
+      <div class="total-lbl">Total due today</div>
+      <div class="total-amt" id="totalAmt">$7.99<small>/ month</small></div>
+    </div>
+
+    <button class="btn-primary" onclick="goToStep(2)">Continue</button>
+  </div>
+
+  <!-- ── STEP 2: SIGN IN ── -->
+  <div class="step-panel" id="panel-2">
+    <div class="panel-title">Sign in</div>
+    <div class="panel-sub">This creates your private account — separate from the free demo — and attaches your purchase to it.</div>
+
+    <div class="error-box" id="signinError"></div>
+
+    <div id="signin-needed">
+      <button class="google-btn" id="googleBtn" onclick="signInWithGoogle()">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='18' height='18'%3E%3Cpath fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%23FF3D00' d='M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z'/%3E%3C/svg%3E" alt="" />
+        <span id="googleBtnLabel">Continue with Google</span>
+      </button>
+    </div>
+
+    <div class="signed-in-box" id="signin-done" style="display:none;">
+      <div class="who">Signed in as<small id="signedInEmail"></small></div>
+      <button class="link-btn" onclick="signOutNow()">Sign out</button>
+    </div>
+
+    <button class="btn-primary" id="continueToPayBtn" style="display:none;margin-top:6px;" onclick="goToStep(3)">Continue to payment</button>
+    <button class="btn-text" onclick="goToStep(1)">← Back to plan</button>
+  </div>
+
+  <!-- ── STEP 3: PAYMENT ── -->
+  <div class="step-panel" id="panel-3">
+    <div id="pay-summary">
+      <div class="panel-title">Review &amp; pay</div>
+      <div class="panel-sub">Handled securely by Stripe — your card or bank details never touch our servers.</div>
+
+      <div class="confirm-summary">
+        <div class="row"><span class="lbl">Plan</span> <b id="sumPlan">—</b></div>
+        <div class="row"><span class="lbl">Billing</span> <b id="sumInterval">—</b></div>
+        <div class="row"><span class="lbl">Total</span> <b id="sumTotal">—</b></div>
+        <div class="row"><span class="lbl">Account</span> <b id="sumEmail">—</b></div>
+      </div>
+
+      <div class="error-box" id="payError"></div>
+
+      <button class="btn-primary" id="payBtn" onclick="goToCheckout()">Continue to secure payment</button>
+      <div class="pay-note">You'll be taken to Stripe's secure checkout page to enter payment details.</div>
+      <button class="btn-text" onclick="goToStep(2)">← Back</button>
+    </div>
+
+    <div class="redirect-box" id="redirectBox">
+      <div class="spinner"></div>
+      <div class="redirect-title">Taking you to secure payment…</div>
+      <div class="redirect-sub">One moment.</div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { CLIENT } from "./client.config.js";
+
+  const app  = getApps().find(a => a.name === 'guard') || initializeApp(CLIENT.firebase, 'guard');
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+
+  let currentUser = null;
+
+  try { await setPersistence(auth, browserLocalPersistence); } catch (e) { console.warn('[subscribe] setPersistence failed:', e); }
+
+  // Same denylist-only access policy as login.html / auth-guard.js: anyone
+  // can sign in by default, the denylist is the only cutoff mechanism.
+  async function isDenylisted(email) {
+    if (!email || email.toLowerCase() === (CLIENT.primaryAdminEmail || '').toLowerCase()) return false;
+    try {
+      const snap = await get(ref(db, CLIENT.dbRootPath + '/denylist'));
+      const list = snap.val();
+      return Array.isArray(list) && list.map(e => String(e).toLowerCase()).includes(email.toLowerCase());
+    } catch (e) {
+      // Fail-closed, same as login.html.
+      return true;
+    }
+  }
+
+  function describeSignInError(err) {
+    const code = err && err.code ? err.code : '';
+    if (code === 'auth/unauthorized-domain') return "This site isn't authorized for sign-in yet. Contact the site owner.";
+    if (code === 'auth/popup-blocked') return 'Your browser blocked the sign-in popup. Please try again.';
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return 'Sign-in was closed before finishing. Please try again.';
+    if (code === 'auth/network-request-failed') return 'Network error — check your connection and try again.';
+    if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
+    if (code === 'auth/user-disabled') return 'This account has been disabled. Contact the site owner.';
+    return 'Sign-in failed. Please try again.';
+  }
+
+  function showSigninError(msg) {
+    const box = document.getElementById('signinError');
+    box.textContent = msg; box.classList.add('show');
+  }
+  function hideSigninError() {
+    const box = document.getElementById('signinError');
+    box.classList.remove('show'); box.textContent = '';
+  }
+  function setSigninLoading(isLoading) {
+    const btn = document.getElementById('googleBtn');
+    const label = document.getElementById('googleBtnLabel');
+    btn.disabled = isLoading;
+    label.innerHTML = isLoading ? '<span class="btn-spinner"></span>Signing in…' : 'Continue with Google';
+  }
+
+  window.signInWithGoogle = async function() {
+    hideSigninError();
+    setSigninLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const blocked = await isDenylisted(result.user.email);
+      setSigninLoading(false);
+      if (blocked) {
+        await signOut(auth);
+        showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+      }
+    } catch (err) {
+      console.warn('[subscribe] sign-in error:', err);
+      setSigninLoading(false);
+      if (err && err.code === 'auth/popup-blocked') {
+        try { await signInWithRedirect(auth, provider); } catch (redirectErr) { showSigninError(describeSignInError(redirectErr)); }
+      } else {
+        showSigninError(describeSignInError(err));
+      }
+    }
+  };
+
+  window.signOutNow = async function() {
+    try { await signOut(auth); } catch (e) {}
+  };
+
+  (async () => {
+    try {
+      const result = await getRedirectResult(auth);
+      if (result) {
+        const blocked = await isDenylisted(result.user.email);
+        if (blocked) {
+          await signOut(auth);
+          showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+        }
+      }
+    } catch (err) {
+      console.warn('[subscribe] redirect result error:', err);
+    } finally {
+      setSigninLoading(false);
+    }
+  })();
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    const needed = document.getElementById('signin-needed');
+    const done = document.getElementById('signin-done');
+    const continueBtn = document.getElementById('continueToPayBtn');
+    if (user) {
+      needed.style.display = 'none';
+      done.style.display = 'flex';
+      document.getElementById('signedInEmail').textContent = user.email || '';
+      continueBtn.style.display = '';
+    } else {
+      needed.style.display = 'block';
+      done.style.display = 'none';
+      continueBtn.style.display = 'none';
+    }
+    window._subscribeGetUser = () => currentUser;
+  });
+
+  window._subscribeGetUser = () => currentUser;
+</script>
+
+<script>
+// ── Plan/pack state and pricing display ──
+// These are DISPLAY prices only, matching the real Stripe Prices set up in
+// Netlify (see netlify/functions/_packs.js) -- the actual amount charged
+// always comes from Stripe's own Price object server-side; nothing here
+// determines what a card is actually billed for. If Marcelo changes a
+// Stripe Price, update the numbers below to match so the display stays
+// honest, but a mismatch here can never cause an over/undercharge.
+var PRICES = {
+  month: { base: 7.99, wellness: 10.98, goals: 11.98, calendar: 9.48, complete: 12.99 },
+  year:  { base: 69,   wellness: 69,    goals: 69,    calendar: 69,   complete: 119 }
+};
+var PACK_LABELS = { wellness: 'Wellness Pack', goals: 'Goals & Motivation Pack', calendar: 'Calendar' };
+
+var state = { interval: 'month', packs: { wellness: false, goals: false, calendar: false } };
+
+function fmt(n) {
+  return '$' + (Number.isInteger(n) ? n : n.toFixed(2));
+}
+
+function selectInterval(interval) {
+  state.interval = interval;
+  document.querySelectorAll('.interval-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-interval') === interval);
+  });
+  renderPrices();
+}
+
+function togglePack(pack) {
+  state.packs[pack] = !state.packs[pack];
+  document.querySelector('.plan-card[data-pack="' + pack + '"]').classList.toggle('selected', state.packs[pack]);
+  renderPrices();
+}
+
+function renderPrices() {
+  var p = PRICES[state.interval];
+  var suffix = state.interval === 'year' ? '/ year' : '/ month';
+  document.getElementById('price-base').innerHTML = fmt(p.base) + '<small>' + suffix + '</small>';
+  document.getElementById('price-wellness').innerHTML = fmt(p.wellness) + '<small>' + suffix + '</small>';
+  document.getElementById('price-goals').innerHTML = fmt(p.goals) + '<small>' + suffix + '</small>';
+  document.getElementById('price-calendar').innerHTML = fmt(p.calendar) + '<small>' + suffix + '</small>';
+
+  var allThree = state.packs.wellness && state.packs.goals && state.packs.calendar;
+  document.getElementById('bundleHint').classList.toggle('show', allThree);
+
+  var total = allThree ? p.complete : (p.base + (state.packs.wellness ? p.wellness : 0) + (state.packs.goals ? p.goals : 0) + (state.packs.calendar ? p.calendar : 0));
+  document.getElementById('totalAmt').innerHTML = fmt(total) + '<small>' + suffix + '</small>';
+}
+
+function planSummaryText() {
+  var names = [];
+  if (state.packs.wellness && state.packs.goals && state.packs.calendar) return 'Complete bundle (Base + all packs)';
+  names.push('Base');
+  Object.keys(PACK_LABELS).forEach(function(k) { if (state.packs[k]) names.push(PACK_LABELS[k]); });
+  return names.join(' + ');
+}
+
+function goToStep(n) {
+  document.querySelectorAll('.step-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('panel-'+n).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach(function(d){
+    var s = parseInt(d.getAttribute('data-step'), 10);
+    d.classList.toggle('active', s === n);
+    d.classList.toggle('done', s < n);
+  });
+  if (n === 3) {
+    var p = PRICES[state.interval];
+    var allThree = state.packs.wellness && state.packs.goals && state.packs.calendar;
+    var total = allThree ? p.complete : (p.base + (state.packs.wellness ? p.wellness : 0) + (state.packs.goals ? p.goals : 0) + (state.packs.calendar ? p.calendar : 0));
+    document.getElementById('sumPlan').textContent = planSummaryText();
+    document.getElementById('sumInterval').textContent = state.interval === 'year' ? 'Annual' : 'Monthly';
+    document.getElementById('sumTotal').textContent = fmt(total) + (state.interval === 'year' ? '/yr' : '/mo');
+    var u = window._subscribeGetUser && window._subscribeGetUser();
+    document.getElementById('sumEmail').textContent = (u && u.email) || '—';
+  }
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function showPayError(msg) {
+  var box = document.getElementById('payError');
+  box.textContent = msg; box.classList.add('show');
+}
+function hidePayError() {
+  var box = document.getElementById('payError');
+  box.classList.remove('show'); box.textContent = '';
+}
+
+async function goToCheckout() {
+  hidePayError();
+  var user = window._subscribeGetUser && window._subscribeGetUser();
+  if (!user) { goToStep(2); return; }
+
+  var payBtn = document.getElementById('payBtn');
+  payBtn.disabled = true;
+  payBtn.innerHTML = '<span class="btn-spinner"></span>Preparing checkout…';
+
+  try {
+    var res = await fetch('/.netlify/functions/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        interval: state.interval,
+        packs: state.packs
+      })
+    });
+    var data = await res.json().catch(function() { return {}; });
+    if (!res.ok || !data.url) {
+      throw new Error(data.error || ('Checkout could not be started (HTTP ' + res.status + ').'));
+    }
+    document.getElementById('pay-summary').style.display = 'none';
+    document.getElementById('redirectBox').classList.add('active');
+    window.location.href = data.url;
+  } catch (err) {
+    console.error('[subscribe] checkout error:', err);
+    payBtn.disabled = false;
+    payBtn.textContent = 'Continue to secure payment';
+    showPayError(err.message || 'Something went wrong starting checkout. Please try again.');
+  }
+}
+
+// Show the "checkout canceled" banner if Stripe sent us back here.
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('checkout') === 'canceled') {
+    document.getElementById('canceledNote').classList.add('show');
+  }
+})();
+
+// Pre-select all three add-on packs when linked from the "Complete" card on
+// daily-tools-landing.html (subscribe.html?plan=complete), so a visitor who
+// already chose Complete there doesn't have to click all three toggles
+// again here. create-checkout-session.js auto-detects all-three-selected
+// and swaps in the discounted Complete bundle Price -- see that file's
+// header comment -- so this is purely a UX shortcut, not a pricing change.
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('plan') !== 'complete') return;
+  ['wellness', 'goals', 'calendar'].forEach(function(pack) {
+    state.packs[pack] = true;
+    var card = document.querySelector('.plan-card[data-pack="' + pack + '"]');
+    if (card) card.classList.add('selected');
+  });
+})();
+
+renderPrices();
+</script>
+
+</body>
+</html>

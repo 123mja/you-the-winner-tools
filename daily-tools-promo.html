@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+/* Daily Tools guard (2026-08-09): see my-daily-tools.html for rationale --
+   this is the Daily Tools product page and must never be reachable under
+   mel.you-the-winner.com. */
+(function(){
+  if (location.hostname === 'mel.you-the-winner.com') {
+    location.replace('https://tools.you-the-winner.com' + location.pathname + location.search + location.hash);
+  }
+})();
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You-The-Winner · Daily Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0f1f1c;
+  --surface:#162a26;
+  --surface2:#1e3832;
+  --accent:#2a7d6f;
+  --accent2:#3db89f;
+  --gold:#f9a825;
+  --text:#f0f5f3;
+  --muted:#7aada3;
+  --border:#2a4a44;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
+
+/* ── STAGE ── */
+#stage{width:100%;height:100%;position:relative;}
+
+/* ── PROGRESS BAR ── */
+#progress-wrap{position:fixed;top:0;left:0;right:0;height:3px;z-index:99;background:rgba(255,255,255,.08);}
+#progress-bar{height:3px;background:var(--accent2);width:0%;transition:width .4s linear;}
+
+/* ── SCENES ── */
+.scene{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:48px 40px;
+  opacity:0;pointer-events:none;transition:opacity .6s ease;
+}
+.scene.active{opacity:1;pointer-events:auto;}
+
+/* ── SCENE: INTRO ── */
+#s-intro .logo-wrap{text-align:center;transform:translateY(20px);opacity:0;transition:all .8s cubic-bezier(.2,.8,.3,1) .2s;}
+#s-intro.active .logo-wrap{transform:translateY(0);opacity:1;}
+#s-intro .logo-icon{font-size:4rem;margin-bottom:12px;animation:float 3s ease-in-out infinite;}
+#s-intro .logo-main{font-size:2.4rem;font-weight:900;letter-spacing:-.5px;line-height:1;}
+#s-intro .logo-sub{font-size:1.1rem;font-weight:700;color:var(--accent2);margin-top:6px;letter-spacing:.5px;}
+#s-intro .tagline{font-size:.9rem;color:var(--muted);margin-top:20px;line-height:1.7;max-width:340px;text-align:center;}
+#s-intro .tagline span{color:var(--text);font-weight:700;}
+#s-intro .badge-row{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap;justify-content:center;
+  transform:translateY(12px);opacity:0;transition:all .7s ease .9s;}
+#s-intro.active .badge-row{transform:translateY(0);opacity:1;}
+.badge{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 14px;font-size:.75rem;font-weight:700;color:var(--muted);}
+
+/* ── FEATURE SCENES ── */
+.feat-label{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent2);margin-bottom:10px;}
+.feat-title{font-size:1.9rem;font-weight:900;line-height:1.1;margin-bottom:14px;}
+.feat-desc{font-size:.92rem;color:var(--muted);line-height:1.7;max-width:380px;}
+.feat-desc strong{color:var(--text);}
+
+/* ── MOCK CARDS ── */
+.card-col{display:flex;flex-direction:column;gap:8px;width:100%;max-width:320px;}
+.mock-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;
+  transform:translateX(30px);opacity:0;transition:all .5s cubic-bezier(.2,.8,.3,1);}
+.scene.active .mock-card:nth-child(1){transform:translateX(0);opacity:1;transition-delay:.15s;}
+.scene.active .mock-card:nth-child(2){transform:translateX(0);opacity:1;transition-delay:.35s;}
+.scene.active .mock-card:nth-child(3){transform:translateX(0);opacity:1;transition-delay:.55s;}
+.mock-card .mc-label{font-size:.65rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.mock-card .mc-val{font-size:1.35rem;font-weight:900;margin-top:2px;}
+.mock-card .mc-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.07);margin-top:10px;overflow:hidden;}
+.mock-card .mc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+.mock-card .mc-row{display:flex;align-items:center;gap:8px;}
+.mock-card .mc-icon{font-size:1.2rem;flex-shrink:0;}
+.mock-card .mc-info{flex:1;}
+.mock-card .mc-info .mc-name{font-size:.82rem;font-weight:700;}
+.mock-card .mc-info .mc-sub{font-size:.7rem;color:var(--muted);}
+.mock-card .mc-pill{font-size:.65rem;font-weight:800;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--accent2);}
+
+/* mood dots */
+.mood-row{display:flex;gap:8px;margin-top:8px;}
+.mood-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;}
+.mood-dot.great{background:#2a7d6f33;}
+.mood-dot.good{background:#7ec8a033;}
+.mood-dot.okay{background:#f9a82533;}
+.mood-dot.sel{box-shadow:0 0 0 2.5px var(--accent2);transform:scale(1.15);}
+
+/* wish card */
+.wish-card{display:flex;align-items:center;gap:10px;padding:10px 14px;}
+.wish-star{font-size:1.1rem;}
+.wish-name{font-size:.82rem;font-weight:700;flex:1;}
+.wish-amt{font-size:.75rem;color:var(--accent2);font-weight:800;}
+
+/* roadmap */
+.rm-row{display:flex;align-items:flex-start;gap:12px;padding:10px 14px;}
+.rm-dot-wrap{display:flex;flex-direction:column;align-items:center;gap:0;}
+.rm-dot{width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;font-weight:900;flex-shrink:0;}
+.rm-line{width:2px;height:14px;background:var(--border);flex-shrink:0;}
+.rm-info .rm-phase{font-size:.6rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+.rm-info .rm-title{font-size:.82rem;font-weight:700;margin-top:2px;}
+.rm-badge{font-size:.6rem;font-weight:800;padding:2px 8px;border-radius:99px;background:#2a7d6f33;color:var(--accent2);margin-top:4px;display:inline-block;}
+
+/* two-col layout for some scenes */
+.two-col{display:flex;gap:40px;align-items:center;width:100%;max-width:680px;}
+.two-col .col-text{flex:1;
+  transform:translateX(-20px);opacity:0;transition:all .7s cubic-bezier(.2,.8,.3,1) .1s;}
+.two-col .col-cards{flex:1;}
+.scene.active .two-col .col-text{transform:translateX(0);opacity:1;}
+
+/* ── CTA SCENE ── */
+#s-cta{text-align:center;}
+#s-cta .cta-icon{font-size:3.5rem;margin-bottom:16px;
+  transform:scale(.6);opacity:0;transition:all .6s cubic-bezier(.2,.8,.3,1) .1s;}
+#s-cta.active .cta-icon{transform:scale(1);opacity:1;}
+#s-cta .cta-title{font-size:2rem;font-weight:900;line-height:1.1;margin-bottom:10px;
+  transform:translateY(16px);opacity:0;transition:all .7s ease .4s;}
+#s-cta.active .cta-title{transform:translateY(0);opacity:1;}
+#s-cta .cta-url{font-size:1rem;font-weight:800;color:var(--accent2);margin-top:14px;
+  padding:10px 24px;border:1.5px solid var(--accent);border-radius:99px;display:inline-block;
+  transform:translateY(16px);opacity:0;transition:all .7s ease .7s;}
+#s-cta.active .cta-url{transform:translateY(0);opacity:1;}
+#s-cta .cta-sub{font-size:.82rem;color:var(--muted);margin-top:10px;
+  transform:translateY(12px);opacity:0;transition:all .7s ease .9s;}
+#s-cta.active .cta-sub{transform:translateY(0);opacity:1;}
+.cta-features{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-top:28px;
+  transform:translateY(12px);opacity:0;transition:all .7s ease 1.1s;}
+#s-cta.active .cta-features{transform:translateY(0);opacity:1;}
+.cta-feat-item{text-align:center;}
+.cta-feat-item .cfi-icon{font-size:1.5rem;}
+.cta-feat-item .cfi-lbl{font-size:.65rem;color:var(--muted);margin-top:4px;font-weight:700;}
+
+/* ── BG GLOW ── */
+.bg-glow{position:fixed;width:400px;height:400px;border-radius:50%;pointer-events:none;z-index:-1;filter:blur(100px);opacity:.12;}
+#glow1{background:#2a7d6f;top:-100px;left:-100px;}
+#glow2{background:#3db89f;bottom:-100px;right:-100px;}
+
+/* ── CONTROLS ── */
+#controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  display:flex;gap:12px;align-items:center;z-index:99;}
+.ctrl-btn{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;font-size:.9rem;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.ctrl-btn:hover{background:var(--surface2);border-color:var(--accent);}
+#play-pause{width:44px;height:44px;font-size:1rem;background:var(--accent);}
+#play-pause:hover{background:var(--accent2);}
+#sound-btn{font-size:.85rem;}
+#sound-btn.pulse{animation:soundPulse 1.6s ease-in-out infinite;}
+@keyframes soundPulse{0%,100%{box-shadow:0 0 0 0 rgba(61,184,159,.5);}60%{box-shadow:0 0 0 6px rgba(61,184,159,0);}}
+.dots{display:flex;gap:6px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .2s;}
+.dot.on{background:var(--accent2);width:18px;border-radius:99px;}
+#scene-counter{font-size:.7rem;color:var(--muted);font-weight:700;min-width:40px;text-align:center;}
+
+/* ── ANIMATIONS ── */
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+/* ── SCENE SPECIFIC BG ACCENTS ── */
+.scene::before{content:'';position:absolute;inset:0;z-index:-1;}
+#s-money::before{background:radial-gradient(ellipse at 80% 50%,rgba(42,125,111,.07) 0%,transparent 60%);}
+#s-goals::before{background:radial-gradient(ellipse at 20% 50%,rgba(249,168,37,.05) 0%,transparent 60%);}
+#s-myday::before{background:radial-gradient(ellipse at 80% 30%,rgba(61,184,159,.07) 0%,transparent 60%);}
+#s-roadmap::before{background:radial-gradient(ellipse at 20% 70%,rgba(42,125,111,.07) 0%,transparent 60%);}
+</style>
+<!-- Google Analytics (Engine/Tools) -->
+<script type="module">
+  import { CLIENT } from "./client.config.js";
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ dataLayer.push(arguments); };
+  var gaScript = document.createElement("script");
+  gaScript.async = true;
+  gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.toolsAnalyticsId;
+  document.head.appendChild(gaScript);
+  gtag("js", new Date());
+  gtag("config", CLIENT.toolsAnalyticsId);
+</script>
+</head>
+<body>
+
+<div id="glow1" class="bg-glow"></div>
+<div id="glow2" class="bg-glow"></div>
+
+<div id="progress-wrap"><div id="progress-bar"></div></div>
+
+<div id="stage">
+
+  <!-- SCENE 0: INTRO -->
+  <div class="scene active" id="s-intro">
+    <div class="logo-wrap">
+      <div class="logo-icon">🌿</div>
+      <div class="logo-main">You-The-Winner</div>
+      <div class="logo-sub">Daily Tools</div>
+      <div class="tagline">Your personal space to track <span>money</span>, <span>goals</span>, moods, and daily life — built for the real you.</div>
+      <div class="badge-row">
+        <div class="badge">💰 Money</div>
+        <div class="badge">⭐ Wishes</div>
+        <div class="badge">🌿 My Day</div>
+        <div class="badge">🗺️ Roadmap</div>
+        <div class="badge">🧘 Calm</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 1: MONEY -->
+  <div class="scene" id="s-money">
+    <div class="two-col">
+      <div class="col-text">
+        <div class="feat-label">💰 Money Tab</div>
+        <div class="feat-title">Know every dollar</div>
+        <div class="feat-desc">See your balance at a glance. Track savings goals, watch your progress, and keep your finances clear — day by day.</div>
+      </div>
+      <div class="col-cards">
+        <div class="card-col">
+          <div class="mock-card">
+            <div class="mc-label">Available Balance</div>
+            <div class="mc-val" style="color:var(--accent2);">$847.50</div>
+            <div class="mc-bar"><div class="mc-fill" style="width:62%;"></div></div>
+          </div>
+          <div class="mock-card">
+            <div class="mc-row">
+              <div class="mc-icon">🎓</div>
+              <div class="mc-info">
+                <div class="mc-name">Online Course Fund</div>
+                <div class="mc-sub">$120 saved of $350</div>
+              </div>
+              <div class="mc-pill">34%</div>
+            </div>
+            <div class="mc-bar" style="margin-top:8px;"><div class="mc-fill" style="width:34%;"></div></div>
+          </div>
+          <div class="mock-card">
+            <div class="mc-row">
+              <div class="mc-icon">✈️</div>
+              <div class="mc-info">
+                <div class="mc-name">Travel Trip</div>
+                <div class="mc-sub">$60 saved of $400</div>
+              </div>
+              <div class="mc-pill">15%</div>
+            </div>
+            <div class="mc-bar" style="margin-top:8px;"><div class="mc-fill" style="width:15%;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 2: GOALS / WISHES -->
+  <div class="scene" id="s-goals">
+    <div class="two-col" style="flex-direction:row-reverse;">
+      <div class="col-text">
+        <div class="feat-label">⭐ Wishes</div>
+        <div class="feat-title">Dream it. Save for it.</div>
+        <div class="feat-desc">Add wishes to your basket and watch savings grow toward them — whether linked to your account or tracked your own way.</div>
+      </div>
+      <div class="col-cards">
+        <div class="card-col">
+          <div class="mock-card">
+            <div class="wish-card" style="padding:0;">
+              <div class="wish-star">⭐</div>
+              <div class="wish-name">New Headphones</div>
+              <div class="wish-amt">$80</div>
+            </div>
+            <div class="mc-bar" style="margin-top:8px;"><div class="mc-fill" style="width:55%;background:linear-gradient(90deg,#f9a825,#f9c825);"></div></div>
+          </div>
+          <div class="mock-card">
+            <div class="wish-card" style="padding:0;">
+              <div class="wish-star">⭐</div>
+              <div class="wish-name">Birthday Outfit</div>
+              <div class="wish-amt">$120</div>
+            </div>
+            <div class="mc-bar" style="margin-top:8px;"><div class="mc-fill" style="width:30%;background:linear-gradient(90deg,#f9a825,#f9c825);"></div></div>
+          </div>
+          <div class="mock-card" style="background:linear-gradient(135deg,var(--surface),var(--surface2));border-color:var(--accent);">
+            <div style="font-size:.72rem;color:var(--muted);">Available to add</div>
+            <div style="font-size:1.2rem;font-weight:900;color:var(--gold);margin-top:2px;">$384.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 3: MY DAY -->
+  <div class="scene" id="s-myday">
+    <div class="two-col">
+      <div class="col-text">
+        <div class="feat-label">🌿 My Day</div>
+        <div class="feat-title">Track how you feel, every day</div>
+        <div class="feat-desc">Log your mood, energy, sleep, and daily activities. <strong>See patterns</strong> over time and celebrate the good days.</div>
+      </div>
+      <div class="col-cards">
+        <div class="card-col">
+          <div class="mock-card">
+            <div class="mc-label">Today's Mood</div>
+            <div class="mood-row">
+              <div class="mood-dot great">😄</div>
+              <div class="mood-dot good sel">😊</div>
+              <div class="mood-dot okay">😐</div>
+              <div class="mood-dot" style="background:#f4845f33;">😔</div>
+              <div class="mood-dot" style="background:#d94f4f33;">😢</div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mc-label">Energy Level</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+              <div style="flex:1;">
+                <div class="mc-bar"><div class="mc-fill" style="width:75%;"></div></div>
+              </div>
+              <div style="font-weight:900;font-size:1rem;color:var(--accent2);">7.5</div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <div style="background:#2a7d6f22;border-radius:99px;padding:4px 10px;font-size:.68rem;font-weight:700;color:var(--accent2);">💊 Meds ✓</div>
+              <div style="background:#2a7d6f22;border-radius:99px;padding:4px 10px;font-size:.68rem;font-weight:700;color:var(--accent2);">🏃 Exercise ✓</div>
+              <div style="background:var(--surface2);border-radius:99px;padding:4px 10px;font-size:.68rem;font-weight:700;color:var(--muted);">💼 Work</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 4: ROADMAP -->
+  <div class="scene" id="s-roadmap">
+    <div class="two-col" style="flex-direction:row-reverse;">
+      <div class="col-text">
+        <div class="feat-label">🗺️ Life Roadmap</div>
+        <div class="feat-title">Milestones, not just tasks</div>
+        <div class="feat-desc">See the big picture of life — from first job to travel, independence, and everything you're building toward. Every step counts.</div>
+      </div>
+      <div class="col-cards">
+        <div class="card-col">
+          <div class="mock-card" style="padding:0;">
+            <div class="rm-row">
+              <div class="rm-dot-wrap"><div class="rm-dot" style="background:#f9a825;">✓</div></div>
+              <div class="rm-info">
+                <div class="rm-phase">Phase 1 · Starting Out</div>
+                <div class="rm-title">💼 Got my first job</div>
+                <div class="rm-badge">Done</div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-card" style="padding:0;border-color:var(--accent);">
+            <div class="rm-row">
+              <div class="rm-dot-wrap"><div class="rm-dot" style="background:var(--accent);">→</div></div>
+              <div class="rm-info">
+                <div class="rm-phase">Phase 1 · Starting Out</div>
+                <div class="rm-title">💰 Save First, Then Enjoy Life</div>
+                <div class="rm-badge" style="background:var(--accent);color:#fff;">In Progress</div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-card" style="padding:0;opacity:.6;">
+            <div class="rm-row">
+              <div class="rm-dot-wrap"><div class="rm-dot" style="background:var(--border);">○</div></div>
+              <div class="rm-info">
+                <div class="rm-phase">Phase 2 · Growing</div>
+                <div class="rm-title">🏠 Living on my own</div>
+                <div class="rm-badge" style="color:var(--muted);">Ahead</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 5: CTA -->
+  <div class="scene" id="s-cta">
+    <div class="cta-icon">🌿</div>
+    <div class="cta-title" style="transform:translateY(16px);opacity:0;transition:all .7s ease .4s;">Your daily life, your way.</div>
+    <div class="cta-url">tools.you-the-winner.com</div>
+    <div class="cta-sub">Sign in to save your data · Or try the demo, no account needed</div>
+    <div class="cta-features">
+      <div class="cta-feat-item"><div class="cfi-icon">💰</div><div class="cfi-lbl">Money</div></div>
+      <div class="cta-feat-item"><div class="cfi-icon">⭐</div><div class="cfi-lbl">Wishes</div></div>
+      <div class="cta-feat-item"><div class="cfi-icon">🌿</div><div class="cfi-lbl">My Day</div></div>
+      <div class="cta-feat-item"><div class="cfi-icon">🗺️</div><div class="cfi-lbl">Roadmap</div></div>
+      <div class="cta-feat-item"><div class="cfi-icon">🧘</div><div class="cfi-lbl">Calm</div></div>
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<!-- CONTROLS -->
+<div id="controls">
+  <button class="ctrl-btn" onclick="prevScene()" title="Previous">‹</button>
+  <button class="ctrl-btn" id="play-pause" onclick="togglePlay()" title="Play/Pause">⏸</button>
+  <button class="ctrl-btn" onclick="nextScene()" title="Next">›</button>
+  <div class="dots" id="dots"></div>
+  <div id="scene-counter">1 / 6</div>
+  <button class="ctrl-btn pulse" id="sound-btn" onclick="AUDIO.toggle()" title="Toggle sound">🔇</button>
+</div>
+
+<script>
+const SCENES = ['s-intro','s-money','s-goals','s-myday','s-roadmap','s-cta'];
+const DURATIONS = [9000, 10000, 10000, 10000, 10000, 11000]; // ms per scene
+let cur = 0, playing = true, timer = null, elapsed = 0, progressTimer = null;
+
+const dotsEl = document.getElementById('dots');
+const progressBar = document.getElementById('progress-bar');
+const ppBtn = document.getElementById('play-pause');
+const counterEl = document.getElementById('scene-counter');
+
+// Build dots
+SCENES.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' on':'');
+  d.onclick = () => goTo(i);
+  dotsEl.appendChild(d);
+});
+
+function updateDots() {
+  document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('on', i===cur));
+  counterEl.textContent = (cur+1) + ' / ' + SCENES.length;
+}
+
+function showScene(idx) {
+  SCENES.forEach((id,i) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('active', i===idx);
+  });
+  cur = idx;
+  updateDots();
+  elapsed = 0;
+  AUDIO.onScene(idx);
+}
+
+function goTo(idx) {
+  clearTimeout(timer);
+  clearInterval(progressTimer);
+  progressBar.style.transition = 'none';
+  progressBar.style.width = '0%';
+  showScene(idx);
+  if (playing) scheduleNext();
+}
+
+function scheduleNext() {
+  clearTimeout(timer);
+  clearInterval(progressTimer);
+  elapsed = 0;
+  const dur = DURATIONS[cur];
+  // Animate progress bar
+  progressBar.style.transition = 'none';
+  progressBar.style.width = '0%';
+  requestAnimationFrame(() => {
+    progressBar.style.transition = 'width ' + dur + 'ms linear';
+    progressBar.style.width = '100%';
+  });
+  timer = setTimeout(() => {
+    const next = (cur + 1) % SCENES.length;
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+    showScene(next);
+    if (playing) scheduleNext();
+  }, dur);
+}
+
+function nextScene() {
+  goTo((cur + 1) % SCENES.length);
+}
+
+function prevScene() {
+  goTo((cur - 1 + SCENES.length) % SCENES.length);
+}
+
+function togglePlay() {
+  playing = !playing;
+  ppBtn.textContent = playing ? '⏸' : '▶';
+  if (playing) {
+    scheduleNext();
+  } else {
+    clearTimeout(timer);
+    clearInterval(progressTimer);
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+  }
+}
+
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') nextScene();
+  if (e.key === 'ArrowLeft') prevScene();
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'm' || e.key === 'M') AUDIO.toggle();
+});
+
+// Start
+scheduleNext();
+
+// ── AMBIENT AUDIO ENGINE ──
+const AUDIO = (function(){
+  let ctx, master, delayNode, feedbackGain, wetGain;
+  let activePad = null, muted = true, live = false;
+  let curChord = 0, melTimer = null, noteStep = 0, patStep = 0;
+
+  // Chord table: Amaj · F#m · Dmaj · Emaj (root position, Hz)
+  const CHORDS = [
+    [220.0, 277.2, 329.6, 440.0],   // A major
+    [185.0, 220.0, 277.2, 370.0],   // F# minor
+    [146.8, 185.0, 220.0, 293.7],   // D major
+    [164.8, 207.7, 246.9, 329.6],   // E major
+  ];
+  // Scene → chord index
+  const SCENE_CHORD = [0, 0, 2, 1, 3, 2];
+
+  // Melody patterns (indexes into current chord)
+  const PATS = [[0,2,1,3],[3,1,2,0],[2,3,0,1],[1,0,3,2]];
+
+  function osc(freq, type, det){
+    const o = ctx.createOscillator();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    if (det) o.detune.value = det;
+    o.start();
+    return o;
+  }
+
+  function ramp(param, val, dur){
+    param.cancelScheduledValues(ctx.currentTime);
+    param.setValueAtTime(param.value, ctx.currentTime);
+    param.linearRampToValueAtTime(val, ctx.currentTime + dur);
+  }
+
+  function buildDelay(){
+    delayNode  = ctx.createDelay(2);
+    delayNode.delayTime.value = 0.42;
+    feedbackGain = ctx.createGain();
+    feedbackGain.gain.value = 0.28;
+    wetGain = ctx.createGain();
+    wetGain.gain.value = 0.18;
+    delayNode.connect(feedbackGain);
+    feedbackGain.connect(delayNode);
+    delayNode.connect(wetGain);
+    wetGain.connect(master);
+  }
+
+  function fadePad(g, to, dur){ ramp(g.gain, to, dur); }
+
+  function playChord(idx){
+    const chord = CHORDS[idx % CHORDS.length];
+    // Fade out old pad
+    if (activePad){
+      const old = activePad;
+      fadePad(old, 0, 2.2);
+      setTimeout(()=>{ try{ old._oscs.forEach(o=>o.stop()); }catch(e){} }, 3000);
+    }
+    // Build new pad
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = 750;
+    filt.Q.value = 0.35;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    filt.connect(g);
+    g.connect(master);
+    g.connect(delayNode);
+    const oscs = [];
+    chord.forEach(freq => {
+      [-6, 0, 6].forEach(det => {
+        const o = osc(freq, 'sine', det);
+        o.connect(filt);
+        oscs.push(o);
+      });
+    });
+    g._oscs = oscs;
+    fadePad(g, 0.13, 2.2);
+    activePad = g;
+    curChord = idx;
+  }
+
+  function pluck(freq){
+    if (!live) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    o.connect(g);
+    g.connect(master);
+    g.connect(delayNode);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2.0);
+    o.start();
+    o.stop(ctx.currentTime + 2.1);
+  }
+
+  function scheduleMelody(){
+    if (!live) return;
+    const chord = CHORDS[curChord % CHORDS.length];
+    const pat = PATS[patStep % PATS.length];
+    pluck(chord[pat[noteStep % pat.length]] * 2); // one octave up
+    noteStep++;
+    if (noteStep >= pat.length){ noteStep = 0; patStep++; }
+    const gap = 1500 + Math.random() * 1000;
+    melTimer = setTimeout(scheduleMelody, gap);
+  }
+
+  function start(){
+    if (live) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = 0.28;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 5;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+    buildDelay();
+    live = true;
+    playChord(SCENE_CHORD[cur] || 0);
+    setTimeout(scheduleMelody, 1000);
+  }
+
+  return {
+    toggle(){
+      const btn = document.getElementById('sound-btn');
+      if (!live){ start(); muted = false; }
+      else {
+        muted = !muted;
+        ramp(master.gain, muted ? 0 : 0.28, 0.4);
+      }
+      btn.textContent = muted ? '🔇' : '🔊';
+      btn.classList.toggle('pulse', muted);
+    },
+    onScene(idx){
+      if (!live) return;
+      const ci = SCENE_CHORD[idx] !== undefined ? SCENE_CHORD[idx] : idx % 4;
+      if (ci !== curChord) playChord(ci);
+    }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+  /* Daily Tools guard (2026-08-09): see my-daily-tools.html for rationale --
+     this is the Daily Tools product page and must never be reachable under
+     mel.you-the-winner.com. */
+  (function(){
+    if (location.hostname === 'mel.you-the-winner.com') {
+      location.replace('https://tools.you-the-winner.com' + location.pathname + location.search + location.hash);
+    }
+  })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Tools · You the Winner</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232a7d6f'/><text x='16' y='23' font-family='Nunito,sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'>M</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <style>
+    /* 2026-07-25 redesign: brought the visual language in line with the
+       standard shared palette (--surface2/--surface3/--soft/--accent2/
+       --accent-light/--gold-border) instead of this page's own smaller,
+       differently-named set (it previously had --accent-dark instead of
+       --accent2, and was missing --surface3/--soft/--accent-light/
+       --gold-border entirely) -- those are exactly the variables theme.css's
+       6-theme picker overrides, so the old names meant this page couldn't
+       fully reskin across themes. Content/links/functionality unchanged;
+       this is a visual + markup restructure toward a clearer, calmer
+       marketing-page layout (top nav, grouped tool categories, a "why us"
+       row, nicer pricing cards) while staying responsive down to a phone. */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:           #f0f5f3;
+      --surface:      #ffffff;
+      --surface2:     #e8f0ed;
+      --surface3:     #ddeee8;
+      --border:       #cfddd8;
+      --text:         #0f1f1c;
+      --muted:        #6b8c85;
+      --soft:         #a8c4bc;
+      --accent:       #2a7d6f;
+      --accent2:      #1a5c7a;
+      --accent-light: #e0eeea;
+      --gold:         #f9a825;
+      --gold-bg:      #fefbe8;
+      --gold-border:  #f0d080;
+    }
+    body {
+      font-family: 'Quicksand', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a { color: inherit; }
+    img, svg { display: block; max-width: 100%; }
+
+    /* ── TOP NAV ── */
+    .site-header {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--surface);
+      border-bottom: 1.5px solid var(--border);
+    }
+    .site-header-inner {
+      max-width: 1180px; margin: 0 auto;
+      padding: 14px 20px;
+      display: flex; align-items: center; gap: 18px;
+    }
+    .brand-mark {
+      display: flex; align-items: center; gap: 8px;
+      font-family: 'Nunito', sans-serif; font-weight: 800;
+      font-size: .82rem; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--accent); text-decoration: none; flex-shrink: 0;
+    }
+    .brand-mark .brand-leaf {
+      width: 30px; height: 30px; border-radius: 9px;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .nav-links {
+      display: flex; align-items: center; gap: 22px;
+      flex: 1; justify-content: center;
+    }
+    .nav-links a {
+      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .82rem;
+      color: var(--muted); text-decoration: none;
+    }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-signin {
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 16px; border-radius: 99px;
+      border: 1.5px solid var(--accent); color: var(--accent);
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .78rem;
+      text-decoration: none;
+    }
+    .nav-signin:hover { background: var(--accent-light); }
+    @media (max-width: 760px) {
+      .nav-links { display: none; }
+    }
+
+    /* ── HERO ── */
+    .hero-wrap {
+      background: linear-gradient(160deg, #e8f4f0 0%, var(--bg) 100%);
+      position: relative; overflow: hidden;
+      padding: 44px 20px 56px;
+    }
+    .hero-inner {
+      max-width: 1180px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr; gap: 34px;
+      align-items: center;
+      position: relative; z-index: 1;
+    }
+    @media (min-width: 900px) {
+      .hero-inner { grid-template-columns: 1.05fr 1fr; }
+    }
+    .hero-title {
+      font-family: 'Nunito', sans-serif; font-weight: 800;
+      font-size: 2.4rem; letter-spacing: -.02em; line-height: 1.08;
+      margin-bottom: 12px;
+    }
+    @media (min-width: 900px) { .hero-title { font-size: 3rem; } }
+    .hero-sub {
+      font-size: .95rem; color: var(--muted); line-height: 1.55;
+      max-width: 420px; margin-bottom: 16px;
+    }
+    .pills { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 22px; }
+    .pill {
+      font-size: .72rem; font-weight: 700;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 99px; padding: 5px 12px; color: var(--muted);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .hero-cta-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .hero-note { font-size: .72rem; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+    .hero-leaf-r, .hero-leaf-l {
+      position: absolute; pointer-events: none; opacity: .14;
+    }
+    .hero-leaf-r { right: -20px; top: 20px; font-size: 6rem; transform: rotate(18deg); }
+    .hero-leaf-l { left: -22px; bottom: -10px; font-size: 4.4rem; transform: rotate(-15deg); }
+
+    /* Hero preview card — modeled directly on the real Home (welcome) tab
+       inside my-daily-tools.html (same gradient hero + Today's Message card
+       + Plans snapshot pill, same CSS variables), so this is an honest
+       preview of what signing in actually looks like, not an invented mockup. */
+    .hero-preview { max-width: 380px; margin: 0 auto; }
+    .hpc-hero {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 16px; padding: 18px 18px 16px; color: #fff;
+      margin-bottom: 12px; box-shadow: 0 4px 16px rgba(15,31,28,.15);
+    }
+    .hpc-greeting { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.05rem; line-height: 1.25; }
+    .hpc-datetime { font-size: .74rem; font-weight: 600; opacity: .85; margin-top: 4px; }
+    .hpc-weather-row {
+      margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.25);
+      font-size: .82rem; font-weight: 700;
+    }
+    .hpc-note {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .hpc-note-label { font-size: .66rem; font-weight: 800; letter-spacing: .03em; margin-bottom: 3px; color: var(--text); }
+    .hpc-note-text { font-size: .8rem; color: var(--text); line-height: 1.4; }
+    .hpc-snapshot {
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px;
+      padding: 11px 14px; font-size: .8rem; font-weight: 700; color: var(--text);
+    }
+
+    /* ── SHARED WRAP / SECTION HEADER ── */
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 20px; }
+    .wrap + .wrap { padding-top: 0; }
+    .section-head { text-align: center; margin-bottom: 30px; }
+    .section-head h2 {
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.5rem;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding-bottom: 8px; border-bottom: 3px solid var(--accent);
+    }
+
+    /* ── TOOL CATEGORIES ── */
+    .tool-categories {
+      display: grid; grid-template-columns: 1fr; gap: 28px;
+    }
+    @media (min-width: 640px) { .tool-categories { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1000px) { .tool-categories { grid-template-columns: repeat(4, 1fr); } }
+    .tool-cat-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    }
+    .tool-cat-dot { font-size: 1.05rem; }
+    .tool-cat-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .95rem; }
+    .tool-cat-list { display: flex; flex-direction: column; gap: 8px; }
+    .tool-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 12px 13px;
+      display: flex; align-items: flex-start; gap: 11px;
+      transition: border-color .15s, box-shadow .15s, transform .15s;
+    }
+    .tool-card:hover { border-color: var(--accent); box-shadow: 0 5px 18px rgba(42,125,111,.12); transform: translateY(-1px); }
+    .tool-icon-wrap {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+    }
+    .tool-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .82rem; line-height: 1.3; }
+    .tool-desc { font-size: .72rem; color: var(--muted); line-height: 1.4; margin-top: 1px; }
+
+    /* ── MORE COMING BANNER ── */
+    .more-banner {
+      margin-top: 26px;
+      background: linear-gradient(120deg, var(--accent-light), var(--surface2));
+      border-radius: 18px; padding: 20px 26px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      position: relative; overflow: hidden;
+    }
+    .more-banner-icon { font-size: 1.5rem; }
+    .more-banner-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .95rem; }
+    .more-banner-desc { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── CTA (mid-page repeat) ── */
+    .cta-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+    .btn-primary {
+      padding: 13px 26px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 14px;
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .92rem;
+      text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      box-shadow: 0 4px 16px rgba(42,125,111,.25); cursor: pointer;
+    }
+    .btn-outline {
+      padding: 12px 24px;
+      background: transparent; color: var(--accent);
+      border: 2px solid var(--accent); border-radius: 14px;
+      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .9rem;
+      text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    .cta-note { font-size: .74rem; color: var(--muted); text-align: center; line-height: 1.5; margin-top: 12px; }
+
+    /* ── WHY GRID ── */
+    .why-grid {
+      display: grid; grid-template-columns: 1fr; gap: 26px; text-align: center;
+    }
+    @media (min-width: 720px) { .why-grid { grid-template-columns: repeat(3, 1fr); } }
+    .why-icon-circle {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; margin: 0 auto 12px;
+    }
+    .why-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .95rem; margin-bottom: 5px; }
+    .why-desc { font-size: .8rem; color: var(--muted); line-height: 1.5; max-width: 240px; margin: 0 auto; }
+
+    /* ── HOW WE COMPARE (added 2026-08-09) ── */
+    .compare-sub {
+      font-size: .85rem; color: var(--muted); line-height: 1.55;
+      max-width: 620px; margin: 10px auto 0;
+    }
+    .compare-table-wrap {
+      overflow-x: auto; border: 1.5px solid var(--border); border-radius: 16px;
+      background: var(--surface);
+    }
+    .compare-table { width: 100%; border-collapse: collapse; min-width: 620px; }
+    .compare-table th, .compare-table td {
+      padding: 12px 14px; text-align: left; font-size: .8rem;
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
+    .compare-table th {
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .74rem;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .03em;
+      background: var(--surface2);
+    }
+    .compare-table th.compare-us { color: var(--accent); background: var(--accent-light); }
+    .compare-table tbody tr:last-child td { border-bottom: none; }
+    .compare-table td:first-child { color: var(--text); font-weight: 600; max-width: 260px; }
+    .compare-table td.yes { color: var(--accent); font-weight: 800; text-align: center; background: var(--accent-light); }
+    .compare-table td.no { color: var(--soft); text-align: center; }
+    .compare-table td.dim { color: var(--muted); font-size: .74rem; text-align: center; }
+
+    /* ── PRICING ── */
+    .price-grid { display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 980px; margin: 0 auto; }
+    @media (min-width: 640px) { .price-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 900px) { .price-grid { grid-template-columns: repeat(3, 1fr); } }
+    .price-card {
+      position: relative;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 18px; padding: 24px 24px 22px;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .price-card.featured {
+      border-color: var(--accent);
+      background: linear-gradient(160deg, var(--accent-light) 0%, var(--surface) 55%);
+      box-shadow: 0 10px 28px rgba(42,125,111,.14);
+    }
+    .price-badge {
+      position: absolute; top: 16px; right: 16px;
+      font-size: .64rem; font-weight: 800; color: var(--accent2);
+      background: var(--surface); border: 1px solid var(--accent2);
+      border-radius: 99px; padding: 3px 10px;
+    }
+    .price-illo {
+      width: 56px; height: 56px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.7rem; margin-bottom: 14px;
+    }
+    .price-plan {
+      font-family: 'Nunito', sans-serif; font-weight: 800;
+      font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: 4px;
+    }
+    .price-card.featured .price-plan { color: var(--accent); }
+    .price-amount { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 2.1rem; line-height: 1; color: var(--text); }
+    .price-period { font-size: .74rem; color: var(--muted); margin-bottom: 4px; }
+    .price-annual {
+      font-size: .68rem; color: var(--accent); font-weight: 700;
+      background: var(--accent-light); border-radius: 6px;
+      padding: 3px 8px; margin-bottom: 10px; display: inline-block;
+    }
+    .price-features { list-style: none; flex: 1; display: flex; flex-direction: column; gap: 6px; margin: 6px 0 16px; }
+    .price-features li { font-size: .78rem; color: var(--text); line-height: 1.5; }
+    .price-features li.dim { color: var(--muted); }
+    .price-card .btn-primary, .price-card .btn-outline { width: 100%; box-shadow: none; }
+
+    /* ── LEARN MORE TOGGLE ── */
+    .learn-more-btn {
+      display: block; margin: 0 auto; max-width: 320px; width: 100%;
+      background: none; border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 10px;
+      font-family: 'Quicksand', sans-serif; font-weight: 600;
+      font-size: .78rem; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .learn-more-btn .arr { transition: transform .2s; display: inline-block; }
+    .learn-more-content { display: none; flex-direction: column; gap: 16px; margin-top: 24px; max-width: 720px; margin-left: auto; margin-right: auto; }
+    .learn-more-content.open { display: flex; }
+
+    /* ── FOOTER TABS ── */
+    .divider { border: none; border-top: 1.5px solid var(--border); }
+    .tab-nav { display: flex; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .tab-nav button {
+      flex: 1; padding: 11px 4px; border: none; border-right: 1px solid var(--border);
+      background: transparent; font-family: 'Quicksand', sans-serif; font-weight: 600;
+      font-size: .78rem; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .tab-nav button:last-child { border-right: none; }
+    .tab-nav button.active { background: var(--accent); color: #fff; font-weight: 700; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .panel-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 18px; font-size: .82rem; color: var(--text); line-height: 1.65; }
+    .panel-card p { margin-bottom: 9px; }
+    .panel-card p:last-child { margin-bottom: 0; }
+    .point-list { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
+    .point-list li { display: flex; gap: 9px; font-size: .8rem; line-height: 1.55; }
+    .point-list li span:first-child { flex-shrink: 0; }
+    .note-box { background: var(--surface2); border-radius: 8px; padding: 10px 13px; font-size: .74rem; color: var(--muted); line-height: 1.55; }
+    .note-box strong { color: var(--text); }
+
+    /* ── FOOTER ── */
+    .footer { font-size: .7rem; color: var(--muted); text-align: center; line-height: 1.9; margin-top: 20px; }
+    .footer a { color: var(--muted); text-decoration: none; }
+  </style>
+  <!-- Google Analytics (Engine/Tools) -->
+  <script type="module">
+    import { CLIENT } from "./client.config.js";
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function(){ dataLayer.push(arguments); };
+    var gaScript = document.createElement("script");
+    gaScript.async = true;
+    gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.toolsAnalyticsId;
+    document.head.appendChild(gaScript);
+    gtag("js", new Date());
+    gtag("config", CLIENT.toolsAnalyticsId);
+  </script>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Change color theme" aria-label="Change color theme">🌿</button>
+
+<!-- ── TOP NAV ── -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand-mark" href="#top"><span class="brand-leaf">🌿</span>By You the Winner</a>
+    <nav class="nav-links" aria-label="Section navigation">
+      <a href="#tools">Features</a>
+      <a href="daily-tools-promo.html">Highlights</a>
+      <a href="#compare">Compared</a>
+      <a href="about.html">About</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#help-link" id="nav-help-link">Help</a>
+    </nav>
+    <a class="nav-signin" href="login.html?return=my-daily-tools.html">🔒 Sign In</a>
+  </div>
+</header>
+
+<!-- ── HERO ── -->
+<div class="hero-wrap" id="top">
+  <div class="hero-leaf-r">🌿</div>
+  <div class="hero-leaf-l">🌱</div>
+  <div class="hero-inner">
+    <div>
+      <h1 class="hero-title">Daily Tools</h1>
+      <p class="hero-sub">Simple daily tools for young adults, families, and caregivers.</p>
+      <div class="pills">
+        <span class="pill">👤 Individuals</span>
+        <span class="pill">👨‍👩‍👧 Families</span>
+        <span class="pill">🤲 Caregivers</span>
+        <span class="pill">🏫 Schools</span>
+      </div>
+      <div class="hero-cta-group">
+        <a class="btn-primary" href="my-daily-tools.html?demo=1">Try Demo →</a>
+        <a class="btn-outline" href="login.html?return=my-daily-tools.html">Sign In</a>
+      </div>
+      <p class="hero-note">🛡️ Your data is private and only visible to you. No account needed for the demo.</p>
+    </div>
+    <div class="hero-preview" aria-hidden="true">
+      <div class="hpc-hero">
+        <div class="hpc-greeting">Good morning, Alex! 👋</div>
+        <div class="hpc-datetime">Saturday, July 25</div>
+        <div class="hpc-weather-row">☀️ 78°F · Sunny</div>
+      </div>
+      <div class="hpc-note">
+        <div class="hpc-note-label">💌 Today's Message</div>
+        <div class="hpc-note-text">Don't forget your dentist appointment at 3pm today!</div>
+      </div>
+      <div class="hpc-snapshot">🌱 3 active plans · 2 due this week</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ALL TOOLS ── -->
+<div class="wrap" id="tools">
+  <div class="section-head"><h2>✨ All Tools</h2></div>
+
+  <div class="tool-categories">
+
+    <div>
+      <div class="tool-cat-head"><span class="tool-cat-dot">🌿</span><span class="tool-cat-name">Daily</span></div>
+      <div class="tool-cat-list">
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#edf7ee;">🏠</div>
+          <div><div class="tool-name">Home</div><div class="tool-desc">Your day at a glance, with a severe weather alert icon that only appears when there's a real warning nearby.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#edf7ee;">🌿</div>
+          <div><div class="tool-name">My Day</div><div class="tool-desc">Mood, energy, sleep, medication reminders, and daily wellness check-in.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#ebf5fb;">📅</div>
+          <div><div class="tool-name">Calendar</div><div class="tool-desc">View your schedule and upcoming events at a glance.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tool-cat-head"><span class="tool-cat-dot">🎯</span><span class="tool-cat-name">Planning</span></div>
+      <div class="tool-cat-list">
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#edf7ee;">🌱</div>
+          <div><div class="tool-name">My Plans</div><div class="tool-desc">Goals and ideas you want to work toward, with card or table view and family plan sharing.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#e8f5f2;">💰</div>
+          <div><div class="tool-name">My Money</div><div class="tool-desc">Accounts, spending, income, and savings goals.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:var(--gold-bg);">⭐</div>
+          <div><div class="tool-name">Wish List</div><div class="tool-desc">Save goals and track progress toward things that matter to you.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#e8f5f2;">🗺️</div>
+          <div><div class="tool-name">Life Roadmap</div><div class="tool-desc">Big life milestones — track your journey forward.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:var(--gold-bg);">⚖️</div>
+          <div><div class="tool-name">Value of Things <span class="pill" style="margin-left:4px;">New</span></div><div class="tool-desc">See what things really cost, side by side, sized to their real value.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tool-cat-head"><span class="tool-cat-dot">🤝</span><span class="tool-cat-name">Family &amp; Caregiver</span></div>
+      <div class="tool-cat-list">
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#e8f0ed;">💌</div>
+          <div><div class="tool-name">Today's Message <span class="pill" style="margin-left:4px;">New</span></div><div class="tool-desc">A simple two-way daily note between a caregiver and the person they support, with voice notes and history.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#e8f0ed;">📋</div>
+          <div><div class="tool-name">Requests &amp; Evaluation <span class="pill" style="margin-left:4px;">New</span></div><div class="tool-desc">Ask for a job or interview ride, a social outing, an appointment, or time with a friend — caregiver reviews and responds.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:var(--gold-bg);">🏆</div>
+          <div><div class="tool-name">Rewards / Token Store <span class="pill" style="margin-left:4px;">New</span></div><div class="tool-desc">Earn, lose, and redeem tokens for real rewards — caregiver sets it up, either side can view progress.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tool-cat-head"><span class="tool-cat-dot">💗</span><span class="tool-cat-name">Wellness</span></div>
+      <div class="tool-cat-list">
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#f0f0fb;">🧘</div>
+          <div><div class="tool-name">Calm Corner</div><div class="tool-desc">Breathing, grounding, and sensory tools for hard moments.</div></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon-wrap" style="background:#fdf0f5;">🌸</div>
+          <div><div class="tool-name">Cycle Tracker</div><div class="tool-desc">Track your monthly cycle, phases, and patterns.</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="more-banner">
+    <span class="more-banner-icon">✦</span>
+    <div>
+      <div class="more-banner-title">And more coming soon...</div>
+      <div class="more-banner-desc">New tools added regularly based on user feedback.</div>
+    </div>
+  </div>
+
+  <div class="cta-group">
+    <a class="btn-primary" href="my-daily-tools.html?demo=1">Try Demo →</a>
+    <a class="btn-outline" href="login.html?return=my-daily-tools.html">🔒 Sign In</a>
+  </div>
+  <p class="cta-note">Your data is private and only visible to you. No account needed for the demo.<br>
+  <a href="#tab-help" id="need-help-link" style="color:var(--muted);text-decoration:underline;">Need help or have a question?</a></p>
+</div>
+
+<!-- ── WHY DAILY TOOLS ── -->
+<div class="wrap">
+  <div class="section-head"><h2>Why Daily Tools?</h2></div>
+  <div class="why-grid">
+    <div>
+      <div class="why-icon-circle" style="background:var(--accent-light);color:var(--accent);">🔒</div>
+      <div class="why-name">Private &amp; Secure</div>
+      <div class="why-desc">Your data stays on Firebase US servers — never sold or shared.</div>
+    </div>
+    <div>
+      <div class="why-icon-circle" style="background:var(--gold-bg);color:var(--gold);">♿</div>
+      <div class="why-name">Made for Real Life</div>
+      <div class="why-desc">Built for diverse learning needs, young adults, families, and caregivers.</div>
+    </div>
+    <div>
+      <div class="why-icon-circle" style="background:#ebf5fb;color:var(--accent2);">📱</div>
+      <div class="why-name">Easy to Use</div>
+      <div class="why-desc">No app install needed. Works simply on phone, tablet, or desktop.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HOW WE COMPARE ── -->
+<div class="wrap" id="compare">
+  <div class="section-head">
+    <h2>🔍 How Daily Tools Compares</h2>
+    <p class="compare-sub">Most apps in this space pick a side: built for the caregiver, or built for the person they support. Daily Tools is built for both, together, in one shared account.</p>
+  </div>
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>&nbsp;</th>
+          <th class="compare-us">🌿 Daily Tools</th>
+          <th>Typical caregiver apps</th>
+          <th>Typical routine / habit apps</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Built for the caregiver and the person they support, in one shared account</td>
+          <td class="yes">✓</td>
+          <td class="no">caregiver only</td>
+          <td class="no">individual only</td>
+        </tr>
+        <tr>
+          <td>Two-way daily message, not just a task list handed down</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="no">✗</td>
+        </tr>
+        <tr>
+          <td>A real ask &amp; approve flow for outings, rides, and appointments</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="no">✗</td>
+        </tr>
+        <tr>
+          <td>Money tracking and a token rewards economy, together</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="dim">rewards only, no money</td>
+        </tr>
+        <tr>
+          <td>Sensory and calm-down tools built in</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="no">✗</td>
+        </tr>
+        <tr>
+          <td>No hardware to buy, works in any browser</td>
+          <td class="yes">✓</td>
+          <td class="yes">✓</td>
+          <td class="dim">some require a device</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cta-note" style="margin-top:14px;">A general comparison against publicly listed features of caregiver-coordination and routine/habit apps as of 2026. Feature sets change often, so see for yourself with the free demo below rather than take our word for it.</p>
+</div>
+
+<!-- ── PRICING ── -->
+<div class="wrap" id="pricing">
+  <div class="section-head"><h2>💳 Simple Plans</h2></div>
+  <div class="price-grid">
+
+    <div class="price-card">
+      <div class="price-illo" style="background:var(--accent-light);">🌱</div>
+      <div class="price-plan">Free</div>
+      <div class="price-amount">$0</div>
+      <div class="price-period">forever</div>
+      <ul class="price-features">
+        <li>✓ Access to all core tools</li>
+        <li>✓ Demo data (shared)</li>
+        <li class="dim">✗ No account needed</li>
+        <li class="dim">✗ Private data</li>
+        <li class="dim">✗ Save your progress</li>
+      </ul>
+      <a class="btn-outline" href="my-daily-tools.html?demo=1">Try Demo</a>
+    </div>
+
+    <div class="price-card">
+      <div class="price-illo" style="background:var(--surface2);">🛋️</div>
+      <div class="price-plan">Base</div>
+      <div class="price-amount">$7.99</div>
+      <div class="price-period">/ month</div>
+      <div class="price-annual">$69/year — save 28%</div>
+      <ul class="price-features">
+        <li>✓ Home, Plans, Money</li>
+        <li>✓ Today's Message &amp; Requests</li>
+        <li>✓ Private data — yours only</li>
+        <li>✓ Add Wellness, Goals, or Calendar packs anytime</li>
+        <li>✓ Cancel anytime</li>
+      </ul>
+      <a class="btn-outline" href="subscribe.html">Get Started</a>
+    </div>
+
+    <div class="price-card featured">
+      <span class="price-badge">Most Popular</span>
+      <div class="price-illo" style="background:var(--gold-bg);">🏆</div>
+      <div class="price-plan">Complete</div>
+      <div class="price-amount">$12.99</div>
+      <div class="price-period">/ month</div>
+      <div class="price-annual">$119/year — save 24%</div>
+      <ul class="price-features">
+        <li>✓ Everything in Base</li>
+        <li>✓ Wellness Pack (My Day, Calm Corner, Cycle)</li>
+        <li>✓ Goals &amp; Motivation Pack (Wish List, Roadmap, Value of Things, Rewards)</li>
+        <li>✓ Calendar included</li>
+        <li>✓ Cancel anytime</li>
+      </ul>
+      <a class="btn-primary" href="subscribe.html?plan=complete">Get Started</a>
+    </div>
+
+  </div>
+  <p class="cta-note" style="margin-top:14px;">Only need one extra? Start with Base and add just the Wellness Pack ($10.98/mo), the Goals &amp; Motivation Pack ($11.98/mo), or Calendar ($9.48/mo) anytime from Settings — pick all three and you automatically get the Complete bundle price instead of paying for each separately.</p>
+
+  <!-- Learn more toggle -->
+  <button class="learn-more-btn" id="learnBtn" onclick="toggleLearn()">
+    <span>Learn more about Daily Tools</span>
+    <span class="arr" id="learnArr">▾</span>
+  </button>
+
+  <div class="learn-more-content" id="learnContent">
+
+    <div class="tab-nav">
+      <button class="active" onclick="showTab('schools',this)">🏫 For Schools</button>
+      <button onclick="showTab('privacy',this)">🛡️ Privacy</button>
+      <button onclick="showTab('contact',this)">✉️ Contact</button>
+      <button onclick="showTab('help',this)">❓ Help</button>
+    </div>
+
+    <div id="tab-schools" class="tab-panel active">
+      <div class="panel-card">
+        <ul class="point-list">
+          <li><span>📋</span><span>Supports goal-setting and self-advocacy skills through the Plans tool.</span></li>
+          <li><span>🌿</span><span>Daily mood check-ins help students build self-awareness.</span></li>
+          <li><span>🧘</span><span>Calm Corner gives students a grounding tool for hard moments.</span></li>
+          <li><span>🗺️</span><span>Life Roadmap helps students visualize and celebrate big milestones.</span></li>
+          <li><span>🔒</span><span>Each student's data is private — no teacher or third party can access it.</span></li>
+        </ul>
+        <div class="note-box"><strong>Administrators:</strong> Intended for adults or minors under parental supervision. <a href="#tab-contact" onclick="openContactTab(event,'School Pricing')" style="color:var(--accent);">Contact us</a> to discuss school pricing.</div>
+      </div>
+    </div>
+
+    <div id="tab-privacy" class="tab-panel">
+      <div class="panel-card">
+        <p><strong>Your data:</strong> Stored on Google Firebase (US servers), accessible only to you. Never sold or used for advertising.</p>
+        <p><strong>Not a medical tool:</strong> Wellness and cycle tracking are for personal awareness only — not medical advice or diagnosis.</p>
+        <p><strong>Age:</strong> Not intended for children under 13 without direct parental supervision.</p>
+      </div>
+    </div>
+
+    <div id="tab-contact" class="tab-panel">
+      <div class="panel-card">
+        <p>Questions about pricing, school plans, accessibility needs, a bug, or an idea? Send a note below — we'll get back to you.</p>
+        <form id="contact-form" action="https://ge-contact-hub.web.app/submit" method="POST" onsubmit="return submitContactForm(event)">
+          <input type="hidden" name="_subject" id="contact-form-subject" value="Daily Tools — General Question">
+          <!-- Honeypot -- real visitors never see or fill this (display:none),
+               bots that auto-fill every field do. Kept as-is after the
+               2026-08-18 switch from Formspree to GE Contact Hub (per
+               Marcelo, "from now on use this for my contact form") -- still
+               a harmless extra field either way; whether ge-contact-hub.web.app
+               itself acts on it (silently dropping non-empty submissions,
+               same as Formspree did) hasn't been confirmed. -->
+          <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off">
+          <div style="margin-bottom:10px;">
+            <label for="contact-name" style="display:block;font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:4px;">Name</label>
+            <input type="text" id="contact-name" name="name" required style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.85rem;background:var(--surface);color:var(--text);">
+          </div>
+          <div style="margin-bottom:10px;">
+            <label for="contact-email" style="display:block;font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:4px;">Email</label>
+            <input type="email" id="contact-email" name="email" required style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.85rem;background:var(--surface);color:var(--text);">
+          </div>
+          <div style="margin-bottom:10px;">
+            <label for="contact-reason" style="display:block;font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:4px;">Reason</label>
+            <select id="contact-reason" name="reason" onchange="updateContactSubject(this.value)" style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.85rem;background:var(--surface);color:var(--text);">
+              <option value="General Question">General question</option>
+              <option value="Base Plan Signup">Base Plan — Get Started</option>
+              <option value="Complete Plan Signup">Complete Plan — Get Started</option>
+              <option value="School Pricing">School pricing</option>
+              <option value="Bug Report">Bug report</option>
+              <option value="Feature Request">Feature request</option>
+            </select>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label for="contact-message" style="display:block;font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:4px;">Message</label>
+            <textarea id="contact-message" name="message" rows="4" required style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.85rem;background:var(--surface);color:var(--text);resize:vertical;"></textarea>
+          </div>
+          <button type="submit" class="btn-primary" id="contact-form-submit" style="width:100%;">Send message</button>
+          <p id="contact-form-status" style="margin-top:10px;font-size:.8rem;"></p>
+        </form>
+        <p style="font-size:.74rem;color:var(--muted);margin-top:14px;">GoEnhanced LLC — building tools that support real life.</p>
+      </div>
+    </div>
+
+    <div id="tab-help" class="tab-panel">
+      <div class="panel-card">
+        <p style="font-weight:700;margin-bottom:6px;">🚀 Getting started</p>
+        <ol style="margin:0 0 14px 18px;padding:0;font-size:.85rem;line-height:1.7;">
+          <li>Click <strong>Try Demo</strong> above to explore all the tools with no account — nothing you enter is saved.</li>
+          <li>Ready to keep your data? Click <strong>Sign In</strong> and choose the Personal plan.</li>
+          <li>Open <strong>Settings</strong> inside the app to turn tools on/off, adjust text size, and set up caregiver access.</li>
+          <li>Each day, check the <strong>Plans</strong> or <strong>My Day</strong> tab — small daily use is what earns reward tokens.</li>
+        </ol>
+
+        <p style="font-weight:700;margin-bottom:6px;">❓ FAQ</p>
+        <div style="margin-bottom:14px;">
+          <p style="font-size:.85rem;margin-bottom:8px;"><strong>Is my data private?</strong><br>Yes. Your data lives on private Firebase servers and is visible only to you (and any caregiver you explicitly invite).</p>
+          <p style="font-size:.85rem;margin-bottom:8px;"><strong>Does it work on my phone?</strong><br>Yes — it runs in any mobile or desktop browser. No app install needed.</p>
+          <p style="font-size:.85rem;margin-bottom:8px;"><strong>Can a caregiver and their loved one both use it?</strong><br>Yes. Caregivers get their own settings and view; the person they support gets a simplified daily view.</p>
+          <p style="font-size:.85rem;margin-bottom:8px;"><strong>What does it cost?</strong><br>The demo is always free. Base is $7.99/month or $69/year and covers the everyday tools; Complete is $12.99/month or $119/year and adds the Wellness and Goals &amp; Motivation packs. You can also add just one pack to Base instead of going Complete — see Plans above.</p>
+          <p style="font-size:.85rem;">Don't see your question here? Use Contact below.</p>
+        </div>
+
+        <p style="font-weight:700;margin-bottom:6px;">🐞 Report a problem</p>
+        <p style="font-size:.85rem;margin-bottom:14px;">Something not working right? <a href="#tab-contact" onclick="openContactTab(event,'Bug Report')" style="color:var(--accent);">Report it here</a> — include what you were doing and what happened.</p>
+
+        <p style="font-weight:700;margin-bottom:6px;">💡 Request a feature</p>
+        <p style="font-size:.85rem;">Have an idea for a tool or improvement? <a href="#tab-contact" onclick="openContactTab(event,'Feature Request')" style="color:var(--accent);">Send us your idea</a> — we read every one.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      © 2026 GoEnhanced LLC · <a href="https://you-the-winner.com">you-the-winner.com</a><br>
+      Not affiliated with any government or healthcare body.
+    </div>
+
+  </div><!-- /learn-more-content -->
+
+</div>
+
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.tab-nav button').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+function toggleLearn() {
+  var c = document.getElementById('learnContent');
+  var a = document.getElementById('learnArr');
+  var open = c.classList.toggle('open');
+  a.style.transform = open ? 'rotate(180deg)' : '';
+}
+function openHelpTab(e) {
+  if (e) e.preventDefault();
+  var c = document.getElementById('learnContent');
+  c.classList.add('open');
+  document.getElementById('learnArr').style.transform = 'rotate(180deg)';
+  setTimeout(function () {
+    var b = document.querySelector('.tab-nav button:nth-child(4)');
+    if (b) showTab('help', b);
+    var el = document.getElementById('tab-help');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+document.getElementById('need-help-link').addEventListener('click', openHelpTab);
+document.getElementById('nav-help-link').addEventListener('click', openHelpTab);
+
+// Contact form (2026-08-18, per Marcelo: replace every mailto:info@
+// goenenhanced.com link on this page with the Formspree form below, so no
+// plain-text email address sits in the page source for spam scrapers to
+// find at all — not even the "Get Started"/bug-report/feature-request
+// links, which used to open a mail client with a prefilled subject.
+// openContactTab() is the same "jump to a tab inside the collapsed Learn
+// More panel" pattern openHelpTab() already uses just above, plus an
+// optional reason so each entry point still lands pre-selected on the
+// right option in the form's Reason dropdown instead of every submission
+// looking identical.
+function openContactTab(e, reason) {
+  if (e) e.preventDefault();
+  var c = document.getElementById('learnContent');
+  c.classList.add('open');
+  document.getElementById('learnArr').style.transform = 'rotate(180deg)';
+  setTimeout(function () {
+    var b = document.querySelector('.tab-nav button:nth-child(3)'); // Contact is the 3rd tab
+    if (b) showTab('contact', b);
+    if (reason) {
+      var sel = document.getElementById('contact-reason');
+      if (sel) { sel.value = reason; updateContactSubject(reason); }
+    }
+    var el = document.getElementById('tab-contact');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+function updateContactSubject(reason) {
+  var subj = document.getElementById('contact-form-subject');
+  if (subj) subj.value = 'Daily Tools — ' + reason;
+}
+// Submits via fetch instead of a normal form POST so a visitor stays on
+// this page and sees an inline confirmation, rather than the endpoint's own
+// response (redirect or otherwise) taking over the tab.
+//
+// Switched 2026-08-18 from Formspree (https://formspree.io/f/xjybadlp) to
+// GE Contact Hub (https://ge-contact-hub.web.app/submit) per Marcelo: "for
+// my form contact, please from now on use this." Only this form's `action`
+// changed -- still posts the same FormData (name/email/reason/message plus
+// the honeypot field), same Accept header, same field names. GE Contact
+// Hub's exact response shape on success/failure hasn't been confirmed
+// (Formspree's was: {errors:[{message}]} on failure), so the error branch
+// below no longer assumes that specific shape -- it tries a couple of
+// plausible generic fields (`error`, `message`) and falls back to the same
+// generic "something went wrong" text if the response isn't JSON at all or
+// doesn't have either. Worth a real test submission once this is live to
+// confirm both the success and failure paths actually look right.
+function submitContactForm(e) {
+  e.preventDefault();
+  var form = e.target;
+  var btn = document.getElementById('contact-form-submit');
+  var statusEl = document.getElementById('contact-form-status');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  statusEl.textContent = '';
+  statusEl.style.color = '';
+  fetch(form.action, {
+    method: 'POST',
+    body: new FormData(form),
+    headers: { 'Accept': 'application/json' }
+  }).then(function (response) {
+    if (response.ok) {
+      form.reset();
+      updateContactSubject('General Question');
+      statusEl.textContent = "Thanks — we'll get back to you soon.";
+      statusEl.style.color = 'var(--accent)';
+    } else {
+      return response.json().catch(function () { return null; }).then(function (data) {
+        statusEl.textContent = (data && (data.error || data.message)) || 'Something went wrong — please try again in a moment.';
+        statusEl.style.color = '#c0473a';
+      });
+    }
+  }).catch(function () {
+    statusEl.textContent = 'Something went wrong — please try again in a moment.';
+    statusEl.style.color = '#c0473a';
+  }).finally(function () {
+    btn.disabled = false;
+    btn.textContent = 'Send message';
+  });
+  return false;
+}
+
+// Deep-link support: arriving with e.g. #tab-help (used by my-daily-tools.html's
+// Help tab and the Settings "Getting Started & FAQ" link) previously did nothing —
+// the Learn More section is collapsed by default and showTab() only ran on a
+// click, so #tab-help just landed on the top of the page with no visible content.
+// Added 2026-07-24, kept through the 2026-07-25 redesign.
+(function() {
+  var hash = (location.hash || '').replace('#tab-', '');
+  var validTabs = ['schools', 'privacy', 'contact', 'help'];
+  if (validTabs.indexOf(hash) === -1) return;
+  var c = document.getElementById('learnContent');
+  var a = document.getElementById('learnArr');
+  if (c && !c.classList.contains('open')) {
+    c.classList.add('open');
+    if (a) a.style.transform = 'rotate(180deg)';
+  }
+  var btn = document.querySelector('.tab-nav button[onclick*="\'' + hash + '\'"]');
+  if (btn) showTab(hash, btn);
+  setTimeout(function() {
+    var el = document.getElementById('tab-' + hash);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+})();
+</script>
+</body>
+</html>

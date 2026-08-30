@@ -1,0 +1,57 @@
+/* Shared theme palettes + toggle button, used on every page.
+   Each page keeps defining its own light-mode :root variables exactly as
+   before -- this file only adds [data-theme="medium"]/[data-theme="dark"]
+   override blocks using the SAME variable names, so it works everywhere
+   without touching each page's existing color rules. See theme.js for the
+   toggle logic, the per-visitor localStorage memory, and the admin-set
+   sitewide default. See SKILL.md "Dark mode" section for the full writeup. */
+
+:root[data-theme="medium"] {
+  --bg: #c9dad2;
+  --surface: #dce8e1;
+  --surface2: #b9d0c5;
+  --surface3: #aac4b7;
+  --border: #9bb8aa;
+  --text: #1d3530;
+  --muted: #44615a;
+  --soft: #7c9b8d;
+  --accent: #267567;
+  --accent2: #235f78;
+  --accent-light: #aecfc2;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1a17;
+  --surface: #16241f;
+  --surface2: #1c2e27;
+  --surface3: #223830;
+  --border: #2a3f37;
+  --text: #e8f3ef;
+  --muted: #8aa89f;
+  --soft: #5a7a73;
+  --accent: #3ea892;
+  --accent2: #4a8fb5;
+  --accent-light: #1f3a33;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 54px;
+  right: 14px;
+  z-index: 999;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.theme-toggle:hover { background: var(--accent-light); transform: scale(1.06); }

@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calm Corner — Melissa</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
+<script src="tab-nav-shared.js"></script>
+<style id="auth-loading-style">body{visibility:hidden;}</style>
+<script>window.PAGE_KEY='calm-corner';</script>
+<script type="module" src="auth-guard.js"></script>
+<style>
+  :root {
+    --bg: #f0f5f3;
+    --surface: #ffffff;
+    --surface2: #e8f0ed;
+    --border: #cfddd8;
+    --text: #0f1f1c;
+    --muted: #5a7a73;
+    --accent: #2a7d6f;
+    --accent2: #1a5c7a;
+    --calm-blue: #3b82f6;
+    --calm-purple: #7c3aed;
+    --calm-pink: #ec4899;
+    --warm-yellow: #f59e0b;
+    --radius: 18px;
+    --tab-h: 44px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 500;
+    min-height: 100vh;
+    padding: 32px 20px calc(56px + 24px); /* bottom space for mobile sidebar */
+    transition: background 0.8s ease;
+  }
+  @media(min-width:560px) {
+    body { padding: 32px 20px 24px 96px; } /* left space for desktop sidebar */
+  }
+
+  body.feeling-1 { background: #fce7f3; }
+  body.feeling-2 { background: #ffedd5; }
+  body.feeling-3 { background: #fef9c3; }
+  body.feeling-4 { background: #dcfce7; }
+  body.feeling-5 { background: #f0f5f3; }
+
+  /* ── ACCESSIBILITY ── */
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  a.skip-nav { position:absolute; left:-9999px; top:0; z-index:9999; background:var(--accent); color:#fff; padding:10px 18px; border-radius:0 0 10px 10px; font-weight:700; text-decoration:none; }
+  a.skip-nav:focus { left:0; }
+
+  .max-w { max-width: 640px; margin: 0 auto; }
+
+  /* ── HEADER ── */
+  .page-back { display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--muted); text-decoration:none; margin-bottom:16px; transition:color 0.2s; }
+  .page-back:hover { color:var(--accent); }
+  .page-header { text-align:center; margin-bottom:36px; }
+  .page-emoji { font-size:3rem; line-height:1; margin-bottom:8px; display:block; }
+  .page-title { font-family:'Nunito',sans-serif; font-size:clamp(1.6rem,5vw,2.2rem); font-weight:900; color:var(--text); }
+  .page-subtitle { font-size:0.9rem; color:var(--muted); margin-top:6px; }
+
+  /* ── SECTION CARD ── */
+  .section-card {
+    background: var(--surface); border:1px solid var(--border);
+    border-radius: var(--radius); padding:28px 24px; margin-bottom:20px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .section-title {
+    font-family:'Nunito',sans-serif; font-weight:800; font-size:1.2rem;
+    color:var(--text); margin-bottom:6px; display:flex; align-items:center; gap:8px;
+  }
+  .section-desc { font-size:0.84rem; color:var(--muted); margin-bottom:20px; line-height:1.6; }
+
+  /* ── FEELING SCALE ── */
+  .feeling-scale {
+    display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .feeling-btn {
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    background:var(--surface2); border:3px solid var(--border);
+    border-radius:16px; padding:14px 10px; cursor:pointer; transition:all 0.2s;
+    min-width:80px; min-height:90px; font-family:'Nunito',sans-serif;
+  }
+  .feeling-btn:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
+  .feeling-btn.selected { transform:translateY(-4px) scale(1.05); box-shadow:0 8px 24px rgba(0,0,0,0.15); }
+  .feeling-btn[data-level="1"].selected { border-color:#ef4444; background:#fee2e2; }
+  .feeling-btn[data-level="2"].selected { border-color:#f97316; background:#ffedd5; }
+  .feeling-btn[data-level="3"].selected { border-color:#eab308; background:#fef9c3; }
+  .feeling-btn[data-level="4"].selected { border-color:#22c55e; background:#dcfce7; }
+  .feeling-btn[data-level="5"].selected { border-color:#3b82f6; background:#dbeafe; }
+  .feeling-emoji { font-size:2.5rem; line-height:1; }
+  .feeling-label { font-size:0.72rem; font-weight:700; color:var(--text); text-align:center; }
+  .feeling-result { min-height:60px; transition:all 0.4s; }
+  .feeling-msg {
+    text-align:center; padding:18px; border-radius:16px;
+    font-family:'Nunito',sans-serif; font-weight:700; font-size:1rem;
+    display:none; line-height:1.5;
+  }
+  .feeling-msg.show { display:block; }
+
+  /* ── STRATEGIES ── */
+  .strategies-section { display:none; }
+  .strategies-section.show { display:block; }
+  .strategy-grid { display:flex; flex-direction:column; gap:10px; }
+  .strategy-card {
+    background:var(--surface2); border:2px solid var(--border);
+    border-radius:14px; padding:16px 18px;
+    cursor:pointer; transition:all 0.2s; user-select:none;
+    display:flex; align-items:center; gap:14px;
+    min-height:60px;
+  }
+  .strategy-card:hover { border-color:var(--accent); background:#e8f5f0; }
+  .strategy-card.expanded { border-color:var(--accent); background:#e8f5f0; }
+  .strategy-emoji { font-size:2rem; flex-shrink:0; }
+  .strategy-text { flex:1; }
+  .strategy-name { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.95rem; color:var(--text); }
+  .strategy-sub { font-size:0.78rem; color:var(--muted); margin-top:2px; }
+  .strategy-detail { display:none; font-size:0.86rem; color:var(--text); line-height:1.7; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .strategy-detail.show { display:block; }
+
+  /* ── BREATHING EXERCISE ── */
+  .breath-section { text-align:center; }
+  .breath-circle-wrap { position:relative; width:200px; height:200px; margin:0 auto 20px; }
+  #breath-circle {
+    width:100px; height:100px; border-radius:50%;
+    background:radial-gradient(circle,var(--accent),var(--accent2));
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    transition:width 4s ease, height 4s ease, opacity 0.5s;
+    box-shadow:0 0 30px rgba(42,125,111,0.3);
+  }
+  #breath-ring {
+    position:absolute; inset:0; border-radius:50%;
+    border:3px solid var(--border);
+  }
+  #breath-instruction {
+    font-family:'Nunito',sans-serif; font-size:1.5rem; font-weight:900;
+    color:var(--text); margin-bottom:6px;
+  }
+  #breath-count { font-size:3rem; font-weight:900; color:var(--accent); font-family:'Nunito',sans-serif; margin-bottom:4px; }
+  #breath-phase { font-size:0.84rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; font-weight:600; }
+  .breath-controls { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  .breath-btn {
+    background:var(--accent); color:white; border:none; border-radius:99px;
+    padding:14px 28px; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.95rem;
+    cursor:pointer; transition:all 0.2s; min-height:52px;
+  }
+  .breath-btn:hover { filter:brightness(1.1); }
+  .breath-btn.secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .breath-type-select {
+    display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .breath-type-btn {
+    background:var(--surface2); border:2px solid var(--border); border-radius:99px;
+    padding:8px 16px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.82rem;
+    cursor:pointer; transition:all 0.2s; min-height:44px; color:var(--text);
+  }
+  .breath-type-btn.active { background:var(--accent); border-color:var(--accent); color:white; }
+  .breath-rounds-display { font-size:0.82rem; color:var(--muted); margin-top:10px; }
+
+  /* ── SENSORY BREAKS ── */
+  .sensory-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  @media (max-width:400px) { .sensory-grid { grid-template-columns:1fr; } }
+  .sensory-card {
+    background:var(--surface2); border:2px solid var(--border);
+    border-radius:14px; padding:16px 14px; text-align:center;
+    cursor:pointer; transition:all 0.2s; min-height:90px;
+  }
+  .sensory-card:hover { border-color:var(--accent); background:#e8f5f0; transform:translateY(-2px); }
+  .sensory-emoji { font-size:2.2rem; margin-bottom:6px; }
+  .sensory-name { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.88rem; color:var(--text); }
+  .sensory-tip { font-size:0.75rem; color:var(--muted); margin-top:3px; line-height:1.4; }
+
+  /* ── SENSORY ANIMATION OVERLAY ── */
+  .sensory-anim-overlay {
+    display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(15,31,28,0.55); align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .sensory-anim-overlay.open { display:flex; }
+  .sensory-anim-panel {
+    background:var(--surface); border-radius:24px; padding:32px 28px 24px;
+    max-width:400px; width:100%; text-align:center; position:relative;
+    box-shadow:0 24px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.3s ease both;
+  }
+  .sap-close {
+    position:absolute; top:14px; right:16px; background:var(--surface2);
+    border:none; border-radius:50%; width:36px; height:36px; font-size:1.1rem;
+    cursor:pointer; color:var(--muted); display:flex; align-items:center; justify-content:center;
+  }
+  .sap-title {
+    font-family:'Nunito',sans-serif; font-weight:900; font-size:1.25rem;
+    color:var(--text); margin-bottom:4px;
+  }
+  .sap-subtitle { font-size:0.8rem; color:var(--muted); margin-bottom:24px; }
+  .sap-stage { height:180px; display:flex; align-items:center; justify-content:center; margin-bottom:20px; position:relative; }
+  .sap-counter {
+    font-family:'Nunito',sans-serif; font-weight:900; font-size:3.5rem;
+    color:var(--accent); line-height:1; position:absolute; bottom:10px; right:10px;
+  }
+  .sap-status {
+    font-family:'Nunito',sans-serif; font-weight:700; font-size:1rem;
+    color:var(--text); margin-bottom:16px; min-height:28px;
+  }
+  .sap-progress { display:flex; gap:6px; justify-content:center; margin-bottom:20px; }
+  .sap-dot { width:10px; height:10px; border-radius:50%; background:var(--border); transition:background 0.3s; }
+  .sap-dot.done { background:var(--accent); }
+  .sap-done-btn {
+    background:var(--accent); color:white; border:none; border-radius:99px;
+    padding:14px 32px; font-family:'Nunito',sans-serif; font-weight:800; font-size:1rem;
+    cursor:pointer; display:none; margin:0 auto;
+  }
+  .sap-done-btn.show { display:block; }
+
+  /* SVG animation actors */
+  @keyframes pushArm { 0%,100%{transform:translateX(0);} 50%{transform:translateX(-22px);} }
+  @keyframes stepLeft { 0%,49%{opacity:1;} 50%,100%{opacity:0.3;} }
+  @keyframes stepRight { 0%,49%{opacity:0.3;} 50%,100%{opacity:1;} }
+  @keyframes squeezeHand { 0%,100%{transform:scaleX(1);} 50%{transform:scaleX(0.7);} }
+  @keyframes waterDrop { 0%{opacity:0;transform:translateY(-8px);} 60%{opacity:1;} 100%{opacity:0;transform:translateY(16px);} }
+  @keyframes shakeBody { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px) rotate(-3deg);} 75%{transform:translateX(6px) rotate(3deg);} }
+  @keyframes soundWave { 0%,100%{transform:scaleY(0.3);opacity:0.4;} 50%{transform:scaleY(1);opacity:1;} }
+  @keyframes ripple { 0%{r:20;opacity:0.6;} 100%{r:70;opacity:0;} }
+
+  /* ── TALK IT OUT ── */
+  .talk-prompts { display:flex; flex-direction:column; gap:10px; }
+  .talk-prompt {
+    background:var(--surface2); border:2px solid var(--border);
+    border-radius:14px; padding:16px 18px; cursor:pointer; transition:all 0.2s;
+  }
+  .talk-prompt:hover { border-color:var(--accent); background:#e8f5f0; }
+  .talk-prompt-q { font-family:'Nunito',sans-serif; font-weight:700; font-size:0.92rem; color:var(--text); margin-bottom:6px; }
+  .talk-answer {
+    width:100%; background:var(--surface); border:1.5px solid var(--border);
+    border-radius:10px; padding:10px 12px; font-family:'Quicksand',sans-serif; font-size:0.9rem;
+    color:var(--text); resize:none; outline:none; font-weight:500; min-height:72px;
+    display:none; transition:border 0.2s;
+  }
+  .talk-answer.show { display:block; }
+  .talk-answer:focus { border-color:var(--accent); }
+
+  /* ── BRAIN INFO ── */
+  .brain-section { background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border-color:#bae6fd; }
+  .brain-section .section-title { color:#0c4a6e; }
+  .brain-row { display:flex; gap:14px; align-items:flex-start; margin-bottom:14px; }
+  .brain-icon { font-size:2.2rem; flex-shrink:0; }
+  .brain-text-block { flex:1; }
+  .brain-name { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.95rem; color:#0c4a6e; margin-bottom:4px; }
+  .brain-desc { font-size:0.84rem; color:#075985; line-height:1.7; }
+  .brain-divider { border:none; border-top:1px solid #bae6fd; margin:14px 0; }
+
+  /* ── BRAIN TAP-THROUGH ── */
+  .brain-tap-section { background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border-color:#bae6fd; }
+  .brain-tap-section .section-title { color:#0c4a6e; }
+  .brain-tap-section .section-desc { color:#075985; margin-bottom:20px; }
+  .brain-steps-nav { display:flex; gap:8px; justify-content:center; margin-bottom:20px; }
+  .brain-step-pip {
+    width:32px; height:6px; border-radius:99px; background:var(--border); transition:all 0.3s;
+  }
+  .brain-step-pip.active { background:#0ea5e9; width:48px; }
+  .brain-step-pip.done { background:#7dd3fc; }
+  .brain-panel {
+    display:none; animation:fadeUp 0.35s ease both;
+  }
+  .brain-panel.active { display:block; }
+  .brain-illus {
+    width:100%; height:160px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;
+  }
+  .brain-panel-label {
+    font-family:'Nunito',sans-serif; font-weight:900; font-size:1.15rem;
+    color:#0c4a6e; text-align:center; margin-bottom:8px;
+  }
+  .brain-panel-hint {
+    font-size:0.78rem; color:#0ea5e9; text-align:center; margin-bottom:14px;
+    cursor:pointer; text-decoration:underline dotted; display:flex; align-items:center; justify-content:center; gap:4px;
+  }
+  .brain-panel-detail {
+    font-size:0.84rem; color:#075985; line-height:1.6; text-align:center;
+    background:rgba(255,255,255,0.6); border-radius:12px; padding:12px 14px;
+    display:none; margin-bottom:12px;
+  }
+  .brain-panel-detail.show { display:block; animation:fadeUp 0.25s ease both; }
+  .brain-nav-row { display:flex; gap:10px; justify-content:center; margin-top:4px; }
+  .brain-nav-btn {
+    background:white; border:2px solid #bae6fd; color:#0c4a6e; border-radius:99px;
+    padding:10px 22px; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.88rem;
+    cursor:pointer; transition:all 0.2s; min-height:44px;
+  }
+  .brain-nav-btn:hover { background:#e0f2fe; }
+  .brain-nav-btn.primary { background:#0ea5e9; border-color:#0ea5e9; color:white; }
+  .brain-nav-btn.primary:hover { filter:brightness(1.1); }
+
+  /* Brain SVG animations */
+  @keyframes alarmPulse { 0%,100%{transform:scale(1);fill:#f87171;} 50%{transform:scale(1.18);fill:#ef4444;} }
+  @keyframes zap { 0%,100%{opacity:0;} 40%,60%{opacity:1;} }
+  @keyframes thinkFade { 0%,100%{opacity:0.2;} 50%{opacity:0.8;} }
+  @keyframes comeBack { from{opacity:0;transform:scale(0.7);} to{opacity:1;transform:scale(1);} }
+  @keyframes breatheRing { 0%,100%{r:48;opacity:0.3;} 50%{r:58;opacity:0.7;} }
+
+  /* ── SOUND & MUSIC ──
+     2026-08-09: switched from a dark navy/indigo card to a light pastel
+     gradient (same pattern as .brain-section: light tint + accent-colored
+     text on the app's normal light background) so this section matches the
+     rest of Calm Corner and the app instead of looking like a different,
+     out-of-place dark theme. Indigo/purple hue kept as this section's
+     "color family" (same way Brain uses light blue), just lightened. */
+  /* Sound & Music — previously had its own indigo/purple palette
+     (#312e81/#4338ca/#6366f1) independent of the rest of the app's
+     teal/green theme, which is why this one card stood out as "off" next
+     to Feel/Breathe/Body/Brain and every other tool tab. Recolored to the
+     same theme vars (var(--surface), var(--border), var(--text),
+     var(--muted), var(--accent)) everything else already uses — the card
+     now falls back to .section-card's default white/border styling with
+     no override needed here at all. */
+  .sound-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+  @media(max-width:380px){ .sound-grid { grid-template-columns:1fr; } }
+  .sound-btn {
+    background:var(--surface2); border:2px solid var(--border);
+    border-radius:14px; padding:12px 8px; cursor:pointer; transition:all 0.25s;
+    text-align:center; color:var(--text); position:relative; overflow:hidden;
+  }
+  .sound-btn:hover { background:#e8f5f0; border-color:var(--accent); transform:translateY(-2px); }
+  .sound-btn.playing { background:#e8f5f0; border-color:var(--accent); box-shadow:0 0 0 3px rgba(42,125,111,0.15); }
+  .sound-btn-icon { font-size:1.7rem; margin-bottom:5px; display:block; }
+  .sound-btn-name { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.82rem; color:var(--text); }
+  .sound-btn-state { font-size:0.66rem; color:var(--muted); margin-top:2px; }
+  .sound-wave-wrap { display:flex; align-items:flex-end; justify-content:center; gap:3px; height:16px; margin-top:5px; }
+  .sound-wave-bar {
+    width:3px; border-radius:99px; background:var(--accent);
+    animation:soundWave 0.8s ease-in-out infinite;
+    transform-origin:bottom;
+  }
+  .sound-wave-bar:nth-child(2){animation-delay:0.15s;}
+  .sound-wave-bar:nth-child(3){animation-delay:0.3s;}
+  .sound-wave-bar:nth-child(4){animation-delay:0.45s;}
+  .sound-wave-bar:nth-child(5){animation-delay:0.6s;}
+  .sound-wave-wrap.paused .sound-wave-bar { animation-play-state:paused; }
+  .sound-volume-row { display:flex; align-items:center; gap:10px; margin-top:4px; }
+  .sound-vol-label { font-size:0.78rem; color:var(--muted); flex-shrink:0; }
+  .sound-vol-slider {
+    flex:1; -webkit-appearance:none; height:4px; border-radius:99px;
+    background:var(--border); outline:none; cursor:pointer;
+  }
+  .sound-vol-slider::-webkit-slider-thumb {
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:var(--accent); cursor:pointer; box-shadow:0 2px 6px rgba(15,31,28,0.25);
+  }
+
+  /* ── SITE SIDEBAR (cross-page nav) ── */
+  .site-sidebar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--surface);border-top:1.5px solid var(--border);box-shadow:0 -2px 8px rgba(15,31,28,.06);}
+  .site-sidebar-inner{display:flex;justify-content:space-around;align-items:stretch;max-width:480px;margin:0 auto;height:56px;}
+  .ssb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;color:var(--muted);text-decoration:none;flex:1;font-family:'Quicksand',sans-serif;-webkit-tap-highlight-color:transparent;transition:color .15s;}
+  .ssb.active{color:var(--accent);}
+  .ssb-icon{font-size:1.1rem;line-height:1;}
+  .ssb-label{font-size:.62rem;font-weight:700;line-height:1;}
+  @media(min-width:560px){
+    .site-sidebar{bottom:auto;right:auto;top:var(--sn-h,56px);width:76px;height:calc(100vh - var(--sn-h,56px));border-top:none;border-right:1.5px solid var(--border);box-shadow:2px 0 8px rgba(15,31,28,.06);overflow-y:auto;}
+    .site-sidebar-inner{flex-direction:column;justify-content:flex-start;padding-top:6px;height:100%;max-width:none;}
+    .ssb{flex:0 0 auto;width:76px;height:auto;padding:12px 4px;}
+  }
+  /* "More" popover for tools that don't fit in the 5-icon cap -- same cap
+     and overflow rule as my-daily-tools.html's tab bar (see tab-nav-shared.js). */
+  .ssb-more-popover{display:none;position:fixed;z-index:1400;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 6px 24px rgba(15,31,28,.16);padding:6px;min-width:170px;}
+  .ssb-more-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:9px;border:none;background:none;color:var(--text);text-decoration:none;font-family:'Quicksand',sans-serif;font-size:.82rem;text-align:left;}
+  .ssb-more-item:hover,.ssb-more-item.active{background:var(--surface2);color:var(--accent);}
+
+  /* ── MY LOG / STREAK ── */
+  .log-card { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:white; border-radius:var(--radius); padding:24px; text-align:center; }
+  .log-streak { font-family:'Nunito',sans-serif; font-size:2.5rem; font-weight:900; margin-bottom:4px; }
+  .log-streak-label { font-size:0.82rem; opacity:0.85; letter-spacing:1px; text-transform:uppercase; font-weight:700; }
+  .log-history { margin-top:16px; display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+  .log-dot { width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,0.3); display:flex; align-items:center; justify-content:center; font-size:0.9rem; title:attr(data-date); }
+  .log-dot.has-entry { background:rgba(255,255,255,0.7); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+  @keyframes grow { from{width:100px;height:100px;} to{width:175px;height:175px;} }
+  @keyframes shrink { from{width:175px;height:175px;} to{width:100px;height:100px;} }
+
+  /* ── SECTION TABS (pill strip under title) ── */
+  .tab-bar{text-align:center;margin:18px 0 28px;}
+  .tab-bar-inner{display:inline-flex;gap:4px;background:var(--surface2);border-radius:99px;padding:4px;border:1px solid var(--border);overflow-x:auto;scrollbar-width:none;max-width:100%;}
+  .tab-bar-inner::-webkit-scrollbar{display:none;}
+  .tb{background:none;border:none;border-radius:99px;display:flex;align-items:center;gap:5px;padding:7px 14px;color:var(--muted);transition:all .18s;font-family:'Quicksand',sans-serif;white-space:nowrap;cursor:pointer;flex-shrink:0;}
+  .tb.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 5px rgba(15,31,28,.10);}
+  .tb-icon{font-size:1rem;line-height:1;}
+  .tb-label{font-size:.8rem;font-weight:700;line-height:1;}
+</style>
+<!-- Google Analytics -->
+<script type="module">
+    import { CLIENT } from "./client.config.js";
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function(){ dataLayer.push(arguments); };
+    var gaScript = document.createElement("script");
+    gaScript.async = true;
+    gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.analyticsId;
+    document.head.appendChild(gaScript);
+    gtag("js", new Date());
+    gtag("config", CLIENT.analyticsId);
+  </script>
+</head>
+<body>
+<script src="site-nav.js"></script>
+
+<!-- ══ CROSS-PAGE SIDEBAR ══
+     Rendered dynamically (see script right below) from the same tab list,
+     enabled flags, custom order, and 5-icon cap as my-daily-tools.html's own
+     tab bar -- see tab-nav-shared.js. This used to be a hardcoded list that
+     always showed the same 7 links no matter what a caregiver had actually
+     turned on/off or reordered in Settings; now it can't drift out of sync. -->
+<nav class="site-sidebar" role="navigation" aria-label="Main navigation">
+  <div class="site-sidebar-inner" id="site-sidebar-inner"></div>
+</nav>
+<div class="ssb-more-popover" id="ssb-more-popover" role="menu" aria-label="More tools"></div>
+
+<script>
+(function () {
+  // "Calm" is this page itself -- link to itself and mark it active,
+  // instead of going through my-daily-tools.html like every other tool.
+  function hrefFor(key) {
+    if (key === 'calm') return 'calm-corner.html';
+    return 'my-daily-tools.html?tab=' + key;
+  }
+  function renderSidebar() {
+    var inner = document.getElementById('site-sidebar-inner');
+    var pop = document.getElementById('ssb-more-popover');
+    if (!inner || !window.TAB_NAV) return; // shared file failed to load — leave sidebar empty rather than guess
+    var META = window.TAB_NAV.TAB_META;
+    var active = window.TAB_NAV.getActiveTabs();
+    var split = window.TAB_NAV.splitVisibleOverflow(active);
+
+    inner.innerHTML = split.visible.map(function (key) {
+      var meta = META[key] || {};
+      var isActive = key === 'calm';
+      return '<a href="' + hrefFor(key) + '" class="ssb' + (isActive ? ' active' : '') + '" title="' + (meta.label || key) + '">'
+        + '<span class="ssb-icon">' + (meta.icon || '') + '</span><span class="ssb-label">' + (meta.label || key) + '</span>'
+        + '</a>';
+    }).join('') + (
+      split.overflow.length
+        ? '<button type="button" class="ssb" id="ssb-more-btn" onclick="window.toggleSsbMorePopover(event)" title="More">'
+          + '<span class="ssb-icon">☰</span><span class="ssb-label">More</span></button>'
+        : ''
+    ) + '<a href="login.html" class="ssb" id="sidebar-auth-btn" title="Sign In">'
+      + '<span class="ssb-icon" id="sidebar-auth-icon">🔑</span><span class="ssb-label" id="sidebar-auth-label">Sign In</span></a>';
+
+    window._ssbOverflow = split.overflow;
+    // Carry the ?demo=1 flag through the freshly-rendered links too (the
+    // separate script below only ran once, before these existed).
+    try {
+      if (new URLSearchParams(location.search).get('demo') === '1') {
+        inner.querySelectorAll('a[href*="my-daily-tools"]').forEach(function (a) {
+          var href = a.getAttribute('href');
+          if (href) a.setAttribute('href', href + (href.indexOf('?') !== -1 ? '&demo=1' : '?demo=1'));
+        });
+      }
+    } catch (e) {}
+  }
+
+  function closeSsbMorePopoverOutside(e) {
+    var pop = document.getElementById('ssb-more-popover');
+    var btn = document.getElementById('ssb-more-btn');
+    if (pop && (pop.contains(e.target) || (btn && btn.contains(e.target)))) return;
+    window.closeSsbMorePopover();
+  }
+  window.closeSsbMorePopover = function () {
+    var pop = document.getElementById('ssb-more-popover');
+    if (pop) pop.style.display = 'none';
+    document.removeEventListener('click', closeSsbMorePopoverOutside, true);
+  };
+  window.toggleSsbMorePopover = function (event) {
+    event && event.stopPropagation();
+    var pop = document.getElementById('ssb-more-popover');
+    var btn = document.getElementById('ssb-more-btn');
+    if (!pop || !btn) return;
+    if (pop.style.display === 'block') { window.closeSsbMorePopover(); return; }
+    var META = window.TAB_NAV.TAB_META;
+    var overflow = window._ssbOverflow || [];
+    pop.innerHTML = overflow.length ? overflow.map(function (key) {
+      var meta = META[key] || {};
+      return '<a class="ssb-more-item" href="' + hrefFor(key) + '"><span style="font-size:1.05rem;flex-shrink:0;">' + (meta.icon || '') + '</span><span>' + (meta.label || key) + '</span></a>';
+    }).join('') : '<div style="padding:9px 12px;font-size:.8rem;color:var(--muted);">Nothing here yet.</div>';
+    pop.style.display = 'block';
+    var rect = btn.getBoundingClientRect();
+    var popW = pop.offsetWidth || 170;
+    var popH = pop.offsetHeight || 200;
+    var isDesktopSidebar = window.matchMedia && window.matchMedia('(min-width:560px)').matches;
+    var left, top;
+    if (isDesktopSidebar) {
+      left = rect.right + 8;
+      if (left + popW > window.innerWidth - 6) left = rect.left - popW - 8;
+      top = Math.min(rect.top, window.innerHeight - popH - 8);
+    } else {
+      left = rect.left;
+      if (left + popW > window.innerWidth - 6) left = window.innerWidth - popW - 6;
+      if (left < 6) left = 6;
+      top = rect.top - popH - 8;
+      if (top < 6) top = rect.bottom + 8;
+    }
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    setTimeout(function () { document.addEventListener('click', closeSsbMorePopoverOutside, true); }, 10);
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderSidebar);
+  else renderSidebar();
+})();
+</script>
+
+<!-- The ?demo=1 href-carrying logic (added 2026-07-24) now lives inside
+     renderSidebar() above, since it has to run AFTER the links exist. -->
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+  import { CLIENT } from './client.config.js';
+  const app = initializeApp(CLIENT.firebase, 'calm-nav-check');
+  const db = getDatabase(app);
+  // Check localStorage first (set when admin last saved the setting)
+  try {
+    if (localStorage.getItem('dt-hide-nav') === '1') {
+      var nav0 = document.getElementById('mel-site-nav');
+      if (nav0) nav0.style.display = 'none';
+      document.documentElement.style.setProperty('--sn-h', '0px');
+    }
+  } catch(e) {}
+  // Also verify from Firebase (authoritative; also updates localStorage)
+  get(ref(db, 'mel-the-winner/config/daily-tools-hide-nav')).then(function(snap) {
+    var v = snap.val();
+    try { localStorage.setItem('dt-hide-nav', v === true ? '1' : '0'); } catch(e) {}
+    if (v === true) {
+      var nav = document.getElementById('mel-site-nav');
+      if (nav) nav.style.display = 'none';
+      document.documentElement.style.setProperty('--sn-h', '0px');
+    }
+  }).catch(function() {});
+  // Update sidebar auth button based on login state
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js').then(function(m) {
+    m.getAuth(app).onAuthStateChanged ? m.onAuthStateChanged(m.getAuth(app), function(user) {
+      var btn = document.getElementById('sidebar-auth-btn');
+      var icon = document.getElementById('sidebar-auth-icon');
+      var lbl = document.getElementById('sidebar-auth-label');
+      if (!btn) return;
+      if (user) {
+        btn.href = '#'; btn.onclick = function(e){ e.preventDefault(); m.signOut(m.getAuth(app)).then(function(){ window.location.href='login.html'; }); };
+        if (icon) icon.textContent = '🚪';
+        if (lbl) lbl.textContent = 'Sign Out';
+      } else {
+        btn.href = 'login.html'; btn.onclick = null;
+        if (icon) icon.textContent = '🔑';
+        if (lbl) lbl.textContent = 'Sign In';
+      }
+    }) : null;
+  }).catch(function() {});
+</script>
+
+
+<a class="skip-nav" href="#main-content">Skip to main content</a>
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+
+<div class="max-w" id="main-content" tabindex="-1">
+
+  <header class="page-header">
+    <span class="page-emoji" aria-hidden="true">🌊</span>
+    <h1 class="page-title">Calm Corner</h1>
+    <p class="page-subtitle">A safe place to feel better 💙</p>
+  </header>
+
+  <nav class="tab-bar" role="navigation" aria-label="Calm corner sections">
+    <div class="tab-bar-inner">
+      <button class="tb active" id="tb-feel" onclick="showTab('feel')">
+        <span class="tb-icon">😊</span><span class="tb-label">Feel</span>
+      </button>
+      <button class="tb" id="tb-breathe" onclick="showTab('breathe')">
+        <span class="tb-icon">🌬️</span><span class="tb-label">Breathe</span>
+      </button>
+      <button class="tb" id="tb-moves" onclick="showTab('moves')">
+        <span class="tb-icon">🎮</span><span class="tb-label">Body</span>
+      </button>
+      <button class="tb" id="tb-brain" onclick="showTab('brain')">
+        <span class="tb-icon">🧠</span><span class="tb-label">Brain</span>
+      </button>
+      <button class="tb" id="tb-sound" onclick="showTab('sound')">
+        <span class="tb-icon">🎧</span><span class="tb-label">Sound</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- STEP 1: HOW ARE YOU FEELING? -->
+  <div class="section-card" id="feeling-card">
+    <h2 class="section-title"><span aria-hidden="true">💭</span> How are you feeling right now?</h2>
+    <p class="section-desc">Tap the face that shows how you feel. There's no wrong answer.</p>
+
+    <div class="feeling-scale" role="group" aria-label="Feeling scale from very upset to great">
+      <button class="feeling-btn" data-level="1" onclick="selectFeeling(1)" aria-label="Feeling 1: Very upset or angry">
+        <span class="feeling-emoji" aria-hidden="true">😤</span>
+        <span class="feeling-label">Very upset<br/>/ angry</span>
+      </button>
+      <button class="feeling-btn" data-level="2" onclick="selectFeeling(2)" aria-label="Feeling 2: Frustrated or worried">
+        <span class="feeling-emoji" aria-hidden="true">😟</span>
+        <span class="feeling-label">Frustrated<br/>/ worried</span>
+      </button>
+      <button class="feeling-btn" data-level="3" onclick="selectFeeling(3)" aria-label="Feeling 3: Okay, just tired">
+        <span class="feeling-emoji" aria-hidden="true">😐</span>
+        <span class="feeling-label">Okay /<br/>tired</span>
+      </button>
+      <button class="feeling-btn" data-level="4" onclick="selectFeeling(4)" aria-label="Feeling 4: Pretty good">
+        <span class="feeling-emoji" aria-hidden="true">🙂</span>
+        <span class="feeling-label">Pretty<br/>good</span>
+      </button>
+      <button class="feeling-btn" data-level="5" onclick="selectFeeling(5)" aria-label="Feeling 5: Great!">
+        <span class="feeling-emoji" aria-hidden="true">😄</span>
+        <span class="feeling-label">Great! 🌟</span>
+      </button>
+    </div>
+
+    <div id="feeling-msg" class="feeling-msg" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- STEP 2: WHAT HELPS? (shown based on feeling) -->
+  <div class="section-card strategies-section" id="strategies-card">
+    <h2 class="section-title" id="strategies-title"><span aria-hidden="true">💡</span> Here's what might help</h2>
+    <p class="section-desc" id="strategies-desc"></p>
+    <div class="strategy-grid" id="strategy-list" role="list"></div>
+  </div>
+
+  <!-- BREATHING EXERCISE -->
+  <div class="section-card" id="breath-section" style="display:none;">
+    <h2 class="section-title"><span aria-hidden="true">🌬️</span> Breathing exercise</h2>
+    <p class="section-desc">Slow breathing calms your brain in 2–3 minutes. Watch the circle and breathe with it.</p>
+
+    <div class="breath-type-select" role="group" aria-label="Choose breathing type">
+      <button class="breath-type-btn active" onclick="setBreathType('box')" aria-pressed="true" aria-label="Box breathing: breathe in, hold, out, hold">📦 Box (4-4-4-4)</button>
+      <button class="breath-type-btn" onclick="setBreathType('478')" aria-pressed="false" aria-label="4-7-8 breathing: breathe in, hold, out">🌙 Calm (4-7-8)</button>
+      <button class="breath-type-btn" onclick="setBreathType('easy')" aria-pressed="false" aria-label="Easy breathing: breathe in and out">🌸 Easy (2-4)</button>
+    </div>
+
+    <div class="breath-section">
+      <div class="breath-circle-wrap" role="img" aria-label="Breathing circle animation">
+        <div id="breath-ring"></div>
+        <div id="breath-circle"></div>
+      </div>
+
+      <div id="breath-instruction" aria-live="assertive">Ready</div>
+      <div id="breath-count" aria-live="off">-</div>
+      <div id="breath-phase" aria-live="polite">tap Start to begin</div>
+
+      <div class="breath-controls">
+        <button class="breath-btn" id="breath-start-btn" onclick="startBreath()" aria-label="Start breathing exercise">▶ Start</button>
+        <button class="breath-btn secondary" onclick="stopBreath()" aria-label="Stop breathing exercise">■ Stop</button>
+      </div>
+      <div class="breath-rounds-display" id="breath-rounds" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <!-- SENSORY BREAKS -->
+  <div class="section-card" id="sensory-section" style="display:none;">
+    <h2 class="section-title"><span aria-hidden="true">🎮</span> Sensory breaks</h2>
+    <p class="section-desc">When your body feels too full of energy, tap one — it will show you exactly what to do.</p>
+
+    <div class="sensory-grid" role="list">
+      <div class="sensory-card" onclick="openSensory('pushups')" tabindex="0" role="button" aria-label="Wall push-ups activity" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sensory-emoji" aria-hidden="true">🏋️</div>
+        <div class="sensory-name">Wall push-ups</div>
+        <div class="sensory-tip">Heavy work for arms</div>
+      </div>
+      <div class="sensory-card" onclick="openSensory('walk')" tabindex="0" role="button" aria-label="Walk and count activity" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sensory-emoji" aria-hidden="true">🚶</div>
+        <div class="sensory-name">Walk &amp; count</div>
+        <div class="sensory-tip">Calm your body with movement</div>
+      </div>
+      <div class="sensory-card" onclick="openSensory('squeeze')" tabindex="0" role="button" aria-label="Squeeze something activity" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sensory-emoji" aria-hidden="true">🤜</div>
+        <div class="sensory-name">Squeeze it</div>
+        <div class="sensory-tip">Release body tension</div>
+      </div>
+      <div class="sensory-card" onclick="openSensory('water')" tabindex="0" role="button" aria-label="Cold water activity" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sensory-emoji" aria-hidden="true">💧</div>
+        <div class="sensory-name">Cold water</div>
+        <div class="sensory-tip">Quick brain reset</div>
+      </div>
+      <div class="sensory-card" onclick="openSensory('shake')" tabindex="0" role="button" aria-label="Shake it out activity" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sensory-emoji" aria-hidden="true">💃</div>
+        <div class="sensory-name">Shake it out</div>
+        <div class="sensory-tip">Release stored energy</div>
+      </div>
+      <div class="sensory-card" onclick="openSensory('quiet')" tabindex="0" role="button" aria-label="Quiet space activity" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sensory-emoji" aria-hidden="true">🎧</div>
+        <div class="sensory-name">Quiet space</div>
+        <div class="sensory-tip">Give your brain a rest</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SENSORY ANIMATION OVERLAY -->
+  <div class="sensory-anim-overlay" id="sensoryOverlay" role="dialog" aria-modal="true" aria-label="Activity guide">
+    <div class="sensory-anim-panel">
+      <button class="sap-close" onclick="closeSensory()" aria-label="Close">✕</button>
+      <div class="sap-title" id="sapTitle"></div>
+      <div class="sap-subtitle" id="sapSubtitle"></div>
+      <div class="sap-stage" id="sapStage"></div>
+      <div class="sap-status" id="sapStatus" aria-live="polite"></div>
+      <div class="sap-progress" id="sapProgress"></div>
+      <button class="sap-done-btn" id="sapDoneBtn" onclick="closeSensory()">✓ Done!</button>
+    </div>
+  </div>
+
+  <!-- TALK IT OUT -->
+  <div class="section-card" id="talk-card" style="display:none;">
+    <h2 class="section-title"><span aria-hidden="true">💬</span> Talk it out</h2>
+    <p class="section-desc">When you're feeling calmer, it helps to put words to what happened. You don't have to share this with anyone — it's just for you.</p>
+    <div class="talk-prompts">
+      <div class="talk-prompt">
+        <div class="talk-prompt-q" id="talk-q1">What happened that made me feel this way?</div>
+        <textarea class="talk-answer" id="talk-a1" placeholder="Write here… (only you can see this)" aria-label="What happened that made me feel this way" rows="3"></textarea>
+      </div>
+      <div class="talk-prompt">
+        <div class="talk-prompt-q">What did I need in that moment?</div>
+        <textarea class="talk-answer" placeholder="Write here… (only you can see this)" aria-label="What did I need in that moment" rows="3"></textarea>
+      </div>
+      <div class="talk-prompt">
+        <div class="talk-prompt-q">What would help me feel better next time?</div>
+        <textarea class="talk-answer" placeholder="Write here… (only you can see this)" aria-label="What would help me feel better next time" rows="3"></textarea>
+      </div>
+    </div>
+    <button onclick="toggleTalkAnswers()" style="margin-top:14px;background:var(--accent);color:white;border:none;border-radius:99px;padding:12px 24px;font-family:'Nunito',sans-serif;font-weight:800;font-size:0.88rem;cursor:pointer;min-height:48px;" aria-label="Show writing spaces">
+      ✍️ Write my answers
+    </button>
+  </div>
+
+  <!-- HOW YOUR BRAIN WORKS — tap-through panels -->
+  <div class="section-card brain-tap-section" id="brain-section" style="display:none;">
+    <h2 class="section-title"><span aria-hidden="true">🧠</span> How your brain works</h2>
+    <p class="section-desc">Tap through to understand what happens inside — and how you can take back control.</p>
+
+    <div class="brain-steps-nav" aria-hidden="true">
+      <div class="brain-step-pip active" id="bpip0"></div>
+      <div class="brain-step-pip" id="bpip1"></div>
+      <div class="brain-step-pip" id="bpip2"></div>
+    </div>
+
+    <!-- Panel 0: Alarm fires -->
+    <div class="brain-panel active" id="bpanel0">
+      <div class="brain-illus">
+        <svg viewBox="0 0 200 160" width="200" height="160" aria-hidden="true">
+          <!-- brain silhouette -->
+          <ellipse cx="100" cy="80" rx="62" ry="52" fill="#fce7f3" stroke="#fca5a5" stroke-width="2"/>
+          <ellipse cx="100" cy="80" rx="44" ry="36" fill="#fee2e2" stroke="#fca5a5" stroke-width="1.5"/>
+          <!-- alarm dot -->
+          <circle cx="100" cy="78" r="18" fill="#f87171" style="animation:alarmPulse 0.8s ease-in-out infinite;transform-origin:100px 78px;"/>
+          <!-- zap lines -->
+          <line x1="100" y1="78" x2="58" y2="44" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" style="animation:zap 0.8s ease-in-out infinite;"/>
+          <line x1="100" y1="78" x2="142" y2="44" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" style="animation:zap 0.8s ease-in-out infinite 0.15s;"/>
+          <line x1="100" y1="78" x2="64" y2="118" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" style="animation:zap 0.8s ease-in-out infinite 0.3s;"/>
+          <line x1="100" y1="78" x2="136" y2="118" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" style="animation:zap 0.8s ease-in-out infinite 0.45s;"/>
+          <!-- label -->
+          <text x="100" y="150" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="13" fill="#991b1b">🔥 Alarm fires!</text>
+        </svg>
+      </div>
+      <div class="brain-panel-label">Your alarm brain fires</div>
+      <div class="brain-panel-hint" onclick="toggleBrainDetail(0)"><span id="bhint0">+ Tell me more</span></div>
+      <div class="brain-panel-detail" id="bdetail0">Deep inside your brain is an alarm center. When something feels wrong, scary, or overwhelming — it fires instantly and floods your body with big feelings. For people with autism or ADHD, this alarm is extra sensitive.</div>
+    </div>
+
+    <!-- Panel 1: Thinking brain goes quiet -->
+    <div class="brain-panel" id="bpanel1">
+      <div class="brain-illus">
+        <svg viewBox="0 0 200 160" width="200" height="160" aria-hidden="true">
+          <!-- brain silhouette -->
+          <ellipse cx="100" cy="80" rx="62" ry="52" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+          <!-- alarm dot (small, faded) -->
+          <circle cx="72" cy="72" r="12" fill="#fca5a5" opacity="0.5"/>
+          <!-- thinking brain (dimmed) -->
+          <ellipse cx="128" cy="72" rx="22" ry="18" fill="#bfdbfe" style="animation:thinkFade 2s ease-in-out infinite;"/>
+          <!-- fog lines over thinking brain -->
+          <line x1="112" y1="62" x2="144" y2="62" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <line x1="116" y1="70" x2="140" y2="70" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <line x1="112" y1="78" x2="144" y2="78" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <!-- barrier line -->
+          <line x1="100" y1="50" x2="100" y2="118" stroke="#93c5fd" stroke-width="2" stroke-dasharray="5 4"/>
+          <text x="72" y="105" text-anchor="middle" font-family="Nunito,sans-serif" font-size="9" fill="#991b1b" font-weight="700">ALARM</text>
+          <text x="128" y="105" text-anchor="middle" font-family="Nunito,sans-serif" font-size="9" fill="#1e40af" font-weight="700">THINKING</text>
+          <text x="100" y="150" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="13" fill="#1e3a5f">🧊 Thinking brain goes quiet</text>
+        </svg>
+      </div>
+      <div class="brain-panel-label">Your thinking brain goes quiet</div>
+      <div class="brain-panel-hint" onclick="toggleBrainDetail(1)"><span id="bhint1">+ Tell me more</span></div>
+      <div class="brain-panel-detail" id="bdetail1">When the alarm fires, it temporarily blocks your thinking brain — the calm, smart part that makes decisions. This is not your fault. It happens to everyone. That's why it feels so hard to think clearly when you're upset.</div>
+    </div>
+
+    <!-- Panel 2: You can bring it back -->
+    <div class="brain-panel" id="bpanel2">
+      <div class="brain-illus">
+        <svg viewBox="0 0 200 160" width="200" height="160" aria-hidden="true">
+          <!-- ripple rings (breathing signal) -->
+          <circle cx="100" cy="78" r="48" fill="none" stroke="#86efac" stroke-width="2" style="animation:breatheRing 2s ease-in-out infinite;"/>
+          <circle cx="100" cy="78" r="34" fill="none" stroke="#4ade80" stroke-width="2" style="animation:breatheRing 2s ease-in-out infinite 0.5s;"/>
+          <!-- brain full again -->
+          <ellipse cx="100" cy="78" rx="56" ry="46" fill="#dcfce7" stroke="#86efac" stroke-width="2"/>
+          <!-- thinking brain lit up -->
+          <ellipse cx="120" cy="72" rx="22" ry="18" fill="#4ade80" style="animation:comeBack 0.6s ease both;"/>
+          <!-- alarm quiet -->
+          <circle cx="78" cy="72" r="10" fill="#fca5a5" opacity="0.4"/>
+          <text x="100" y="150" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="13" fill="#14532d">💚 You can bring it back!</text>
+        </svg>
+      </div>
+      <div class="brain-panel-label">You can bring it back</div>
+      <div class="brain-panel-hint" onclick="toggleBrainDetail(2)"><span id="bhint2">+ Tell me more</span></div>
+      <div class="brain-panel-detail" id="bdetail2">Slow breathing, movement, cold water — they all send one signal to your body: "It's safe now." Your alarm quiets. Your thinking brain comes back online. It takes 2 to 5 minutes. Every time you practice, you get stronger at it.</div>
+      <div style="margin-top:12px;text-align:center;font-size:0.8rem;color:#065f46;font-family:'Nunito',sans-serif;font-weight:700;">You're literally training your brain. 💪</div>
+    </div>
+
+    <div class="brain-nav-row">
+      <button class="brain-nav-btn" id="brainPrevBtn" onclick="brainNav(-1)" style="display:none;">← Back</button>
+      <button class="brain-nav-btn primary" id="brainNextBtn" onclick="brainNav(1)">Next →</button>
+    </div>
+  </div>
+
+  <!-- SOUND & MUSIC -->
+  <div class="section-card sound-section" id="sound-section" style="display:none;">
+    <h2 class="section-title"><span aria-hidden="true">🎧</span> Sound &amp; Music</h2>
+    <p class="section-desc">Put on your headphones and press play. Let the sound do the work.</p>
+
+    <div class="sound-grid">
+      <button class="sound-btn" id="sbtn-rain" onclick="toggleSound('rain')" aria-label="Play rain sounds">
+        <span class="sound-btn-icon">🌧️</span>
+        <div class="sound-btn-name">Rain</div>
+        <div class="sound-btn-state" id="sstate-rain">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-rain">
+          <div class="sound-wave-bar" style="height:8px;"></div>
+          <div class="sound-wave-bar" style="height:14px;"></div>
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:12px;"></div>
+        </div>
+      </button>
+      <button class="sound-btn" id="sbtn-ocean" onclick="toggleSound('ocean')" aria-label="Play ocean waves">
+        <span class="sound-btn-icon">🌊</span>
+        <div class="sound-btn-name">Ocean</div>
+        <div class="sound-btn-state" id="sstate-ocean">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-ocean">
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:8px;"></div>
+          <div class="sound-wave-bar" style="height:14px;"></div>
+          <div class="sound-wave-bar" style="height:16px;"></div>
+        </div>
+      </button>
+      <button class="sound-btn" id="sbtn-forest" onclick="toggleSound('forest')" aria-label="Play forest sounds">
+        <span class="sound-btn-icon">🌲</span>
+        <div class="sound-btn-name">Forest</div>
+        <div class="sound-btn-state" id="sstate-forest">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-forest">
+          <div class="sound-wave-bar" style="height:12px;"></div>
+          <div class="sound-wave-bar" style="height:8px;"></div>
+          <div class="sound-wave-bar" style="height:16px;"></div>
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:14px;"></div>
+        </div>
+      </button>
+      <button class="sound-btn" id="sbtn-calm" onclick="toggleSound('calm')" aria-label="Play calm music">
+        <span class="sound-btn-icon">🎵</span>
+        <div class="sound-btn-name">Calm music</div>
+        <div class="sound-btn-state" id="sstate-calm">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-calm">
+          <div class="sound-wave-bar" style="height:14px;"></div>
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:8px;"></div>
+          <div class="sound-wave-bar" style="height:12px;"></div>
+        </div>
+      </button>
+      <!-- Added 2026-07-26: wind, water/stream, fireplace — same
+           procedurally-generated Web Audio approach as the four above, no
+           audio files to host. See _makeWind/_makeStream/_makeFire
+           near the other _make* functions below.
+           (White noise button removed 2026-08-11 per request — the
+           _mkWhite() generator helper stays, since Rain/Wind/Water/Fire
+           etc. all still build on it as their noise base.) -->
+      <button class="sound-btn" id="sbtn-wind" onclick="toggleSound('wind')" aria-label="Play wind sounds">
+        <span class="sound-btn-icon">🌬️</span>
+        <div class="sound-btn-name">Wind</div>
+        <div class="sound-btn-state" id="sstate-wind">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-wind">
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:16px;"></div>
+          <div class="sound-wave-bar" style="height:8px;"></div>
+          <div class="sound-wave-bar" style="height:14px;"></div>
+          <div class="sound-wave-bar" style="height:12px;"></div>
+        </div>
+      </button>
+      <button class="sound-btn" id="sbtn-water" onclick="toggleSound('water')" aria-label="Play stream water sounds">
+        <span class="sound-btn-icon">💧</span>
+        <div class="sound-btn-name">Water</div>
+        <div class="sound-btn-state" id="sstate-water">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-water">
+          <div class="sound-wave-bar" style="height:12px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:16px;"></div>
+          <div class="sound-wave-bar" style="height:8px;"></div>
+        </div>
+      </button>
+      <button class="sound-btn" id="sbtn-fire" onclick="toggleSound('fire')" aria-label="Play crackling fireplace">
+        <span class="sound-btn-icon">🔥</span>
+        <div class="sound-btn-name">Fireplace</div>
+        <div class="sound-btn-state" id="sstate-fire">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-fire">
+          <div class="sound-wave-bar" style="height:8px;"></div>
+          <div class="sound-wave-bar" style="height:14px;"></div>
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:12px;"></div>
+        </div>
+      </button>
+      <!-- Added 2026-07-27: a gentle melodic option — everything else in this
+           grid is texture/ambience with no melody; Calm music is a drone +
+           singing-bowl strike, still not an actual tune. This one wanders a
+           soft pentatonic phrase over a warm pad, like a music box. -->
+      <button class="sound-btn" id="sbtn-melody" onclick="toggleSound('melody')" aria-label="Play relaxing melody">
+        <span class="sound-btn-icon">🎶</span>
+        <div class="sound-btn-name">Relaxing Melody</div>
+        <div class="sound-btn-state" id="sstate-melody">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-melody">
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:16px;"></div>
+          <div class="sound-wave-bar" style="height:12px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:8px;"></div>
+        </div>
+      </button>
+      <!-- Added 2026-08-11: a fully-composed piece rather than another
+           generative/wandering texture. Relaxing Melody (above) picks
+           random pentatonic steps each time, so it can feel repetitive or
+           aimless on a long listen. This one plays a fixed, slow chord
+           progression (Cmaj7 → Am7 → Fmaj7 → G7) with a set arpeggio
+           pattern on top and a real melodic line — the same 4-bar phrase
+           on loop, like an actual short lullaby, not a random-note
+           generator. See _makePianoLullaby near the other _make*
+           functions below. -->
+      <button class="sound-btn" id="sbtn-lullaby" onclick="toggleSound('lullaby')" aria-label="Play piano lullaby">
+        <span class="sound-btn-icon">🎹</span>
+        <div class="sound-btn-name">Piano Lullaby</div>
+        <div class="sound-btn-state" id="sstate-lullaby">Tap to play</div>
+        <div class="sound-wave-wrap paused" id="swave-lullaby">
+          <div class="sound-wave-bar" style="height:12px;"></div>
+          <div class="sound-wave-bar" style="height:18px;"></div>
+          <div class="sound-wave-bar" style="height:14px;"></div>
+          <div class="sound-wave-bar" style="height:10px;"></div>
+          <div class="sound-wave-bar" style="height:16px;"></div>
+        </div>
+      </button>
+    </div>
+
+    <div class="sound-volume-row">
+      <span class="sound-vol-label">🔈</span>
+      <input type="range" class="sound-vol-slider" id="soundVolume" min="0" max="1" step="0.05" value="0.7" oninput="setVolume(this.value)" aria-label="Volume">
+      <span class="sound-vol-label">🔊</span>
+    </div>
+  </div>
+
+  <!-- MY LOG -->
+  <div class="log-card" id="log-card" aria-label="Calm corner visit log">
+    <div class="log-streak" id="log-streak-count">0</div>
+    <div class="log-streak-label">times you've visited your calm corner</div>
+    <div class="log-history" id="log-dots" aria-hidden="true"></div>
+    <div style="font-size:0.78rem;margin-top:14px;opacity:0.85;">Every visit counts. You're doing great. 💙</div>
+  </div>
+
+</div><!-- /.max-w -->
+
+
+<script>
+/* ── SENSORY ANIMATIONS ── */
+const SENSORY_DATA = {
+  pushups: {
+    title: 'Wall Push-Ups',
+    subtitle: '10 push-ups against the wall',
+    totalReps: 10,
+    repDuration: 2000,
+    svgFn: () => `
+      <svg viewBox="0 0 180 160" width="180" height="160">
+        <rect x="20" y="20" width="12" height="120" rx="4" fill="#cfddd8"/>
+        <circle cx="120" cy="60" r="18" fill="#2a7d6f" opacity="0.9"/>
+        <line x1="120" y1="78" x2="120" y2="120" stroke="#2a7d6f" stroke-width="6" stroke-linecap="round"/>
+        <line x1="120" y1="120" x2="100" y2="148" stroke="#2a7d6f" stroke-width="5" stroke-linecap="round"/>
+        <line x1="120" y1="120" x2="140" y2="148" stroke="#2a7d6f" stroke-width="5" stroke-linecap="round"/>
+        <line x1="110" y1="90" x2="48" y2="80" stroke="#2a7d6f" stroke-width="5" stroke-linecap="round" style="animation:pushArm 2s ease-in-out infinite;transform-origin:110px 90px;"/>
+        <line x1="130" y1="90" x2="48" y2="90" stroke="#2a7d6f" stroke-width="5" stroke-linecap="round" style="animation:pushArm 2s ease-in-out infinite 0.1s;transform-origin:130px 90px;"/>
+      </svg>`,
+    statusFn: (rep, total) => rep < total ? `Push ${rep + 1} of ${total}` : 'Great job! 💪',
+  },
+  walk: {
+    title: 'Walk & Count',
+    subtitle: '40 steps — count each one',
+    totalReps: 40,
+    repDuration: 800,
+    svgFn: () => `
+      <svg viewBox="0 0 180 160" width="180" height="160">
+        <line x1="20" y1="148" x2="160" y2="148" stroke="#cfddd8" stroke-width="3"/>
+        <circle cx="90" cy="48" r="18" fill="#1a5c7a"/>
+        <line x1="90" y1="66" x2="90" y2="108" stroke="#1a5c7a" stroke-width="6" stroke-linecap="round"/>
+        <line x1="90" y1="108" x2="66" y2="148" stroke="#1a5c7a" stroke-width="5" stroke-linecap="round" style="animation:stepLeft 0.8s ease-in-out infinite;transform-origin:90px 108px;"/>
+        <line x1="90" y1="108" x2="114" y2="148" stroke="#1a5c7a" stroke-width="5" stroke-linecap="round" style="animation:stepRight 0.8s ease-in-out infinite;transform-origin:90px 108px;"/>
+        <line x1="84" y1="80" x2="60" y2="106" stroke="#1a5c7a" stroke-width="4" stroke-linecap="round" style="animation:stepRight 0.8s ease-in-out infinite;transform-origin:84px 80px;"/>
+        <line x1="96" y1="80" x2="120" y2="106" stroke="#1a5c7a" stroke-width="4" stroke-linecap="round" style="animation:stepLeft 0.8s ease-in-out infinite;transform-origin:96px 80px;"/>
+      </svg>`,
+    statusFn: (rep, total) => rep < total ? `Step ${rep + 1}` : 'Wonderful! 🚶',
+  },
+  squeeze: {
+    title: 'Squeeze It',
+    subtitle: '5 squeezes — hold 5 seconds each',
+    totalReps: 5,
+    repDuration: 6000,
+    svgFn: () => `
+      <svg viewBox="0 0 180 160" width="180" height="160">
+        <g style="animation:squeezeHand 6s ease-in-out infinite;transform-origin:90px 90px;">
+          <ellipse cx="90" cy="110" rx="36" ry="30" fill="#f9a825" opacity="0.9"/>
+          <rect x="58" y="72" width="14" height="44" rx="7" fill="#f9a825"/>
+          <rect x="76" y="62" width="14" height="54" rx="7" fill="#f9a825"/>
+          <rect x="94" y="62" width="14" height="54" rx="7" fill="#f9a825"/>
+          <rect x="112" y="68" width="14" height="48" rx="7" fill="#f9a825"/>
+          <ellipse cx="46" cy="104" rx="10" ry="16" fill="#f9a825" transform="rotate(-20,46,104)"/>
+        </g>
+        <line x1="34" y1="88" x2="20" y2="78" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" style="animation:zap 6s ease-in-out infinite;"/>
+        <line x1="148" y1="88" x2="162" y2="78" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" style="animation:zap 6s ease-in-out infinite 0.2s;"/>
+      </svg>`,
+    statusFn: (rep, total) => rep < total ? `Squeeze ${rep + 1} of ${total} — hold tight…` : 'Tension released! ✨',
+  },
+  water: {
+    title: 'Cold Water',
+    subtitle: 'Run cold water over your wrists — 20 seconds',
+    totalReps: 20,
+    repDuration: 1000,
+    svgFn: () => `
+      <svg viewBox="0 0 180 160" width="180" height="160">
+        <rect x="76" y="20" width="28" height="14" rx="5" fill="#cfddd8"/>
+        <rect x="86" y="34" width="8" height="16" rx="3" fill="#cfddd8"/>
+        <ellipse cx="90" cy="66" rx="5" ry="7" fill="#3b82f6" style="animation:waterDrop 1.2s ease-in-out infinite;"/>
+        <ellipse cx="82" cy="72" rx="4" ry="6" fill="#60a5fa" style="animation:waterDrop 1.2s ease-in-out infinite 0.3s;"/>
+        <ellipse cx="98" cy="70" rx="4" ry="6" fill="#60a5fa" style="animation:waterDrop 1.2s ease-in-out infinite 0.6s;"/>
+        <ellipse cx="86" cy="80" rx="4" ry="6" fill="#93c5fd" style="animation:waterDrop 1.2s ease-in-out infinite 0.9s;"/>
+        <ellipse cx="90" cy="122" rx="38" ry="20" fill="#fde68a" opacity="0.8"/>
+        <rect x="58" y="116" width="30" height="24" rx="8" fill="#fde68a"/>
+        <rect x="92" y="116" width="30" height="24" rx="8" fill="#fde68a"/>
+        <text x="90" y="155" text-anchor="middle" font-family="Nunito,sans-serif" font-size="10" fill="#1e40af" font-weight="700">cool &amp; calm</text>
+      </svg>`,
+    statusFn: (rep, total) => rep < total ? `${total - rep}s remaining…` : 'Brain reset! 💙',
+  },
+  shake: {
+    title: 'Shake It Out',
+    subtitle: 'Shake your whole body for 30 seconds',
+    totalReps: 30,
+    repDuration: 1000,
+    svgFn: () => `
+      <svg viewBox="0 0 180 160" width="180" height="160">
+        <g style="animation:shakeBody 0.25s ease-in-out infinite;transform-origin:90px 90px;">
+          <circle cx="90" cy="38" r="18" fill="#7c3aed"/>
+          <line x1="90" y1="56" x2="90" y2="106" stroke="#7c3aed" stroke-width="6" stroke-linecap="round"/>
+          <line x1="84" y1="76" x2="44" y2="60" stroke="#7c3aed" stroke-width="5" stroke-linecap="round" style="animation:shakeBody 0.22s ease-in-out infinite reverse;transform-origin:84px 76px;"/>
+          <line x1="96" y1="76" x2="136" y2="60" stroke="#7c3aed" stroke-width="5" stroke-linecap="round" style="animation:shakeBody 0.22s ease-in-out infinite;transform-origin:96px 76px;"/>
+          <line x1="90" y1="106" x2="64" y2="148" stroke="#7c3aed" stroke-width="5" stroke-linecap="round" style="animation:shakeBody 0.2s ease-in-out infinite reverse;transform-origin:90px 106px;"/>
+          <line x1="90" y1="106" x2="116" y2="148" stroke="#7c3aed" stroke-width="5" stroke-linecap="round" style="animation:shakeBody 0.2s ease-in-out infinite;transform-origin:90px 106px;"/>
+        </g>
+        <line x1="28" y1="50" x2="16" y2="40" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" style="animation:zap 0.5s ease-in-out infinite;"/>
+        <line x1="152" y1="50" x2="164" y2="40" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" style="animation:zap 0.5s ease-in-out infinite 0.15s;"/>
+        <line x1="28" y1="110" x2="14" y2="118" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" style="animation:zap 0.5s ease-in-out infinite 0.3s;"/>
+        <line x1="152" y1="110" x2="166" y2="118" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" style="animation:zap 0.5s ease-in-out infinite 0.45s;"/>
+      </svg>`,
+    statusFn: (rep, total) => rep < total ? `${total - rep}s — shake it all out!` : 'Energy released! 🎉',
+  },
+  quiet: {
+    title: 'Quiet Space',
+    subtitle: 'Headphones on — 3 minutes of calm',
+    totalReps: 180,
+    repDuration: 1000,
+    svgFn: () => `
+      <svg viewBox="0 0 180 160" width="180" height="160">
+        <circle cx="90" cy="80" r="20" fill="none" stroke="#a5b4fc" stroke-width="2" style="animation:ripple 3s ease-out infinite;transform-origin:90px 80px;"/>
+        <circle cx="90" cy="80" r="20" fill="none" stroke="#a5b4fc" stroke-width="1.5" style="animation:ripple 3s ease-out infinite 1s;transform-origin:90px 80px;"/>
+        <circle cx="90" cy="80" r="20" fill="none" stroke="#a5b4fc" stroke-width="1" style="animation:ripple 3s ease-out infinite 2s;transform-origin:90px 80px;"/>
+        <path d="M 50 80 Q 50 36 90 36 Q 130 36 130 80" fill="none" stroke="#4338ca" stroke-width="8" stroke-linecap="round"/>
+        <rect x="36" y="78" width="20" height="32" rx="10" fill="#4338ca"/>
+        <rect x="124" y="78" width="20" height="32" rx="10" fill="#4338ca"/>
+        <text x="90" y="150" text-anchor="middle" font-family="Nunito,sans-serif" font-size="10" fill="#4338ca" font-weight="700">just breathe…</text>
+      </svg>`,
+    statusFn: (rep, total) => {
+      const left = total - rep;
+      const m = Math.floor(left / 60), s = left % 60;
+      return rep < total ? `${m}:${String(s).padStart(2,'0')} of quiet time` : 'You gave your brain a rest. 💜';
+    },
+  },
+};
+
+let _sapTimer = null;
+let _sapRep = 0;
+let _sapKey = null;
+
+function openSensory(key) {
+  const d = SENSORY_DATA[key];
+  _sapKey = key; _sapRep = 0;
+  clearInterval(_sapTimer);
+  document.getElementById('sapTitle').textContent = d.title;
+  document.getElementById('sapSubtitle').textContent = d.subtitle;
+  document.getElementById('sapStage').innerHTML = d.svgFn();
+  document.getElementById('sapStatus').textContent = d.statusFn(0, d.totalReps);
+  document.getElementById('sapDoneBtn').classList.remove('show');
+  const dots = Math.min(d.totalReps, 10);
+  document.getElementById('sapProgress').innerHTML = Array.from({length: dots}, (_,i) => `<div class="sap-dot" id="sdot${i}"></div>`).join('');
+  document.getElementById('sensoryOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  _sapTimer = setInterval(() => {
+    _sapRep++;
+    document.getElementById('sapStatus').textContent = d.statusFn(_sapRep, d.totalReps);
+    const filled = Math.round((_sapRep / d.totalReps) * dots);
+    for (let i = 0; i < dots; i++) {
+      const dot = document.getElementById('sdot' + i);
+      if (dot) dot.classList.toggle('done', i < filled);
+    }
+    if (_sapRep >= d.totalReps) { clearInterval(_sapTimer); document.getElementById('sapDoneBtn').classList.add('show'); }
+  }, d.repDuration);
+}
+
+function closeSensory() {
+  clearInterval(_sapTimer);
+  document.getElementById('sensoryOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('sensoryOverlay').addEventListener('click', function(e){ if(e.target===this) closeSensory(); });
+});
+
+/* ── BRAIN TAP-THROUGH ── */
+let _brainStep = 0;
+const BRAIN_STEPS = 3;
+
+function brainNav(dir) {
+  _brainStep = Math.max(0, Math.min(BRAIN_STEPS - 1, _brainStep + dir));
+  for (let i = 0; i < BRAIN_STEPS; i++) {
+    document.getElementById('bpanel' + i).classList.toggle('active', i === _brainStep);
+    document.getElementById('bpip' + i).classList.toggle('active', i === _brainStep);
+    document.getElementById('bpip' + i).classList.toggle('done', i < _brainStep);
+  }
+  document.getElementById('brainPrevBtn').style.display = _brainStep > 0 ? '' : 'none';
+  const nextBtn = document.getElementById('brainNextBtn');
+  if (_brainStep === BRAIN_STEPS - 1) {
+    nextBtn.textContent = '↺ Start over';
+    nextBtn.onclick = () => { _brainStep = -1; brainNav(1); };
+  } else {
+    nextBtn.textContent = 'Next →';
+    nextBtn.onclick = () => brainNav(1);
+  }
+}
+
+function toggleBrainDetail(i) {
+  const detail = document.getElementById('bdetail' + i);
+  const hint = document.getElementById('bhint' + i);
+  const open = detail.classList.toggle('show');
+  hint.textContent = open ? '− Show less' : '+ Tell me more';
+}
+
+/* ── SOUND ENGINE — AudioBufferSource (no deprecated ScriptProcessor) ── */
+let _audioCtx = null;
+let _soundNodes = {};
+let _playingKey = null;
+
+function _getCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+function _vol() { return parseFloat(document.getElementById('soundVolume').value); }
+
+/* Pre-generate a loopable noise buffer (10 sec) */
+function _mkPink(ctx) {
+  const sr=ctx.sampleRate, len=sr*10, buf=ctx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for(let i=0;i<len;i++){
+    const w=Math.random()*2-1;
+    b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
+    b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
+    b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
+    d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11; b6=w*0.115926;
+  }
+  return buf;
+}
+function _mkBrown(ctx) {
+  const sr=ctx.sampleRate, len=sr*10, buf=ctx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  let last=0;
+  for(let i=0;i<len;i++){const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.5;}
+  return buf;
+}
+function _mkWhite(ctx) {
+  const sr=ctx.sampleRate, len=sr*10, buf=ctx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+  return buf;
+}
+function _loop(ctx, buf) {
+  const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; return s;
+}
+
+/* Rain — pink noise bandpass wash + white noise spray, PLUS individual
+   droplet ticks (short, sharp, randomly-pitched bandpassed clicks fired at
+   randomized short intervals). The ticks are what actually reads as "rain
+   hitting something" rather than a flat hiss — without them Rain sounded
+   too close to Wind/White noise. 2026-07-27: added the tick layer. */
+function _makeRain(ctx, vol) {
+  const out=ctx.createGain(); out.gain.value=vol*0.42; out.connect(ctx.destination);
+  // Main rain layer
+  const s1=_loop(ctx,_mkPink(ctx));
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1100; bp.Q.value=0.6;
+  s1.connect(bp); bp.connect(out);
+  // Fine spray layer
+  const s2=_loop(ctx,_mkWhite(ctx));
+  const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3800;
+  const g2=ctx.createGain(); g2.gain.value=0.10;
+  s2.connect(hp); hp.connect(g2); g2.connect(out);
+  s1.start(); s2.start();
+  // Droplet ticks
+  const tids=[];
+  function drop(){
+    const tid=setTimeout(()=>{
+      if(!_soundNodes['rain']) return;
+      const t=ctx.currentTime;
+      const src=_loop(ctx,_mkWhite(ctx)); // short burst — stopped well before its 10s loop point
+      const dbp=ctx.createBiquadFilter(); dbp.type='bandpass'; dbp.frequency.value=1800+Math.random()*3200; dbp.Q.value=6;
+      const g=ctx.createGain();
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime((0.045+Math.random()*0.045)*vol,t+0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.03+Math.random()*0.03);
+      src.connect(dbp); dbp.connect(g); g.connect(out);
+      src.start(t); src.stop(t+0.08);
+      drop();
+    },35+Math.random()*140);
+    tids.push(tid);
+  }
+  drop(); drop(); drop();
+  return {stop:()=>{[s1,s2].forEach(n=>{try{n.stop();}catch(e){}});try{out.disconnect();}catch(e){} tids.forEach(t=>clearTimeout(t)); _soundNodes['rain']=null;}};
+}
+
+/* Ocean — layered: deep rumble + surf hiss + foam spray + slow wave LFO */
+function _makeOcean(ctx, vol) {
+  const out=ctx.createGain(); out.gain.value=vol*0.5; out.connect(ctx.destination);
+  // Layer 1: deep wave rumble (brown noise, lowpass)
+  const s1=_loop(ctx,_mkBrown(ctx));
+  const lp1=ctx.createBiquadFilter(); lp1.type='lowpass'; lp1.frequency.value=320; lp1.Q.value=0.9;
+  const g1=ctx.createGain(); g1.gain.value=0.75;
+  s1.connect(lp1); lp1.connect(g1); g1.connect(out);
+  // Layer 2: surf (pink noise, bandpass at ~600 Hz)
+  const s2=_loop(ctx,_mkPink(ctx));
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=620; bp.Q.value=0.35;
+  const g2=ctx.createGain(); g2.gain.value=0.55;
+  s2.connect(bp); bp.connect(g2); g2.connect(out);
+  // Layer 3: foam/spray (white noise, highpass)
+  const s3=_loop(ctx,_mkWhite(ctx));
+  const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=2800;
+  const g3=ctx.createGain(); g3.gain.value=0.07;
+  s3.connect(hp); hp.connect(g3); g3.connect(out);
+  // Wave LFO — one wave ~every 7 sec
+  const lfo1=ctx.createOscillator(); lfo1.type='sine'; lfo1.frequency.value=0.14;
+  const lg1=ctx.createGain(); lg1.gain.value=0.38;
+  lfo1.connect(lg1); lg1.connect(g1.gain); lg1.connect(g2.gain);
+  // Foam LFO — faster variation
+  const lfo2=ctx.createOscillator(); lfo2.type='sine'; lfo2.frequency.value=0.31;
+  const lg2=ctx.createGain(); lg2.gain.value=0.055;
+  lfo2.connect(lg2); lg2.connect(g3.gain);
+  s1.start(); s2.start(); s3.start(); lfo1.start(); lfo2.start();
+  return {stop:()=>{[s1,s2,s3,lfo1,lfo2].forEach(n=>{try{n.stop();}catch(e){}});try{out.disconnect();}catch(e){}}};
+}
+
+/* Forest — soft pink noise + two "species" of bird chirps at different
+   pitch ranges/cadences (so it doesn't read as one repeating chirp) plus
+   an occasional leaf rustle for texture. 2026-07-27: added the second
+   bird voice and rustle layer for more realism/variety. */
+function _makeForest(ctx, vol) {
+  const out=ctx.createGain(); out.gain.value=vol*0.26; out.connect(ctx.destination);
+  const s1=_loop(ctx,_mkPink(ctx));
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900; lp.Q.value=0.5;
+  s1.connect(lp); lp.connect(out); s1.start();
+  const tids=[];
+  function chirp(low, high, minGap, maxGap){
+    const tid=setTimeout(()=>{
+      if(!_soundNodes['forest']) return;
+      const osc=ctx.createOscillator(), og=ctx.createGain();
+      osc.frequency.value=low+Math.random()*(high-low); osc.type='sine';
+      og.gain.setValueAtTime(0,ctx.currentTime);
+      og.gain.linearRampToValueAtTime(0.1*vol,ctx.currentTime+0.02);
+      og.gain.setValueAtTime(0.1*vol,ctx.currentTime+0.07);
+      og.gain.linearRampToValueAtTime(0,ctx.currentTime+0.16);
+      osc.connect(og); og.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime+0.18);
+      chirp(low, high, minGap, maxGap);
+    },minGap+Math.random()*(maxGap-minGap));
+    tids.push(tid);
+  }
+  chirp(1600,3000,600,2800);   // higher, quicker "songbird"
+  chirp(900,1500,1400,4200);   // lower, sparser second voice
+  function rustle(){
+    const tid=setTimeout(()=>{
+      if(!_soundNodes['forest']) return;
+      const t=ctx.currentTime;
+      const src=_loop(ctx,_mkWhite(ctx));
+      const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2200; bp.Q.value=0.8;
+      const g=ctx.createGain();
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(0.045*vol,t+0.15);
+      g.gain.linearRampToValueAtTime(0,t+0.5);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(t); src.stop(t+0.55);
+      rustle();
+    },4000+Math.random()*7000);
+    tids.push(tid);
+  }
+  rustle();
+  return {stop:()=>{try{s1.stop();out.disconnect();}catch(e){} tids.forEach(t=>clearTimeout(t)); _soundNodes['forest']=null;}};
+}
+
+/* Calm — Tibetan singing bowl simulation with ambient drone */
+function _makeCalm(ctx, vol) {
+  const out = ctx.createGain(); out.gain.value = vol * 0.45; out.connect(ctx.destination);
+
+  // Simple delay-based reverb (hall feel)
+  const dly = ctx.createDelay(0.6); dly.delayTime.value = 0.38;
+  const fbk = ctx.createGain(); fbk.gain.value = 0.42;
+  const wet = ctx.createGain(); wet.gain.value = 0.32;
+  dly.connect(fbk); fbk.connect(dly); dly.connect(wet); wet.connect(out);
+
+  // Soft low drone — 3 slightly detuned sine waves (A2) for warmth + beating
+  const droneFreqs = [110, 110.4, 109.7];
+  const droneNodes = droneFreqs.map(f => {
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = f; g.gain.value = 0.055;
+    osc.connect(g); g.connect(out); g.connect(dly); osc.start();
+    return osc;
+  });
+
+  // Bowl strike: fundamental + natural inharmonic overtones → decays like a real bowl
+  const bowlFreqs = [396, 528, 432, 693]; // A4-ish solfeggio tones
+  const tids = [];
+
+  function strike() {
+    const freq = bowlFreqs[Math.floor(Math.random() * bowlFreqs.length)];
+    const t = ctx.currentTime;
+    // Partials: fundamental, ~2x (slightly flat — inharmonic), ~3x, ~4.5x
+    const partials = [
+      { mult: 1,    amp: 0.22, decay: 5.5 },
+      { mult: 2.76, amp: 0.09, decay: 3.2 },
+      { mult: 5.02, amp: 0.04, decay: 1.8 },
+      { mult: 9.15, amp: 0.015,decay: 0.9 },
+    ];
+    partials.forEach(p => {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq * p.mult;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(p.amp * vol, t + 0.012); // sharp attack
+      g.gain.exponentialRampToValueAtTime(0.0001, t + p.decay);
+      osc.connect(g); g.connect(out); g.connect(dly);
+      osc.start(t); osc.stop(t + p.decay + 0.1);
+    });
+    // Schedule next bowl (3–7 sec apart)
+    tids.push(setTimeout(strike, 3200 + Math.random() * 3800));
+  }
+
+  // Stagger two bowls so they overlap naturally
+  strike();
+  tids.push(setTimeout(strike, 1800 + Math.random() * 1500));
+
+  return {
+    stop: () => {
+      droneNodes.forEach(n => { try { n.stop(); } catch(e){} });
+      try { out.disconnect(); } catch(e) {}
+      tids.forEach(t => clearTimeout(t));
+    }
+  };
+}
+
+/* Wind — brown noise bandpassed with a slow-sweeping "gust" LFO on both
+   filter frequency and output level, so it never sounds static. Pitched
+   higher than Ocean's rumble (320Hz) with a wider, more resonant sweep so
+   it reads as a whistling/moaning gust rather than another deep rumble —
+   2026-07-27: raised center frequency and widened the sweep/Q to
+   differentiate it from Ocean and the old flatter version of this sound. */
+function _makeWind(ctx, vol) {
+  const out=ctx.createGain(); out.gain.value=vol*0.38; out.connect(ctx.destination);
+  const s1=_loop(ctx,_mkBrown(ctx));
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=750; bp.Q.value=1.1;
+  s1.connect(bp); bp.connect(out);
+  // Gust LFO — slowly sweeps the filter's center frequency, wider range
+  // than before for a more pronounced "moaning" gust character
+  const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.07;
+  const lg=ctx.createGain(); lg.gain.value=420;
+  lfo.connect(lg); lg.connect(bp.frequency);
+  // Separate, slower LFO on overall level so loudness and pitch don't move in lockstep
+  const alfo=ctx.createOscillator(); alfo.type='sine'; alfo.frequency.value=0.045;
+  const ag=ctx.createGain(); ag.gain.value=vol*0.2;
+  alfo.connect(ag); ag.connect(out.gain);
+  // Thin high hiss for stronger gusts
+  const s2=_loop(ctx,_mkWhite(ctx));
+  const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=2200;
+  const g2=ctx.createGain(); g2.gain.value=0.045;
+  s2.connect(hp); hp.connect(g2); g2.connect(out);
+  s1.start(); s2.start(); lfo.start(); alfo.start();
+  return {stop:()=>{[s1,s2,lfo,alfo].forEach(n=>{try{n.stop();}catch(e){}});try{out.disconnect();}catch(e){}}};
+}
+
+/* Water / Stream — brighter, bubblier bandpass than Rain or Ocean, with a
+   wobbling filter frequency for a babbling-brook texture, PLUS individual
+   pitched "plink" blips (a sine tone with a fast downward pitch slide) —
+   this is what actually reads as water droplets rather than just more
+   noise. 2026-07-27: added the plink layer so Water stops sounding like a
+   brighter version of Rain's static wash. */
+function _makeStream(ctx, vol) {
+  const out=ctx.createGain(); out.gain.value=vol*0.38; out.connect(ctx.destination);
+  const s1=_loop(ctx,_mkPink(ctx));
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1900; bp.Q.value=0.5;
+  const g1=ctx.createGain(); g1.gain.value=0.42;
+  s1.connect(bp); bp.connect(g1); g1.connect(out);
+  const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.7;
+  const lg=ctx.createGain(); lg.gain.value=380;
+  lfo.connect(lg); lg.connect(bp.frequency);
+  // Sparkle layer for the "trickle" texture on top of the bubbling bed
+  const s2=_loop(ctx,_mkWhite(ctx));
+  const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=4200;
+  const g2=ctx.createGain(); g2.gain.value=0.07;
+  s2.connect(hp); hp.connect(g2); g2.connect(out);
+  s1.start(); s2.start(); lfo.start();
+  // Bubble plinks
+  const tids=[];
+  function plink(){
+    const tid=setTimeout(()=>{
+      if(!_soundNodes['water']) return;
+      const t=ctx.currentTime;
+      const f0=900+Math.random()*1400;
+      const osc=ctx.createOscillator(), g=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.setValueAtTime(f0,t);
+      osc.frequency.exponentialRampToValueAtTime(f0*0.55,t+0.09);
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(0.05*vol,t+0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);
+      osc.connect(g); g.connect(out);
+      osc.start(t); osc.stop(t+0.15);
+      plink();
+    },120+Math.random()*420);
+    tids.push(tid);
+  }
+  plink(); plink();
+  return {stop:()=>{[s1,s2,lfo].forEach(n=>{try{n.stop();}catch(e){}});try{out.disconnect();}catch(e){} tids.forEach(t=>clearTimeout(t)); _soundNodes['water']=null;}};
+}
+
+/* Fireplace — low rumble bed (the fire's roar) + random short bandpassed
+   noise bursts for pops/crackles, same scheduling technique as Forest's chirps */
+function _makeFire(ctx, vol) {
+  const out=ctx.createGain(); out.gain.value=vol*0.3; out.connect(ctx.destination);
+  const s1=_loop(ctx,_mkBrown(ctx));
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500;
+  s1.connect(lp); lp.connect(out); s1.start();
+  const tids=[];
+  function crackle(){
+    const tid=setTimeout(()=>{
+      if(!_soundNodes['fire']) return;
+      const t=ctx.currentTime;
+      const src=_loop(ctx,_mkWhite(ctx)); // short burst — stopped well before its 10s loop point
+      const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=800+Math.random()*2500; bp.Q.value=4;
+      const g=ctx.createGain();
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(0.16*vol,t+0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.09+Math.random()*0.08);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(t); src.stop(t+0.2);
+      crackle();
+    },250+Math.random()*900);
+    tids.push(tid);
+  }
+  crackle(); crackle();
+  return {stop:()=>{try{s1.stop();out.disconnect();}catch(e){} tids.forEach(t=>clearTimeout(t)); _soundNodes['fire']=null;}};
+}
+
+/* Relaxing Melody — a soft pentatonic phrase that wanders gently over a
+   warm, very quiet pad, with a light delay for music-box shimmer. Unlike
+   Calm (a drone + inharmonic bowl strike, essentially percussive), this one
+   has real melodic phrasing: notes are chosen by taking small random steps
+   up or down a 9-note C-pentatonic scale so phrases feel intentional
+   rather than random-jumpy. Added 2026-07-27. */
+function _makeMelody(ctx, vol) {
+  const out = ctx.createGain(); out.gain.value = vol * 0.4; out.connect(ctx.destination);
+
+  // Warm, very soft pad underneath (two slightly detuned triangle waves)
+  const padFreqs = [220, 220.6];
+  const padNodes = padFreqs.map(f => {
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = 'triangle'; osc.frequency.value = f; g.gain.value = 0.035;
+    osc.connect(g); g.connect(out); osc.start();
+    return osc;
+  });
+
+  // Soft delay for gentle music-box shimmer
+  const dly = ctx.createDelay(0.8); dly.delayTime.value = 0.42;
+  const fbk = ctx.createGain(); fbk.gain.value = 0.32;
+  const wet = ctx.createGain(); wet.gain.value = 0.28;
+  dly.connect(fbk); fbk.connect(dly); dly.connect(wet); wet.connect(out);
+
+  // C pentatonic across a bit over an octave and a half
+  const scale = [261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25,783.99];
+  const tids = [];
+  let lastIdx = 4;
+
+  function note() {
+    const step = Math.floor(Math.random()*5) - 2; // -2..2 scale steps
+    lastIdx = Math.max(0, Math.min(scale.length-1, lastIdx + step));
+    const freq = scale[lastIdx];
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.16 * vol, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+    osc.connect(g); g.connect(out); g.connect(dly);
+    osc.start(t); osc.stop(t + 2.5);
+    // Quiet octave-up overtone for the "music box" shimmer
+    const osc2 = ctx.createOscillator(), g2 = ctx.createGain();
+    osc2.type = 'sine'; osc2.frequency.value = freq * 2;
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.linearRampToValueAtTime(0.04 * vol, t + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    osc2.connect(g2); g2.connect(out);
+    osc2.start(t); osc2.stop(t + 1.7);
+    tids.push(setTimeout(note, 1500 + Math.random()*1700));
+  }
+  tids.push(setTimeout(note, 400));
+
+  return {
+    stop: () => {
+      padNodes.forEach(n => { try { n.stop(); } catch(e){} });
+      try { out.disconnect(); } catch(e) {}
+      tids.forEach(t => clearTimeout(t));
+    }
+  };
+}
+
+/* Piano Lullaby — a fixed, fully-composed 4-bar piece (Cmaj7 → Am7 →
+   Fmaj7 → G7, ~16s loop) rather than another generative/wandering
+   texture. Relaxing Melody above picks random pentatonic steps each
+   time, which is pleasant but can feel repetitive or aimless on a long
+   listen; this plays the same chord progression and top-line melody
+   every loop so it reads as an actual short piece. Piano-ish timbre:
+   triangle fundamental + a quieter sine octave-up "hammer" attack that
+   decays faster than the sustain, both piped through a soft short
+   feedback delay for warmth without turning it into a wash. */
+function _makePianoLullaby(ctx, vol) {
+  const out = ctx.createGain(); out.gain.value = vol * 0.5; out.connect(ctx.destination);
+
+  const dly = ctx.createDelay(1.2); dly.delayTime.value = 0.5;
+  const fbk = ctx.createGain(); fbk.gain.value = 0.24;
+  const wet = ctx.createGain(); wet.gain.value = 0.22;
+  dly.connect(fbk); fbk.connect(dly); dly.connect(wet); wet.connect(out);
+
+  function pianoNote(freq, t, dur, level) {
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = 'triangle'; osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(level * vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(out); g.connect(dly);
+    osc.start(t); osc.stop(t + dur + 0.05);
+    // Quieter octave-up partial for a brighter attack, fading faster than
+    // the fundamental — gives the pluck a "hammer strike" character.
+    const osc2 = ctx.createOscillator(), g2 = ctx.createGain();
+    osc2.type = 'sine'; osc2.frequency.value = freq * 2;
+    const hitDur = Math.min(dur, 1.0);
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.linearRampToValueAtTime(level * vol * 0.22, t + 0.008);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + hitDur);
+    osc2.connect(g2); g2.connect(out);
+    osc2.start(t); osc2.stop(t + hitDur + 0.05);
+  }
+
+  const BAR_LEN = 4.0;
+  const CHORDS = [
+    [261.63, 329.63, 392.00, 493.88], // Cmaj7
+    [220.00, 261.63, 329.63, 392.00], // Am7
+    [174.61, 220.00, 261.63, 329.63], // Fmaj7
+    [196.00, 246.94, 293.66, 349.23], // G7
+  ];
+  // Fixed top-line melody: {bar, beat-offset within the bar, freq, dur, level}
+  const MELODY = [
+    // Bar 0 — Cmaj7
+    {bar:0, off:0.0, freq:659.25, dur:1.7, lvl:0.20},
+    {bar:0, off:1.0, freq:783.99, dur:1.3, lvl:0.17},
+    {bar:0, off:2.0, freq:659.25, dur:1.0, lvl:0.16},
+    {bar:0, off:3.0, freq:523.25, dur:1.3, lvl:0.18},
+    // Bar 1 — Am7
+    {bar:1, off:0.0, freq:523.25, dur:1.3, lvl:0.18},
+    {bar:1, off:1.0, freq:659.25, dur:1.3, lvl:0.17},
+    {bar:1, off:2.2, freq:440.00, dur:1.0, lvl:0.16},
+    {bar:1, off:3.0, freq:392.00, dur:1.3, lvl:0.16},
+    // Bar 2 — Fmaj7
+    {bar:2, off:0.0, freq:523.25, dur:1.7, lvl:0.18},
+    {bar:2, off:1.3, freq:440.00, dur:1.0, lvl:0.15},
+    {bar:2, off:2.2, freq:349.23, dur:1.0, lvl:0.15},
+    {bar:2, off:3.0, freq:440.00, dur:1.3, lvl:0.16},
+    // Bar 3 — G7 (cadence, resolves downward like a lullaby close)
+    {bar:3, off:0.0, freq:392.00, dur:1.7, lvl:0.18},
+    {bar:3, off:1.3, freq:349.23, dur:1.0, lvl:0.15},
+    {bar:3, off:2.2, freq:293.66, dur:1.8, lvl:0.17},
+  ];
+  const LOOP_LEN = BAR_LEN * CHORDS.length; // 16s
+
+  let stopped = false;
+  const tids = [];
+
+  function scheduleLoop() {
+    if (stopped) return;
+    const t0 = ctx.currentTime + 0.05;
+    // Chords: a soft arpeggiated roll (not a hard strike) held under the melody
+    CHORDS.forEach((chord, bar) => {
+      const barStart = t0 + bar * BAR_LEN;
+      chord.forEach((freq, i) => {
+        pianoNote(freq, barStart + i * 0.06, BAR_LEN - i * 0.06, 0.085);
+      });
+    });
+    MELODY.forEach(m => {
+      pianoNote(m.freq, t0 + m.bar * BAR_LEN + m.off, m.dur, m.lvl);
+    });
+    tids.push(setTimeout(scheduleLoop, LOOP_LEN * 1000));
+  }
+  scheduleLoop();
+
+  return {
+    stop: () => {
+      stopped = true;
+      tids.forEach(t => clearTimeout(t));
+      try { out.disconnect(); } catch (e) {}
+    }
+  };
+}
+
+const _MAKERS = { rain:_makeRain, ocean:_makeOcean, forest:_makeForest, calm:_makeCalm, wind:_makeWind, water:_makeStream, fire:_makeFire, melody:_makeMelody, lullaby:_makePianoLullaby };
+
+function toggleSound(key) {
+  if (_playingKey && _playingKey !== key) stopSound(_playingKey);
+  if (_playingKey === key) { stopSound(key); return; }
+  try {
+    _soundNodes[key] = _MAKERS[key](_getCtx(), _vol());
+    _playingKey = key;
+    document.getElementById('sbtn-'+key).classList.add('playing');
+    document.getElementById('sstate-'+key).textContent = '▐▐ Tap to stop';
+    document.getElementById('swave-'+key).classList.remove('paused');
+  } catch(e) {
+    console.error('Sound error:', e);
+    document.getElementById('sstate-'+key).textContent = 'Not supported in this browser';
+  }
+}
+
+function stopSound(key) {
+  if (_soundNodes[key]) { _soundNodes[key].stop(); _soundNodes[key] = null; }
+  if (_playingKey === key) _playingKey = null;
+  document.getElementById('sbtn-'+key).classList.remove('playing');
+  document.getElementById('sstate-'+key).textContent = 'Tap to play';
+  document.getElementById('swave-'+key).classList.add('paused');
+}
+
+function setVolume(v) {
+  /* Volume changes take effect on next play — live adjustment not needed for ambient use */
+}
+
+/* ── FEELING SCALE ── */
+const FEELING_DATA = {
+  1: {
+    msg: "😤 That sounds really hard. Big feelings are real and valid. Let's work through this together.",
+    msgStyle: 'background:#fee2e2;color:#991b1b;',
+    desc: "When you're very upset or angry, your alarm brain is in charge. These tools help bring your calm brain back online.",
+    showTalk: true,
+    strategies: [
+      { emoji:'🌬️', name:'Breathe first', sub:'Always the first step', detail:'Before anything else, take 3 slow breaths. Breathe in for 4 seconds, out for 6. Even one breath helps.' },
+      { emoji:'🏋️', name:'Move your body', sub:'Get the energy out safely', detail:'Wall push-ups, jumping jacks, or squeezing something tight helps release the physical tension that comes with big feelings.' },
+      { emoji:'💧', name:'Cold water reset', sub:'Quick body signal', detail:'Run cold water over your wrists or splash it on your face. This activates your body\'s natural calming response almost instantly.' },
+      { emoji:'🔇', name:'Step away', sub:'Safe space first', detail:'If possible, move to a quieter space. Staying in the middle of the situation makes it harder for your thinking brain to come back.' },
+    ]
+  },
+  2: {
+    msg: "😟 Feeling frustrated or worried is hard. You noticed it — that's the first step. Let's ease it.",
+    msgStyle: 'background:#ffedd5;color:#9a3412;',
+    desc: "When you're frustrated or worried, these tools help you slow down and find some calm.",
+    showTalk: true,
+    strategies: [
+      { emoji:'🌬️', name:'Box breathing', sub:'4 counts each side', detail:'Breathe in for 4, hold for 4, out for 4, hold for 4. Repeat 4 times. This balances your nervous system quickly.' },
+      { emoji:'🎯', name:'Name it to tame it', sub:'Say what you feel', detail:'Research shows that naming your feeling ("I am frustrated because…") immediately reduces its intensity. Try saying it out loud or writing it.' },
+      { emoji:'🚶', name:'Walk and count', sub:'Reset through movement', detail:'Walk slowly around the room counting each step out loud. This gives your brain something to focus on other than the worry.' },
+      { emoji:'🎧', name:'Change the input', sub:'Shift your senses', detail:'Put on headphones with calm or favorite music. Changing what your ears hear sends a new signal to your brain.' },
+    ]
+  },
+  3: {
+    msg: "😐 Okay is good. Sometimes we just need to recharge. Take it easy and rest a little.",
+    msgStyle: 'background:#fef9c3;color:#713f12;',
+    desc: "When you're just feeling flat or tired, these tools help restore energy and focus.",
+    showTalk: false,
+    strategies: [
+      { emoji:'☀️', name:'Get some light', sub:'Natural energy boost', detail:'Step outside for 5 minutes or stand near a bright window. Natural light helps your brain and body wake up and feel better.' },
+      { emoji:'💧', name:'Drink some water', sub:'Simple and effective', detail:'Being slightly dehydrated makes us feel tired and foggy. A glass of water can help more than you think.' },
+      { emoji:'🎵', name:'Upbeat music', sub:'Change your energy', detail:'Put on a song you like. Music that matches the energy you want to feel can shift your mood within minutes.' },
+      { emoji:'✅', name:'One small thing', sub:'Build momentum', detail:'Do one tiny task — make your bed, send a message, check off one plan item. Completing something small gives your brain a little reward.' },
+    ]
+  },
+  4: {
+    msg: "🙂 Pretty good is great! Keep it going. Here's how to make the most of this good energy.",
+    msgStyle: 'background:#dcfce7;color:#14532d;',
+    desc: "You're in a good spot! These tools help you build on this positive state.",
+    showTalk: false,
+    strategies: [
+      { emoji:'📋', name:'Work on a plan', sub:'Good energy, good decisions', detail:'When you feel pretty good, it\'s a great time to work on one of your goals in My Plan to Grow. You think more clearly now.' },
+      { emoji:'🤝', name:'Connect with someone', sub:'Positive feelings multiply', detail:'Send a message or spend time with someone you like. Good feelings grow when shared.' },
+      { emoji:'🌱', name:'Do something new', sub:'Expand your comfort zone', detail:'When you feel safe and okay, it\'s easier to try something slightly new or challenging. Good moment for a small adventure.' },
+      { emoji:'🙏', name:'Notice what\'s good', sub:'Anchor this feeling', detail:'Think of 3 things that are going okay right now. Writing them down helps your brain remember this feeling for harder moments.' },
+    ]
+  },
+  5: {
+    msg: "😄 You're feeling great! Wonderful. Here's how to enjoy and build on this!",
+    msgStyle: 'background:#dbeafe;color:#1e3a5f;',
+    desc: "Great feeling! Let's make the most of it.",
+    showTalk: false,
+    strategies: [
+      { emoji:'🚀', name:'Tackle something big', sub:'Peak energy = peak results', detail:'Your thinking brain is fully online right now. This is the best time to work on something you\'ve been putting off.' },
+      { emoji:'🎨', name:'Be creative', sub:'Great time to make things', detail:'Drawing, building, cooking, or any creative activity is extra rewarding when you\'re feeling great. Go for it!' },
+      { emoji:'💬', name:'Share your good mood', sub:'Lift others up', detail:'A kind word, a compliment, or simply being present with someone you care about — good moods are contagious in the best way.' },
+      { emoji:'📓', name:'Write it down', sub:'Remember this moment', detail:'Write about why you feel great today. On harder days, reading this reminder helps.' },
+    ]
+  }
+};
+
+let _currentFeeling = null;
+
+function selectFeeling(level) {
+  _currentFeeling = level;
+  document.body.className = 'feeling-' + level;
+
+  // Update buttons
+  document.querySelectorAll('.feeling-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.setAttribute('aria-pressed','false');
+  });
+  const btn = document.querySelector(`.feeling-btn[data-level="${level}"]`);
+  btn.classList.add('selected');
+  btn.setAttribute('aria-pressed','true');
+
+  const data = FEELING_DATA[level];
+
+  // Show message
+  const msg = document.getElementById('feeling-msg');
+  msg.textContent = data.msg;
+  msg.style.cssText = data.msgStyle + 'padding:16px;border-radius:14px;font-size:0.95rem;';
+  msg.classList.add('show');
+
+  // Show strategies
+  const strat = document.getElementById('strategies-card');
+  strat.classList.add('show');
+  document.getElementById('strategies-title').innerHTML = '<span aria-hidden="true">💡</span> Here\'s what might help';
+  document.getElementById('strategies-desc').textContent = data.desc;
+
+  const list = document.getElementById('strategy-list');
+  list.innerHTML = data.strategies.map((s, i) => `
+    <div class="strategy-card" onclick="toggleStrategy(${i})" tabindex="0" role="listitem" aria-expanded="false" id="sc-${i}" onkeydown="if(event.key==='Enter')this.click()">
+      <span class="strategy-emoji" aria-hidden="true">${s.emoji}</span>
+      <div class="strategy-text">
+        <div class="strategy-name">${s.name}</div>
+        <div class="strategy-sub">${s.sub}</div>
+        <div class="strategy-detail" id="sd-${i}">${s.detail}</div>
+      </div>
+    </div>`).join('');
+
+  // show/hide talk card based on feeling (only when on feel tab)
+  if (_activeTab === 'feel') {
+    const talkEl = document.getElementById('talk-card');
+    if (talkEl) talkEl.style.display = data.showTalk ? '' : 'none';
+    const stratEl = document.getElementById('strategies-card');
+    if (stratEl) stratEl.style.display = '';
+  }
+  _logVisit();
+}
+
+function toggleStrategy(i) {
+  const card = document.getElementById('sc-' + i);
+  const detail = document.getElementById('sd-' + i);
+  const isOpen = detail.classList.toggle('show');
+  card.classList.toggle('expanded', isOpen);
+  card.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function toggleTalkAnswers() {
+  const answers = document.querySelectorAll('.talk-answer');
+  const anyOpen = [...answers].some(a => a.classList.contains('show'));
+  answers.forEach(a => a.classList.toggle('show', !anyOpen));
+}
+
+/* ── BREATHING EXERCISE ── */
+const BREATH_TYPES = {
+  box:   { phases:[{l:'Breathe in',d:4},{l:'Hold',d:4},{l:'Breathe out',d:4},{l:'Hold',d:4}] },
+  '478': { phases:[{l:'Breathe in',d:4},{l:'Hold',d:7},{l:'Breathe out',d:8}] },
+  easy:  { phases:[{l:'Breathe in',d:2},{l:'Breathe out',d:4}] },
+};
+let _bRunning=false, _bTimer=null, _bPhase=0, _bCount=0, _bRound=0, _bType='box';
+
+function setBreathType(type) {
+  _bType = type;
+  if (_bRunning) stopBreath();
+  document.querySelectorAll('.breath-type-btn').forEach(b => {
+    const match = (b.getAttribute('onclick')||'').includes("'"+type+"'");
+    b.classList.toggle('active', match);
+    b.setAttribute('aria-pressed', match ? 'true' : 'false');
+  });
+  _resetBreathUI();
+}
+
+function _resetBreathUI() {
+  document.getElementById('breath-instruction').textContent = 'Ready';
+  document.getElementById('breath-count').textContent = '-';
+  document.getElementById('breath-phase').textContent = 'tap Start to begin';
+  document.getElementById('breath-rounds').textContent = '';
+  const c = document.getElementById('breath-circle');
+  if (!c) return;
+  c.style.transition = 'none';
+  c.style.width = '100px'; c.style.height = '100px';
+  requestAnimationFrame(() => { c.style.transition = 'width 4s ease, height 4s ease, opacity 0.5s'; });
+}
+
+function startBreath() {
+  if (_bRunning) return;
+  _bRunning = true; _bPhase = 0; _bRound = 0;
+  document.getElementById('breath-start-btn').style.display = 'none';
+  _breathStep();
+}
+
+function _breathStep() {
+  if (!_bRunning) return;
+  const phases = BREATH_TYPES[_bType].phases;
+  const ph = phases[_bPhase];
+  _bCount = ph.d;
+  document.getElementById('breath-instruction').textContent = ph.l;
+  document.getElementById('breath-count').textContent = _bCount;
+  document.getElementById('breath-phase').textContent = '';
+  const c = document.getElementById('breath-circle');
+  if (c) {
+    c.style.transition = 'width ' + ph.d + 's ease, height ' + ph.d + 's ease';
+    if (ph.l === 'Breathe in')  { c.style.width = '175px'; c.style.height = '175px'; }
+    if (ph.l === 'Breathe out') { c.style.width = '100px'; c.style.height = '100px'; }
+  }
+  clearInterval(_bTimer);
+  _bTimer = setInterval(function() {
+    _bCount--;
+    var el = document.getElementById('breath-count');
+    if (el) el.textContent = Math.max(0, _bCount);
+    if (_bCount <= 0) {
+      clearInterval(_bTimer);
+      _bPhase = (_bPhase + 1) % phases.length;
+      if (_bPhase === 0) {
+        _bRound++;
+        var r = document.getElementById('breath-rounds');
+        if (r) r.textContent = 'Round ' + _bRound + ' complete ✓';
+      }
+      setTimeout(_breathStep, 300);
+    }
+  }, 1000);
+}
+
+function stopBreath() {
+  _bRunning = false;
+  clearInterval(_bTimer);
+  var btn = document.getElementById('breath-start-btn');
+  if (btn) btn.style.display = '';
+  _resetBreathUI();
+}
+
+/* ── TAB NAVIGATION ── */
+var _TAB_SHOW = {
+  feel:    ['feeling-card', 'strategies-card', 'talk-card'],
+  breathe: ['breath-section'],
+  moves:   ['sensory-section'],
+  brain:   ['brain-section'],
+  sound:   ['sound-section', 'log-card'],
+};
+var _ALL_SECTIONS = ['feeling-card','strategies-card','breath-section','sensory-section','talk-card','brain-section','sound-section','log-card'];
+var _activeTab = 'feel';
+
+function showTab(name) {
+  _activeTab = name;
+  _ALL_SECTIONS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  (_TAB_SHOW[name] || []).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (id === 'strategies-card') {
+      if (_currentFeeling) el.style.display = '';
+    } else if (id === 'talk-card') {
+      if (_currentFeeling && FEELING_DATA[_currentFeeling].showTalk) el.style.display = '';
+    } else {
+      el.style.display = '';
+    }
+  });
+  document.querySelectorAll('.tb').forEach(function(b) {
+    b.classList.toggle('active', b.id === 'tb-' + name);
+  });
+  if (name !== 'breathe' && _bRunning) stopBreath();
+  try { localStorage.setItem('calm-tab', name); } catch(e) {}
+}
+
+/* ── LOG / STREAK ── */
+function _localDate() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function _logVisit() {
+  try {
+    var today = _localDate();
+    var log = JSON.parse(localStorage.getItem('calm-log') || '{}');
+    log[today] = (log[today] || 0) + 1;
+    localStorage.setItem('calm-log', JSON.stringify(log));
+    _renderLog(log);
+  } catch(e) {}
+}
+
+function _renderLog(log) {
+  try {
+    var dates = Object.keys(log).sort();
+    var total = Object.values(log).reduce(function(s,v){ return s+(v||0); }, 0);
+    var el = document.getElementById('log-streak-count');
+    if (el) el.textContent = total;
+    // Show last 14 days as dots
+    var dots = document.getElementById('log-dots');
+    if (!dots) return;
+    dots.innerHTML = '';
+    for (var i = 13; i >= 0; i--) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      var dot = document.createElement('div');
+      dot.className = 'log-dot' + (log[key] ? ' has-entry' : '');
+      dot.title = key;
+      dot.textContent = log[key] ? '♥' : '';
+      dots.appendChild(dot);
+    }
+  } catch(e) {}
+}
+
+/* ── INIT ── */
+(function() {
+  // Restore tab from URL param or localStorage
+  try {
+    var urlTab = new URLSearchParams(window.location.search).get('tab');
+    var savedTab = localStorage.getItem('calm-tab');
+    var startTab = urlTab || savedTab || 'feel';
+    var validTabs = ['feel','breathe','moves','brain','sound'];
+    if (!validTabs.includes(startTab)) startTab = 'feel';
+    showTab(startTab);
+  } catch(e) { showTab('feel'); }
+})();
+</script>
+</body>
+</html>
