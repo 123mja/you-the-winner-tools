@@ -1,37 +1,101 @@
 /* Shared theme palettes + toggle button, used on every page.
    Each page keeps defining its own light-mode :root variables exactly as
-   before -- this file only adds [data-theme="medium"]/[data-theme="dark"]
-   override blocks using the SAME variable names, so it works everywhere
-   without touching each page's existing color rules. See theme.js for the
-   toggle logic, the per-visitor localStorage memory, and the admin-set
-   sitewide default. See SKILL.md "Dark mode" section for the full writeup. */
+   before -- this file only adds [data-theme="X"] override blocks using the
+   SAME variable names, so it works everywhere without touching each page's
+   existing color rules. Six themes total: calm (default, no attribute --
+   matches each page's plain :root), vivid, paper, spectrum, sunrise,
+   midnight (dark). Ported from the You-The-Winner Hub project's theme
+   system on 2026-07-25. Also overrides --gold/--gold-bg/--gold-border
+   (added 2026-07-25 after the Midnight/dark theme left "My Plans" and other
+   gold-highlight cards a fixed pale-yellow box regardless of theme --
+   these three are common enough across pages, same shared-variable
+   convention as the 11 core ones) so gold-highlight cards adapt too instead
+   of staying a hardcoded light-mode yellow. See theme.js for the picker
+   logic and localStorage memory. */
 
-:root[data-theme="medium"] {
-  --bg: #c9dad2;
-  --surface: #dce8e1;
-  --surface2: #b9d0c5;
-  --surface3: #aac4b7;
-  --border: #9bb8aa;
-  --text: #1d3530;
-  --muted: #44615a;
-  --soft: #7c9b8d;
-  --accent: #267567;
-  --accent2: #235f78;
-  --accent-light: #aecfc2;
+:root[data-theme="vivid"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #fdecec;
+  --surface3: #fbd9d9;
+  --border: #f3c6c6;
+  --text: #1a1414;
+  --muted: #7a6060;
+  --soft: #c98f8f;
+  --accent: #cc0000;
+  --accent2: #8f0000;
+  --accent-light: #fde3e3;
+  --gold: #ffb800;
+  --gold-bg: #fff4d6;
+  --gold-border: #ffd966;
 }
 
-:root[data-theme="dark"] {
-  --bg: #0f1a17;
-  --surface: #16241f;
-  --surface2: #1c2e27;
-  --surface3: #223830;
-  --border: #2a3f37;
-  --text: #e8f3ef;
-  --muted: #8aa89f;
-  --soft: #5a7a73;
-  --accent: #3ea892;
-  --accent2: #4a8fb5;
-  --accent-light: #1f3a33;
+:root[data-theme="paper"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #f7f7f5;
+  --surface3: #eeeeeb;
+  --border: #e2e2de;
+  --text: #17201d;
+  --muted: #5c6864;
+  --soft: #93a19c;
+  --accent: #1f6a5c;
+  --accent2: #16455c;
+  --accent-light: #edf5f2;
+  --gold: #a3790f;
+  --gold-bg: #fdfaf0;
+  --gold-border: #e7d8a3;
+}
+
+:root[data-theme="spectrum"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #f4f6fb;
+  --surface3: #eaeefa;
+  --border: #dfe3ee;
+  --text: #1f2430;
+  --muted: #5f6676;
+  --soft: #9aa0b0;
+  --accent: #3b6fe0;
+  --accent2: #2b3a55;
+  --accent-light: #eaf0ff;
+  --gold: #d9932e;
+  --gold-bg: #fdf3e3;
+  --gold-border: #f0d29e;
+}
+
+:root[data-theme="sunrise"] {
+  --bg: #fbf8f2;
+  --surface: #ffffff;
+  --surface2: #fef3e2;
+  --surface3: #fce8c8;
+  --border: #eddcb5;
+  --text: #2b2320;
+  --muted: #7a6a55;
+  --soft: #c9b48a;
+  --accent: #e8963c;
+  --accent2: #2a7d6f;
+  --accent-light: #fdecd2;
+  --gold: #e8963c;
+  --gold-bg: #fff6e6;
+  --gold-border: #f0cd8a;
+}
+
+:root[data-theme="midnight"] {
+  --bg: #0f1720;
+  --surface: #182430;
+  --surface2: #1f2e3b;
+  --surface3: #26394a;
+  --border: #2f4254;
+  --text: #eef3f6;
+  --muted: #9fb3c2;
+  --soft: #6d8494;
+  --accent: #4fd8bc;
+  --accent2: #7fb8e8;
+  --accent-light: #1d3b38;
+  --gold: #ffcf6b;
+  --gold-bg: #2c2410;
+  --gold-border: #5c4a1c;
 }
 
 .theme-toggle {
@@ -55,3 +119,62 @@
   line-height: 1;
 }
 .theme-toggle:hover { background: var(--accent-light); transform: scale(1.06); }
+
+/* Theme picker popover -- opens below the floating .theme-toggle button
+   (fixed at top:54px;right:14px, 34x34) showing all 6 theme swatches. */
+.theme-menu {
+  position: fixed;
+  top: 92px;
+  right: 14px;
+  z-index: 1000;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #cfddd8);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  padding: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 178px;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.theme-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.theme-menu-item {
+  display: flex; align-items: center; gap: 9px;
+  border: none; background: transparent; cursor: pointer;
+  padding: 8px 9px; border-radius: 9px; text-align: left;
+  font-family: 'Quicksand', sans-serif; font-size: 0.82rem; color: var(--text, #0f1f1c);
+  width: 100%;
+}
+.theme-menu-item:hover { background: var(--surface2, #e8f0ed); }
+.theme-menu-item.active { background: var(--accent-light, #e0eeea); font-weight: 700; }
+.theme-swatch { display: flex; flex-shrink: 0; }
+.theme-swatch span { width: 10px; height: 10px; border-radius: 50%; margin-left: -4px; border: 1px solid rgba(0,0,0,0.15); }
+.theme-swatch span:first-child { margin-left: 0; }
+.theme-menu-label { white-space: nowrap; }
+
+@media print {
+  .theme-toggle, .theme-menu { display: none !important; }
+}
+
+/* Shared scrollbar styling — applies everywhere theme.css is linked (every
+   page, and this also reaches the My Day iframe embedded inside
+   my-daily-tools.html, since myday.html links theme.css itself). A thin,
+   muted scrollbar in the app's own palette instead of the browser/OS
+   default reads as one consistent feel wherever the user scrolls, rather
+   than a jarring default bar appearing only on longer pages or inside the
+   embedded My Day iframe. Uses --border/--muted so it follows light/
+   medium/dark theme automatically. Purely cosmetic — doesn't change any
+   element's box size or scrolling behavior, so it's safe everywhere,
+   including pages with position:fixed overlays. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
