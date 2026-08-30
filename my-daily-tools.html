@@ -8256,6 +8256,28 @@ window.removeRmMilestone = function(pi, mi) {
       </div>
       <div id="payroll-section-savings" style="display:none;padding:0 14px 14px;">
         <div style="font-size:.68rem;color:var(--muted);margin-bottom:8px;line-height:1.4;">Estimate how long it'll take to reach a savings goal, based on average hours worked per month and today's rate.</div>
+        <!-- Saved presets — added 2026-08-30 per Marcelo: "so that we
+             don't need to always set the goals and monthly expenses and
+             hours ... better have safe presets that they can easily
+             adjust and calculate, instead of always type." A preset is a
+             named snapshot of every field below (Goal $, Hrs/mo, Gift $,
+             Monthly expense $, net-vs-gross) -- picking one from the
+             dropdown fills them all in one tap, and they stay freely
+             editable afterward before hitting Calculate. Stored the same
+             way as Planned future raises below (a flat map under
+             schedule-settings/, keyed by push id), plus one extra key
+             (schedule-settings/savingsGoalLastPreset) remembering which
+             preset was last used so this panel isn't blank the next time
+             it's opened -- see openPayrollModal, and
+             window.saveSavingsPreset / loadSavingsPreset /
+             deleteSavingsPreset / renderSavingsPresetsList below. -->
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:10px;">
+          <select id="payroll-goal-preset-select" onchange="window.loadSavingsPreset(this.value)" style="flex:1;min-width:140px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.74rem;background:var(--surface2);color:var(--text);">
+            <option value="">— Choose a saved preset —</option>
+          </select>
+          <button type="button" onclick="window.saveSavingsPreset()" title="Save the values below as a new preset, or update the selected one" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;background:var(--surface);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:.68rem;cursor:pointer;white-space:nowrap;">💾 Save</button>
+          <button type="button" onclick="window.deleteSavingsPreset()" title="Delete the selected preset" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;background:var(--surface);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:.68rem;cursor:pointer;">🗑</button>
+        </div>
         <!-- Goal $ / Hrs per month — steppers (added 2026-08-28 per
              Marcelo, replacing the previous row of quick-fill chip
              buttons): a compact minus/plus control next to each field.
@@ -8460,17 +8482,25 @@ window.removeRmMilestone = function(pi, mi) {
     <!-- Redesigned 2026-08-30 per Marcelo: "no need to show predefined
          values because it is unknown what will be entered" -- the old
          6-button quick-amounts row (5 fixed dollar presets + "Other...")
-         is gone. In its place: a big tap target showing the current
-         amount (double-tap it to seed a $10 starting point -- see
-         window.handleMoneyAmtTap, same click-timer double-tap pattern as
-         the Roadmap cards use, since native dblclick is unreliable on
-         touch) plus a slider to drag it up or down from there. The plain
-         number input below still exists for typing an exact amount --
-         both stay in sync with each other via window.moneyAmtSliderInput /
-         window.moneyAmtNumberInput, and submitTransaction() still just
-         reads #modal-amount's value, unchanged. -->
+         is gone. In its place: a big display of the current amount, three
+         small scale buttons ($10/$100/$1,000 -- 2026-08-30, 3rd pass, per
+         Marcelo: "instead default 10 increments, please add 10,100,1000
+         buttons and then will the slide better adjusted instead of
+         forcing always the manual input") that jump straight to that
+         ballpark AND resize the slider's range/step to fit it (see
+         window.moneyAmtSliderInput -> _moneyAmtGrowMaxFor), and the slider
+         itself to fine-tune from there. The plain number input below still
+         exists for typing an exact amount -- all of these stay in sync via
+         window.moneyAmtSliderInput / window.moneyAmtNumberInput, and
+         submitTransaction() still just reads #modal-amount's value,
+         unchanged. -->
     <div class="money-amt-wrap">
-      <div class="money-amt-display" id="money-amt-display" onclick="window.handleMoneyAmtTap()">$0</div>
+      <div class="money-amt-display" id="money-amt-display">$0</div>
+      <div class="money-amt-scale-row">
+        <button type="button" class="money-amt-scale-btn" onclick="window.moneyAmtSliderInput(10)">$10</button>
+        <button type="button" class="money-amt-scale-btn" onclick="window.moneyAmtSliderInput(100)">$100</button>
+        <button type="button" class="money-amt-scale-btn" onclick="window.moneyAmtSliderInput(1000)">$1,000</button>
+      </div>
       <input type="range" class="money-amt-slider" id="money-amt-slider" min="0" max="200" step="1" value="0" oninput="window.moneyAmtSliderInput(this.value)" aria-label="Drag to set amount">
     </div>
     <input class="amount-input amount-input-compact" id="modal-amount" type="number" min="0" placeholder="or type an exact amount" inputmode="decimal" oninput="window.moneyAmtNumberInput(this.value)">
@@ -12100,17 +12130,7 @@ window.setModalType = setModalType;
 // current amount instead of being clamped against a ceiling from a
 // smaller-amount assumption. It resets to a sane 200 default each time the
 // modal opens (see openMoneyModal) since most entries here are small.
-let _moneyAmtTapTimer = null;
 let _moneyAmtSliderMax = 200;
-window.handleMoneyAmtTap = function() {
-  if (_moneyAmtTapTimer) {
-    clearTimeout(_moneyAmtTapTimer);
-    _moneyAmtTapTimer = null;
-    window.moneyAmtSliderInput(10); // double-tap: seed a $10 starting point to slide from
-    return;
-  }
-  _moneyAmtTapTimer = setTimeout(function () { _moneyAmtTapTimer = null; }, 320);
-};
 function _moneyAmtFmt(amt) {
   return Number.isInteger(amt) ? String(amt) : amt.toFixed(2);
 }
@@ -13164,6 +13184,8 @@ let _payrollDefaultRate = null; // baseline rate, cached after first load per se
 let _payrollRateHistory = {};   // {YYYY-MM-DD: rate}, cached alongside the baseline
 let _payrollFilingStatus = 'single'; // cached alongside the rate/history
 let _payrollPlannedRaises = {}; // {pushId: {afterMonths, rate}} — forecast-only, see the Planned future raises section below
+let _savingsGoalPresets = {}; // {pushId: {name, goal, hours, gift, expense, useNet}} — see the Saved presets section above
+let _savingsGoalLastPresetId = null; // schedule-settings/savingsGoalLastPreset — which preset to auto-fill when this panel opens
 let _payrollMode = (function() { try { return localStorage.getItem('payroll-mode') || 'biweekly'; } catch(e) { return 'biweekly'; } })(); // device-level UI choice, per Marcelo: default Biweekly, changeable any time
 let _payrollAnchor = new Date(); // any date inside the currently-viewed period; navigated by shiftPayrollPeriod()
 
@@ -13212,10 +13234,16 @@ window.openPayrollModal = function() {
     get(ref(db, SchedUP + '/schedule-settings/hourlyRate')).then(function(snap) { _payrollDefaultRate = snap.val(); }).catch(function() { _payrollDefaultRate = null; }),
     get(ref(db, SchedUP + '/schedule-settings/hourlyRateHistory')).then(function(snap) { _payrollRateHistory = snap.val() || {}; }).catch(function() { _payrollRateHistory = {}; }),
     get(ref(db, SchedUP + '/schedule-settings/filingStatus')).then(function(snap) { _payrollFilingStatus = snap.val() || 'single'; }).catch(function() { _payrollFilingStatus = 'single'; }),
-    get(ref(db, SchedUP + '/schedule-settings/plannedRaises')).then(function(snap) { _payrollPlannedRaises = snap.val() || {}; }).catch(function() { _payrollPlannedRaises = {}; })
+    get(ref(db, SchedUP + '/schedule-settings/plannedRaises')).then(function(snap) { _payrollPlannedRaises = snap.val() || {}; }).catch(function() { _payrollPlannedRaises = {}; }),
+    get(ref(db, SchedUP + '/schedule-settings/savingsGoalPresets')).then(function(snap) { _savingsGoalPresets = snap.val() || {}; }).catch(function() { _savingsGoalPresets = {}; }),
+    get(ref(db, SchedUP + '/schedule-settings/savingsGoalLastPreset')).then(function(snap) { _savingsGoalLastPresetId = snap.val() || null; }).catch(function() { _savingsGoalLastPresetId = null; })
   ]).then(function() {
     window.renderPayrollReport();
     window.renderPayrollRaisesList();
+    window.renderSavingsPresetsList();
+    if (_savingsGoalLastPresetId && _savingsGoalPresets[_savingsGoalLastPresetId]) {
+      window.loadSavingsPreset(_savingsGoalLastPresetId);
+    }
     document.getElementById('sched-payroll-modal').classList.add('open');
   });
 };
@@ -13549,6 +13577,114 @@ function _payrollRaiseRateForMonth(m, baseRate, raises) {
   }
   return applicable;
 }
+// Saved presets for the Savings Goal Planner — added 2026-08-30 per
+// Marcelo: "so that we don't need to always set the goals and monthly
+// expenses and hours ... better have safe presets that they can easily
+// adjust and calculate, instead of always type." Each preset is a named
+// snapshot of every input field in the panel above; loading one fills
+// them all in, and they're still freely editable before hitting
+// Calculate. Stored at schedule-settings/savingsGoalPresets, a flat map
+// keyed by push id (same shape as plannedRaises above). The most
+// recently loaded/saved preset's id is separately tracked at
+// schedule-settings/savingsGoalLastPreset so openPayrollModal can
+// auto-fill the panel instead of opening blank.
+window.renderSavingsPresetsList = function() {
+  var sel = document.getElementById('payroll-goal-preset-select');
+  if (!sel) return;
+  var ids = Object.keys(_savingsGoalPresets || {});
+  var entries = ids.map(function(id) {
+    return { id: id, name: (_savingsGoalPresets[id] || {}).name || 'Untitled' };
+  }).sort(function(a, b) { return a.name.localeCompare(b.name); });
+  var prevSelected = sel.value;
+  sel.innerHTML = '<option value="">— Choose a saved preset —</option>' + entries.map(function(e) {
+    return '<option value="' + e.id + '">' + e.name.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
+  }).join('');
+  if (prevSelected && _savingsGoalPresets[prevSelected]) sel.value = prevSelected;
+};
+window.loadSavingsPreset = function(id) {
+  if (!id) return;
+  var p = _savingsGoalPresets[id];
+  if (!p) return;
+  var sel = document.getElementById('payroll-goal-preset-select');
+  if (sel) sel.value = id;
+  var goalEl = document.getElementById('payroll-goal-amount');
+  var hoursEl = document.getElementById('payroll-goal-hours');
+  var giftEl = document.getElementById('payroll-goal-gift');
+  var expenseEl = document.getElementById('payroll-goal-expense');
+  var useNetEl = document.getElementById('payroll-goal-use-net');
+  if (goalEl) goalEl.value = p.goal || '';
+  if (hoursEl) hoursEl.value = p.hours || '';
+  if (giftEl) giftEl.value = p.gift || '';
+  if (expenseEl) expenseEl.value = p.expense || '';
+  if (useNetEl) useNetEl.checked = p.useNet !== false;
+  set(ref(db, SchedUP + '/schedule-settings/savingsGoalLastPreset'), id).catch(function() {});
+};
+window.saveSavingsPreset = function() {
+  var goalEl = document.getElementById('payroll-goal-amount');
+  var hoursEl = document.getElementById('payroll-goal-hours');
+  var giftEl = document.getElementById('payroll-goal-gift');
+  var expenseEl = document.getElementById('payroll-goal-expense');
+  var useNetEl = document.getElementById('payroll-goal-use-net');
+  var goal = parseFloat(goalEl && goalEl.value), hours = parseFloat(hoursEl && hoursEl.value);
+  if (isNaN(goal) || goal <= 0 || isNaN(hours) || hours <= 0) {
+    window.showToast && window.showToast('Enter a goal amount and hours per month before saving a preset.');
+    return;
+  }
+  var sel = document.getElementById('payroll-goal-preset-select');
+  var selectedId = sel ? sel.value : '';
+  var currentName = (selectedId && _savingsGoalPresets[selectedId]) ? _savingsGoalPresets[selectedId].name : '';
+  var name = prompt('Name this preset (an existing name updates that preset):', currentName || '');
+  if (name === null) return;
+  name = name.trim();
+  if (!name) return;
+  var data = {
+    name: name,
+    goal: goal,
+    hours: hours,
+    gift: parseFloat(giftEl && giftEl.value) || 0,
+    expense: parseFloat(expenseEl && expenseEl.value) || 0,
+    useNet: !!(useNetEl && useNetEl.checked)
+  };
+  var matchId = null;
+  Object.keys(_savingsGoalPresets || {}).forEach(function(id) {
+    if ((_savingsGoalPresets[id].name || '').toLowerCase() === name.toLowerCase()) matchId = id;
+  });
+  var targetId = matchId;
+  var saveOp;
+  if (targetId) {
+    saveOp = set(ref(db, SchedUP + '/schedule-settings/savingsGoalPresets/' + targetId), data);
+  } else {
+    var newRef = push(ref(db, SchedUP + '/schedule-settings/savingsGoalPresets'));
+    targetId = newRef.key;
+    saveOp = set(newRef, data);
+  }
+  saveOp.then(function() {
+    _savingsGoalPresets[targetId] = data;
+    window.renderSavingsPresetsList();
+    var s = document.getElementById('payroll-goal-preset-select');
+    if (s) s.value = targetId;
+    set(ref(db, SchedUP + '/schedule-settings/savingsGoalLastPreset'), targetId).catch(function() {});
+    window.showToast && window.showToast('Preset \'' + name + '\' saved.');
+  }).catch(function() {
+    window.showToast && window.showToast('Could not save that preset. Try again.');
+  });
+};
+window.deleteSavingsPreset = function() {
+  var sel = document.getElementById('payroll-goal-preset-select');
+  var id = sel ? sel.value : '';
+  if (!id || !_savingsGoalPresets[id]) {
+    window.showToast && window.showToast('Choose a preset to delete first.');
+    return;
+  }
+  var name = _savingsGoalPresets[id].name || 'this preset';
+  if (!confirm('Delete the preset \'' + name + '\'?')) return;
+  remove(ref(db, SchedUP + '/schedule-settings/savingsGoalPresets/' + id)).then(function() {
+    delete _savingsGoalPresets[id];
+    window.renderSavingsPresetsList();
+  }).catch(function() {
+    window.showToast && window.showToast('Could not delete that preset. Try again.');
+  });
+};
 // Savings Goal Planner — per Marcelo: a planning helper for "an individual
 // with disabilities" turning a dollar goal into a plain-language time
 // estimate given average hours worked/month and today's rate. Extended
