@@ -1,0 +1,2457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+  <link rel="canonical" href="https://tools.you-the-winner.com/admin-settings" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Access Control · You The Winner Tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a7d6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
+<!-- Single source of truth for tab identity/order (TAB_META, DEFAULT_TAB_ORDER,
+     MAX_VISIBLE_MIN/MAX) — reused here so the "Tab bar defaults" admin control
+     below always lists the exact same tabs, in the same default order, as
+     my-daily-tools.html and calm-corner.html. See tab-nav-shared.js's own
+     header comment. -->
+<script src="tab-nav-shared.js"></script>
+<style id="auth-loading-style">body { visibility: hidden; }</style>
+<script>window.PAGE_KEY = 'admin-panel';</script>
+<script type="module" src="auth-guard.js"></script>
+<script>
+  // Defined here, in a plain (non-module) script that runs immediately and
+  // independently of the big Firebase module further down the page, so the
+  // collapsible sections always work even if something else on the page
+  // (a Firebase read, auth check, etc.) throws an error.
+  window.toggleSection = function(id) {
+    const body = document.getElementById(id + '-body');
+    const chev = document.getElementById(id + '-chevron');
+    if (!body) return;
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    if (chev) chev.classList.toggle('closed', isOpen);
+  };
+
+  // Collapse all sections on load except the first one (Access Denylist)
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id$="-body"]').forEach(function(body) {
+      if (body.id === 'denylist-body') return; // keep first section open
+      body.style.display = 'none';
+      var chevId = body.id.replace('-body', '-chevron');
+      var chev = document.getElementById(chevId);
+      if (chev) chev.classList.add('closed');
+    });
+    // Restore whichever admin tab (My Daily Tools / Site-Wide) this browser
+    // had open last, defaulting to Site-Wide (access control) — see
+    // switchAdminTab() below for why the sections are grouped this way.
+    var savedTab = null;
+    try { savedTab = localStorage.getItem('admin-active-tab'); } catch(e) {}
+    if (savedTab && document.getElementById('admin-tab-' + savedTab)) {
+      window.switchAdminTab(savedTab);
+    }
+  });
+
+  // ── ADMIN TAB BAR (2026-08-12; trimmed to Tools-only scope 2026-08-30) ──
+  // Maps each collapsible section's id to the tab it now lives in, so
+  // jumpToSection() (used by the quick-nav bar below) can switch to the
+  // right tab before it scrolls — otherwise jumping to e.g. "dayflow-activities"
+  // while the Site-Wide tab is active would scroll to a section that's
+  // hidden inside a display:none pane. Mel's-site-only sections (sitemap,
+  // maintenance mode, homepage projects, photos, quiz reviews/results, money,
+  // habits) were dropped entirely from this fork — see auth-guard.js /
+  // client.config.js for the Tools/Mel split.
+  var ADMIN_SECTION_TAB = {
+    toolusage:'tools', dailytools:'tools', 'delete-pin':'tools', caregiver:'tools', familyplans:'tools',
+    voicecleanup:'tools', mydaycards:'tools', 'token-banner':'tools', mydayprot:'tools',
+    mydaypin:'tools', mydayroutine:'tools', 'dayflow-activities':'tools',
+    denylist:'site', groups:'site', perms:'site', stripemode:'site'
+  };
+  window.switchAdminTab = function(tab) {
+    ['tools','site'].forEach(function(t) {
+      var pane = document.getElementById('admin-tab-' + t);
+      var btn = document.getElementById('admin-tab-btn-' + t);
+      if (pane) pane.style.display = (t === tab) ? '' : 'none';
+      if (btn) {
+        btn.classList.toggle('active', t === tab);
+        btn.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+      }
+    });
+    try { localStorage.setItem('admin-active-tab', tab); } catch(e) {}
+  };
+
+  // Quick-nav bar: jumps to a section, switching to its tab first (see
+  // ADMIN_SECTION_TAB above) and opening it first if it's collapsed.
+  window.jumpToSection = function(id) {
+    var tab = ADMIN_SECTION_TAB[id];
+    if (tab) window.switchAdminTab(tab);
+    const body = document.getElementById(id + '-body');
+    const chev = document.getElementById(id + '-chevron');
+    if (body && body.style.display === 'none') {
+      body.style.display = '';
+      if (chev) chev.classList.remove('closed');
+    }
+    const label = document.getElementById('sec-' + id);
+    if (label) label.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+</script>
+<style>
+  :root {
+    --bg: #f0f5f3; --surface: #ffffff; --surface2: #e8f0ed; --surface3: #ddeee8;
+    --border: #cfddd8; --text: #0f1f1c; --muted: #5a7a73; --soft: #a8c4bc;
+    --accent: #2a7d6f; --accent2: #1a5c7a; --accent-light: #e0eeea;
+    --gold: #f9a825; --gold-bg: #fefbe8; --gold-border: #f0d080;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Quicksand', sans-serif; font-weight: 400;
+    min-height: 100vh; padding: 48px 24px 80px;
+  }
+  .max-w { max-width: 680px; margin: 0 auto; }
+
+
+  .user-pill {
+    font-size: 0.68rem; font-weight: 600; color: var(--muted);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 99px; padding: 4px 12px; letter-spacing: 0.5px;
+  }
+  .sign-out-btn {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted); background: none;
+    border: 1px solid var(--border); border-radius: 99px;
+    padding: 5px 12px; cursor: pointer; transition: all 0.2s;
+  }
+  .sign-out-btn:hover { color: var(--text); border-color: var(--text); }
+
+  .header { margin-bottom: 32px; }
+  .eyebrow {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 4px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+  }
+  .title {
+    font-family: 'Nunito', sans-serif; font-size: 1.8rem;
+    font-weight: 800; color: var(--text); margin-bottom: 6px;
+  }
+  .subtitle { font-size: 0.84rem; color: var(--muted); }
+
+  .section-label {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px; margin-top: 32px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    scroll-margin-top: 64px;
+  }
+
+  /* Sticky quick-nav bar: jumps straight to any section so the long page
+     doesn't have to be scrolled through top-to-bottom to find something. */
+  .admin-quicknav {
+    position: sticky; top: 107px; z-index: 50;
+    background: var(--bg);
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 10px 0; margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-quicknav-btn {
+    flex-shrink: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 99px; padding: 6px 14px;
+    font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
+    color: var(--muted); cursor: pointer; white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .admin-quicknav-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+
+  /* Admin tab bar (2026-08-12) — groups the settings below into
+     My Daily Tools / Site-Wide. Deliberately NOT sticky like
+     .admin-quicknav above: two stacked sticky bars at different scroll
+     heights gets fragile once the quicknav wraps to multiple lines on a
+     narrow screen, and the tab choice doesn't need to follow you down
+     the page the way jump-to-section does. */
+  .admin-tab-bar {
+    display: flex; gap: 8px; margin: 6px 0 24px; flex-wrap: wrap;
+  }
+  .admin-tab-btn {
+    flex: 1; min-width: 140px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 10px 14px;
+    font-family: 'Nunito', sans-serif; font-size: 0.82rem; font-weight: 700;
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+  }
+  .admin-tab-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .admin-tab-btn.active {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+
+  .section-label.collapsible {
+    cursor: pointer; user-select: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .section-chevron {
+    font-size: 0.7rem; color: var(--muted); transition: transform 0.2s;
+    display: inline-block; flex-shrink: 0;
+  }
+  .section-chevron.closed { transform: rotate(-90deg); }
+
+  .page-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 14px;
+    transition: border-color 0.2s;
+  }
+  .page-row:hover { border-color: var(--soft); }
+  .page-name {
+    flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--text);
+  }
+  .page-file { font-size: 0.72rem; color: var(--muted); font-weight: 400; display: block; margin-top: 1px; }
+
+  .access-select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px;
+    font-family: 'Quicksand', sans-serif; font-size: 0.82rem;
+    font-weight: 600; color: var(--text); cursor: pointer;
+    outline: none; transition: border 0.2s; min-width: 160px;
+  }
+  .access-select:focus { border-color: var(--accent); }
+  .access-select[data-val="public"]  { border-left: 3px solid #2a7d6f; }
+  .access-select[data-val="auth"]    { border-left: 3px solid #1a5c7a; }
+  .access-select[data-val="admin"]   { border-left: 3px solid #f9a825; }
+
+  /* Profile photo upload + picker */
+  .photo-slot-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .photo-upload-btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .photo-gallery { display: flex; flex-wrap: wrap; gap: 10px; }
+  .photo-thumb { position: relative; width: 72px; height: 91px; border-radius: 10px; overflow: hidden; border: 2.5px solid var(--border); cursor: pointer; background: var(--surface2); transition: border-color 0.15s; }
+  .photo-thumb:hover { border-color: var(--soft); }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+  .photo-thumb.active { border-color: var(--accent); }
+  .photo-thumb-check { position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.58rem; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+  .photo-thumb-empty { display: flex; align-items: center; justify-content: center; font-size: 0.64rem; color: var(--muted); text-align: center; padding: 6px; cursor: default; }
+  .photo-thumb-empty:hover { border-color: var(--border); }
+  .photo-thumb-brokenlabel { display: none; }
+  .photo-thumb-broken { border-color: #c0392b; background: #fdecea; }
+  .photo-thumb-broken img { display: none; }
+  .photo-thumb-broken .photo-thumb-brokenlabel {
+    display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+    font-size: 0.56rem; line-height: 1.25; color: #c0392b; text-align: center;
+    padding: 4px; word-break: break-all; overflow: hidden;
+  }
+  .photo-thumb-remove {
+    position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff; font-size: 0.72rem; line-height: 16px;
+    text-align: center; cursor: pointer; font-weight: 700; z-index: 2;
+  }
+  .photo-thumb-remove:hover { background: #c0392b; }
+  .photo-add-row { display: flex; gap: 8px; margin-top: 12px; }
+  .photo-add-input {
+    flex: 1; max-width: 220px; border: 1.5px solid var(--border); background: var(--surface2);
+    border-radius: 8px; padding: 8px 10px; font-family: 'Quicksand', sans-serif;
+    font-size: 0.82rem; font-weight: 600; color: var(--text); outline: none;
+    cursor: pointer; transition: border 0.2s;
+  }
+  .photo-add-input:focus { border-color: var(--accent); }
+
+  .save-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border);
+  }
+  .save-btn {
+    background: var(--accent); color: white; border: none;
+    border-radius: 99px; padding: 12px 28px;
+    font-family: 'Nunito', sans-serif; font-size: 0.9rem;
+    font-weight: 700; cursor: pointer; transition: all 0.2s;
+  }
+  .save-btn:hover { background: var(--accent2); }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status-msg {
+    font-size: 0.82rem; font-weight: 600; color: var(--muted);
+    transition: color 0.3s;
+  }
+  .status-msg.ok { color: #2a7d6f; }
+  .status-msg.err { color: #c0392b; }
+
+  .info-card {
+    background: var(--gold-bg); border: 1px solid var(--gold-border);
+    border-radius: 12px; padding: 16px 18px; margin-top: 32px;
+  }
+  .info-card-title {
+    font-family: 'Nunito', sans-serif; font-size: 0.75rem;
+    font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    color: #b07a10; margin-bottom: 8px;
+  }
+  .info-card p { font-size: 0.82rem; color: #7a5a10; line-height: 1.65; margin-bottom: 6px; }
+  .info-card p:last-child { margin-bottom: 0; }
+  .info-card code {
+    background: rgba(249,168,37,0.15); border-radius: 4px;
+    padding: 1px 5px; font-size: 0.78rem; font-family: monospace;
+  }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+  .max-w { animation: fadeUp 0.4s ease both; }
+
+  /* Project order section */
+  .order-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .order-handle { display: flex; flex-direction: column; gap: 2px; }
+  .order-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; width: 28px; height: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; color: var(--muted); transition: all 0.15s;
+  }
+  .order-btn:hover:not(:disabled) { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+  .order-btn:disabled { opacity: 0.25; cursor: default; }
+  .order-name { flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .order-badge { font-size: 0.68rem; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; border-radius: 99px; padding: 4px 12px;
+    cursor: pointer; transition: all 0.15s; border: 1px solid var(--border);
+    color: var(--muted); background: var(--surface2); }
+  .order-badge:hover { filter: brightness(0.97); }
+  .order-badge.is-public {
+    color: var(--accent); background: var(--accent-light); border-color: var(--accent);
+  }
+  .order-badge.is-hidden {
+    color: #b3463c; background: #fbe9e7; border-color: #e2a39c;
+  }
+  /* Compact open/closed toggle — used for "default state" columns so the
+     label never wraps inside a table cell. */
+  .toggle-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .toggle-switch .track {
+    width: 34px; height: 19px; border-radius: 99px; flex-shrink: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    position: relative; transition: background 0.15s, border-color 0.15s;
+  }
+  .toggle-switch .track::after {
+    content: ''; position: absolute; top: 1px; left: 1px; width: 15px; height: 15px;
+    border-radius: 50%; background: var(--soft); transition: transform 0.15s, background 0.15s;
+  }
+  .toggle-switch.on .track { background: var(--accent-light); border-color: var(--accent); }
+  .toggle-switch.on .track::after { transform: translateX(15px); background: var(--accent); }
+  .toggle-switch .toggle-label {
+    font-size: 0.78rem; font-weight: 600; color: var(--muted); white-space: nowrap;
+  }
+  .toggle-switch.on .toggle-label { color: var(--accent); }
+  /* Red/warning variant, used only by the Stripe billing mode toggle so
+     "Live" (real charges) never reads as an ordinary green "on" state. */
+  .toggle-switch.live .track { background: #fdecea; border-color: #c0392b; }
+  .toggle-switch.live .track::after { transform: translateX(15px); background: #c0392b; }
+  .toggle-switch.live .toggle-label { color: #c0392b; }
+  .status-select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 8px;
+    font-family: 'Quicksand', sans-serif; font-size: 0.76rem;
+    font-weight: 600; color: var(--text); cursor: pointer;
+    outline: none; transition: border 0.2s; min-width: 110px;
+  }
+  .status-select:focus { border-color: var(--accent); }
+
+  /* Quick navigation */
+  .qn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .qn-card {
+    display: flex; flex-direction: column; gap: 4px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 13px 15px;
+    text-decoration: none; color: inherit;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    border-left: 3px solid var(--border);
+  }
+  .qn-card:hover { border-color: var(--soft); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .qn-card.grp-public  { border-left-color: var(--accent); }
+  .qn-card.grp-private { border-left-color: var(--accent2); }
+  .qn-card.grp-admin   { border-left-color: var(--gold); }
+
+  /* Site map (for families & educators) */
+  .sitemap-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .sitemap-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+  .sitemap-hub {
+    position: relative; z-index: 1;
+    background: var(--accent); color: #fff; border-radius: 14px;
+    padding: 12px 24px; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.92rem;
+    text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    box-shadow: 0 4px 14px rgba(42,125,111,0.25);
+  }
+  .sitemap-hub span { font-size: 0.65rem; font-weight: 600; opacity: 0.85; }
+  .sitemap-clusters { position: relative; z-index: 1; width: 100%; display: flex; flex-direction: column; gap: 22px; margin-top: 30px; }
+  .sitemap-cluster { border-radius: 16px; padding: 14px 14px 16px; border: 1.5px solid var(--border); background: var(--surface); }
+  .sitemap-cluster.cl-public { border-color: var(--accent); background: var(--accent-light); }
+  .sitemap-cluster.cl-private { border-color: var(--accent2); background: #eaf1f6; }
+  .sitemap-cluster.cl-admin { border-color: var(--gold); background: var(--gold-bg); }
+  .sitemap-cluster.cl-unconfigured { border-color: var(--soft); background: var(--surface2); }
+  .sitemap-cluster-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.78rem; letter-spacing: 0.3px; color: var(--text); margin-bottom: 3px; }
+  .sitemap-cluster-sub { font-size: 0.7rem; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+  .sitemap-nodes { display: flex; flex-wrap: wrap; gap: 10px; }
+  .sitemap-node { flex: 1 1 150px; max-width: 210px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; text-decoration: none; color: inherit; display: block; transition: border-color 0.15s, box-shadow 0.15s; }
+  a.sitemap-node:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(42,125,111,0.12); cursor: pointer; }
+  .sitemap-node .sm-icon { font-size: 1.05rem; display: block; }
+  .sitemap-node .sm-label { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.78rem; color: var(--text); margin-top: 4px; display: block; }
+  .sitemap-node .sm-blurb { font-size: 0.68rem; color: var(--muted); line-height: 1.42; margin-top: 4px; display: block; }
+  .qn-name { font-size: 0.87rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .qn-file { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+  .qn-tag  {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; border-radius: 99px; padding: 2px 8px;
+    align-self: flex-start; margin-top: 6px;
+  }
+  .qn-tag.grp-public  { background: var(--accent-light); color: var(--accent); }
+  .qn-tag.grp-private { background: #dce8f8; color: #14508c; }
+  .qn-tag.grp-admin   { background: var(--gold-bg); color: #b07a10; border: 1px solid var(--gold-border); }
+
+  /* Quiz reviews moderation */
+  .review-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .review-row.is-hidden-row { opacity: 0.55; }
+  .review-row-body { flex: 1; min-width: 0; }
+  .review-row-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+  .review-row-name { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+  .review-row-meta { font-size: 0.7rem; color: var(--muted); }
+  .review-row-comment { font-size: 0.85rem; color: var(--text); margin-top: 4px; }
+  .review-row-empty { font-size: 0.85rem; color: var(--muted); padding: 8px 2px; }
+
+  /* Usergroups + RWX permission matrix */
+  .group-row { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 8px; }
+  .group-row-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .group-label-input { flex:1; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.92rem; border:1px solid var(--border); border-radius:8px; padding:6px 10px; background:var(--surface2); color:var(--text); }
+  .group-del-btn { background:#fbe9e7; color:#b3463c; border:1px solid #e2a39c; border-radius:8px; padding:6px 10px; font-size:0.7rem; font-weight:700; cursor:pointer; }
+  .group-members { width:100%; font-family:'Quicksand',sans-serif; font-size:0.82rem; border:1px solid var(--border); border-radius:8px; padding:8px 10px; min-height:50px; resize:vertical; color:var(--text); }
+  .group-hint { font-size:0.68rem; color:var(--muted); margin-top:4px; }
+
+  .perm-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .perm-table th, .perm-table td { border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align: middle; }
+  .perm-table th { background:var(--surface2); font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+  .rwx-group { display:flex; gap:6px; }
+  .rwx-flag { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:6px; border:1.5px solid var(--border); font-weight:800; font-size:0.72rem; cursor:pointer; color: var(--soft); background: var(--surface); transition: all 0.15s; user-select:none; }
+  .rwx-flag.on { color:white; border-color: transparent; }
+  .rwx-flag.on.r { background: var(--accent2); }
+  .rwx-flag.on.w { background: var(--accent); }
+  .rwx-flag.on.x { background: var(--gold); }
+  .rwx-flag.all { width:auto; padding:0 8px; margin-left:4px; border-left:1.5px dashed var(--border); border-radius:0 6px 6px 0; font-size:0.62rem; letter-spacing:0.5px; }
+  .rwx-flag.all.on { background: var(--text); border-color: transparent; }
+
+  /* Feature-permission matrix: scrolls in both directions instead of forcing
+     the whole page wider, with the header row + first column pinned so you
+     never lose track of which page/group a flag belongs to while scrolling. */
+  .perm-matrix-wrap { overflow: auto; max-height: 480px; border: 1px solid var(--border); border-radius: 12px; }
+  .perm-matrix-table { width: auto; min-width: 100%; }
+  .perm-matrix-table th, .perm-matrix-table td { padding: 6px 8px; font-size: 0.76rem; white-space: normal; }
+  .perm-matrix-table th { max-width: 96px; word-break: break-word; }
+  .perm-matrix-table thead th { position: sticky; top: 0; background: var(--surface2); z-index: 2; }
+  .perm-matrix-table th:first-child, .perm-matrix-table td:first-child {
+    position: sticky; left: 0; background: var(--surface); z-index: 1;
+    box-shadow: 1px 0 0 var(--border); min-width: 110px; max-width: 150px;
+  }
+  .perm-matrix-table thead th:first-child { background: var(--surface2); z-index: 3; }
+  .perm-matrix-table .rwx-group { gap: 4px; }
+  .perm-matrix-table .rwx-flag { width: 20px; height: 20px; font-size: 0.66rem; border-radius: 5px; }
+  .perm-matrix-table .rwx-flag.all { padding: 0 6px; font-size: 0.56rem; }
+
+  /* Quick nav sortable header arrow */
+  .qn-sort-arrow { font-size: 0.6rem; margin-left: 3px; color: var(--accent); }
+
+  /* Homepage projects editor: a card per project instead of a wide table,
+     so it stays narrow (no horizontal scrollbar) even with many fields. */
+  .proj-edit-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; background: var(--surface); }
+  .proj-edit-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .proj-edit-head .order-handle { display: flex; gap: 2px; }
+  .proj-delete-btn { margin-left: auto; background: none; border: 1px solid var(--border); border-radius: 8px; width: 28px; height: 28px; cursor: pointer; color: var(--muted); font-size: 0.85rem; line-height: 1; }
+  .proj-delete-btn:hover { border-color: #d94f4f; color: #d94f4f; }
+  .proj-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .proj-edit-grid.proj-edit-grid-icon { grid-template-columns: 80px 1fr; }
+  .proj-field, .proj-edit-card textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+    font-family: 'Quicksand', sans-serif; font-size: 0.82rem; color: var(--text);
+    background: var(--surface2); outline: none; box-sizing: border-box; transition: border-color 0.15s, background 0.15s;
+  }
+  .proj-edit-card textarea { resize: vertical; min-height: 44px; }
+  .proj-field:focus, .proj-edit-card textarea:focus { border-color: var(--accent); background: var(--surface); }
+  @media (max-width: 480px) { .proj-edit-grid { grid-template-columns: 1fr; } }
+</style>
+<!-- Google Analytics (Engine/Tools) -->
+<script type="module">
+  import { CLIENT } from "./client.config.js";
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ dataLayer.push(arguments); };
+  var gaScript = document.createElement("script");
+  gaScript.async = true;
+  gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.toolsAnalyticsId;
+  document.head.appendChild(gaScript);
+  gtag("js", new Date());
+  gtag("config", CLIENT.toolsAnalyticsId);
+</script>
+</head>
+<body>
+<script src="site-nav.js"></script>
+<div class="max-w">
+
+
+  <div class="header">
+    <div class="eyebrow">Admin</div>
+    <div class="title">Access control</div>
+    <p class="subtitle">Set who can view each page. Changes take effect immediately. No redeploy needed.</p>
+  </div>
+
+  <div class="admin-quicknav" id="adminQuicknav">
+    <button class="admin-quicknav-btn" onclick="jumpToSection('toolusage')">Most Used Tools</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('dailytools')">Daily Tools</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('mydaycards')">My Day sections</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('token-banner')">Tokens</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('mydayprot')">Entry protection</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('mydaypin')">PIN access</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('mydayroutine')">Routine labels</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('dayflow-activities')">Day Flow</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('groups')">Groups</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('caregiver')">Caregiver links</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('perms')">Permissions</button>
+    <button class="admin-quicknav-btn" onclick="jumpToSection('stripemode')">Stripe Mode</button>
+    <span class="user-pill" id="user-email" style="margin-left:auto;"></span>
+    <button class="admin-quicknav-btn" onclick="doSignOut()" style="border-color:var(--soft);color:var(--muted);">Sign out</button>
+  </div>
+
+  <!-- ══ ADMIN TAB BAR (2026-08-12) ══
+     Regroups what used to be one long scroll of 22 sections into three
+     scopes, based on tracing each section's actual Firebase path to the
+     page(s) that read it (not just going by section title — a few titles
+     were misleading in the original Mel/Tools shared codebase this was
+     forked from). "Site-Wide" holds the handful that auth-guard.js
+     actually uses on every protected page (denylist, groups, permissions)
+     — forcing those into the Daily Tools tab would have made their scope
+     less clear, the opposite of the
+     point of this reorg. Selected tab is remembered per-browser via
+     localStorage so it doesn't reset every visit. See switchAdminTab(). -->
+<div class="admin-tab-bar" role="tablist">
+  <button class="admin-tab-btn" id="admin-tab-btn-tools" onclick="switchAdminTab('tools')" role="tab" aria-selected="false">🌿 My Daily Tools</button>
+  <button class="admin-tab-btn active" id="admin-tab-btn-site" onclick="switchAdminTab('site')" role="tab" aria-selected="true">🌐 Site-Wide</button>
+</div>
+
+<div class="admin-tab-pane" id="admin-tab-tools" role="tabpanel" style="display:none;">
+
+<!-- "Most Used Tools" — added 2026-08-18. Answers "which tool actually gets
+     opened the most", which GA4 alone can't: every tab in My Daily Tools is
+     a client-side pane swap with no URL change, so GA sees one pageview no
+     matter which tab someone uses. switchTab() in my-daily-tools.html now
+     writes a day-bucketed counter per tab on every real tab change (see the
+     "USAGE TRACKING" comment there), split into signed-in vs demo/trial
+     visitors — the demo counter is what will actually move first once a
+     promotion push sends people to try the tool before signing up. -->
+<div class="section-label collapsible" id="sec-toolusage" style="margin-top:16px;" onclick="toggleSection('toolusage')">🔥 Most Used Tools<span class="section-chevron" id="toolusage-chevron">▾</span></div>
+  <div id="toolusage-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:14px;">How often each tab actually gets opened, counted from real tab switches inside the tool (not just pageviews). Signed-in and demo/trial visitors are shown separately, since promoted traffic mostly shows up as demo activity before people sign up. Counting started 2026-08-18. Older usage isn't reflected here.</p>
+    <div id="toolusage-content"><div class="review-row-empty">Loading…</div></div>
+    <button class="save-btn" onclick="loadToolUsage()" style="margin-top:12px;">🔄 Refresh</button>
+    <span class="status-msg" id="toolusage-msg" style="margin-left:10px;"></span>
+  </div>
+
+<div class="section-label collapsible" id="sec-dailytools" style="margin-top:40px;" onclick="toggleSection('dailytools')">My Daily Tools settings<span class="section-chevron" id="dailytools-chevron">▾</span></div>
+  <div id="dailytools-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:14px;">Controls for the My Daily Tools page (my-daily-tools.html). Changes take effect immediately.</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);">
+      <div>
+        <div style="font-size:.85rem;font-weight:700;">Hide top nav bar</div>
+        <div style="font-size:.72rem;color:var(--muted);">When ON, the site menu at the top is hidden on My Daily Tools. Only the tab bar is shown</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="toggle-dt-hidenav" style="opacity:0;width:0;height:0;position:absolute;" onchange="saveDtHideNav(this.checked)">
+        <span id="dt-hidenav-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
+          <span id="dt-hidenav-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+        </span>
+      </label>
+    </div>
+    <span class="status-msg" id="dt-hidenav-msg" style="margin-top:8px;display:block;min-height:18px;"></span>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);">
+      <div>
+        <div style="font-size:.85rem;font-weight:700;">Guest demo mode</div>
+        <div style="font-size:.72rem;color:var(--muted);">When ON, visitors who are not signed in see a read-only demo using your Plans &amp; Money data. When OFF, guests see an empty page.</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="toggle-dt-demo" style="opacity:0;width:0;height:0;position:absolute;" onchange="saveDtDemoMode(this.checked)">
+        <span id="dt-demo-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
+          <span id="dt-demo-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+        </span>
+      </label>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);">
+      <div>
+        <div style="font-size:.85rem;font-weight:700;">Simple status on My Plans</div>
+        <div style="font-size:.72rem;color:var(--muted);">When ON, each plan's status is a single "Completed" checkbox instead of the 5-option dropdown (Idea / Planning / Active / Completed / Archived), simpler for someone with special needs. Unchecked defaults to Planning.</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="toggle-plans-simple-status" style="opacity:0;width:0;height:0;position:absolute;" onchange="savePlansSimpleStatus(this.checked)">
+        <span id="plans-simple-status-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
+          <span id="plans-simple-status-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+        </span>
+      </label>
+    </div>
+    <span class="status-msg" id="plans-simple-status-msg" style="margin-top:8px;display:block;min-height:18px;"></span>
+    <div style="padding:10px 0;border-top:1px solid var(--border);">
+      <div style="font-size:.85rem;font-weight:700;margin-bottom:4px;">Demo snapshot</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;">Copies your current Plans, Money &amp; Todos into the public demo path guests read from. Run this whenever you want to refresh what guests see.</div>
+      <button class="save-btn" onclick="syncDemoData()">Sync my data → demo</button>
+      <span class="status-msg" id="dt-demo-msg" style="margin-left:10px;"></span>
+    </div>
+
+    <!-- Tab bar defaults — added 2026-08-08. Each account has its own
+         "Icons before More" count and tab order (Settings → Tabs — Visibility
+         & Order in my-daily-tools.html), stored per-user and synced across
+         that person's devices. This block sets the site-wide DEFAULT for both
+         of those, and — because "Save & reset" also stamps a version number —
+         forces every account, including ones that already customized their
+         own tab bar, back to this default the next time they open My Daily
+         Tools. Anyone can still re-customize their own afterward; this is a
+         one-time push, not a lock. -->
+    <div style="padding:14px 0;border-top:1px solid var(--border);">
+      <div style="font-size:.85rem;font-weight:700;margin-bottom:2px;">Tab bar defaults</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;">Sets the default "Icons before More" count and tab order for My Daily Tools. Saving resets EVERY account (new sign-ups and accounts that already customized their own tab bar) back to what's configured below, the next time they open the page.</div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:.8rem;font-weight:700;margin-bottom:6px;">Icons before "More"</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;" id="admin-tb-max-visible-group"></div>
+      </div>
+
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:2px;">Tab order</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Tap ↑ ↓ to reorder: e.g. Home, Plans, Calm, Calendar, Cycle, Value of Things.</div>
+      <div id="admin-tab-order-list" style="margin-bottom:14px;"></div>
+
+      <button class="save-btn" onclick="saveTabDefaults()">Save &amp; reset all accounts</button>
+      <span class="status-msg" id="tab-defaults-msg" style="margin-left:10px;"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-delete-pin" style="margin-top:40px;" onclick="toggleSection('delete-pin')">Delete PIN (Wish List &amp; Goals)<span class="section-chevron" id="delete-pin-chevron">▾</span></div>
+  <div id="delete-pin-body">
+    <p class="subtitle" style="margin-top:-8px;margin-bottom:14px;">When set, this PIN is required before any goal or wish-list item can be removed. Prevents accidental deletions. Leave blank to use the word DELETE as confirmation instead.</p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <input id="delete-pin-input" type="tel" inputmode="numeric" maxlength="8" placeholder="4-digit PIN (leave blank to clear)"
+        style="border:1.5px solid var(--border);border-radius:10px;padding:9px 14px;font-size:.95rem;font-family:'Quicksand',sans-serif;width:260px;letter-spacing:3px;">
+      <button class="save-btn" onclick="saveDeletePin()">Save PIN</button>
+      <span class="status-msg" id="delete-pin-status"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-caregiver" style="margin-top:40px;" onclick="toggleSection('caregiver')">Caregiver access links<span class="section-chevron" id="caregiver-chevron">▾</span></div>
+  <div id="caregiver-body">
+    <p class="subtitle" style="margin-top:-8px;margin-bottom:14px;">Link a parent or caregiver's account to a loved one's account. Once linked, the parent sees account-switcher buttons on their My Daily Tools page and can view (and optionally edit) the loved one's plans, to-dos, checklist, and rewards/token tracking without sharing sign-in credentials. The loved one's money data is never visible to the parent. A newly-added link appears for the parent the next time they open Plans or Rewards. No re-login needed.</p>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:.85rem;font-weight:700;margin-bottom:12px;font-family:'Nunito',sans-serif;">Add a new link</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Parent / Caregiver account</label>
+          <select id="cg-parent-uid" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);"><option value="">-- select user --</option></select>
+        </div>
+        <div>
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Loved one's account</label>
+          <select id="cg-loved-uid" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);"><option value="">-- select user --</option></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div>
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Name shown on switcher button</label>
+          <input id="cg-name" type="text" placeholder="e.g. Grandma" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);">
+        </div>
+        <div>
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Relationship (optional)</label>
+          <input id="cg-relationship" type="text" placeholder="e.g. daughter" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);">
+        </div>
+        <div>
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Access level</label>
+          <select id="cg-access" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);">
+            <option value="readonly">View only</option>
+            <option value="readwrite">View and edit</option>
+          </select>
+        </div>
+      </div>
+      <button class="save-btn" onclick="addCaregiverLink()">Add link</button>
+      <span class="status-msg" id="cg-add-msg" style="margin-left:10px;"></span>
+    </div>
+
+    <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;font-family:'Nunito',sans-serif;">Existing links</div>
+    <div id="cg-links-list" style="font-size:.82rem;color:var(--muted);">Loading…</div>
+  </div>
+
+<div class="section-label collapsible" id="sec-familyplans" style="margin-top:40px;" onclick="toggleSection('familyplans')">Family Plan Sharing (support lookup)<span class="section-chevron" id="familyplans-chevron">▾</span></div>
+  <div id="familyplans-body">
+    <p class="subtitle" style="margin-top:-8px;margin-bottom:14px;">Every self-service Family Plan a customer has created, for support use: find someone's invite code, see who's joined, or remove a member/family if asked. Members: expand a family below.</p>
+    <div id="fp-list" style="font-size:.82rem;color:var(--muted);">Loading…</div>
+  </div>
+
+<div class="section-label collapsible" id="sec-voicecleanup" style="margin-top:40px;" onclick="toggleSection('voicecleanup')">Voice notes cleanup<span class="section-chevron" id="voicecleanup-chevron">▾</span></div>
+  <div id="voicecleanup-body">
+    <p class="subtitle" style="margin-top:-8px;margin-bottom:14px;">Voice recordings from "A note for you" (My Day &amp; Plans), grouped by day. Deleting here removes the audio file from Storage and clears the link in that day's note, but leaves any typed text alone.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      <label style="font-size:.82rem;color:var(--muted);">Delete audio older than <input type="number" id="vc-days" value="90" min="1" style="width:60px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);"> days</label>
+      <button class="save-btn" onclick="adminDeleteOldVoiceNotes()">Delete old audio</button>
+      <span class="status-msg" id="vc-bulk-status"></span>
+    </div>
+    <div id="vc-list" style="font-size:.82rem;color:var(--muted);">Loading…</div>
+  </div>
+
+<div class="section-label collapsible" id="sec-mydaycards" style="margin-top:40px;" onclick="toggleSection('mydaycards')">My Day page sections<span class="section-chevron" id="mydaycards-chevron">▾</span></div>
+  <div id="mydaycards-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:12px;">Choose which sections of myday.html are open or collapsed by default. Click the badge to switch. Takes effect immediately, no redeploy needed.</p>
+    <table class="perm-table" id="myday-cards-table">
+      <thead><tr><th>Section</th><th style="width:160px;">Default state</th></tr></thead>
+      <tbody id="myday-cards-list"></tbody>
+    </table>
+    <div class="save-row">
+      <button class="save-btn" id="myday-cards-save-btn" onclick="saveMydayCards()">Save section defaults</button>
+      <span class="status-msg" id="myday-cards-status-msg"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-token-banner" style="margin-top:40px;" onclick="toggleSection('token-banner')">My Day: Token reward banner<span class="section-chevron" id="token-banner-chevron">▾</span></div>
+  <div id="token-banner-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:16px;">
+      The token banner shows the family member's yearly dedication reward progress (🏆 <em>X tokens · $Y earned</em>).
+      Each token = 1 day with a logged check-in. Value: <strong>$150 ÷ 365 days ≈ $0.41 / token</strong>
+      (the $150 goal is set in <code>my-daily-tools.html</code>'s My Day tab, line&nbsp;TOKEN_GOAL).
+    </p>
+    <table class="perm-table" style="margin-bottom:0;">
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Show token banner</td>
+          <td>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="token-banner-cb" style="width:16px;height:16px;cursor:pointer;" checked>
+              <span style="font-size:0.82rem;color:var(--muted)">Display the 🏆 reward progress banner at the top of My Day</span>
+            </label>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Show dollar amount</td>
+          <td>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="token-show-dollars-cb" style="width:16px;height:16px;cursor:pointer;">
+              <span style="font-size:0.82rem;color:var(--muted)">Display "$X.XX earned" next to the token count (off by default, tokens alone are clearer)</span>
+            </label>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+    <div class="save-row">
+      <button class="save-btn" onclick="saveTokenBannerSetting()">Save</button>
+      <span class="status-msg" id="token-banner-status-msg"></span>
+    </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px;">
+        <strong style="color:var(--text);">Reset progress</strong>: clears every earned token
+        (e.g. after redeeming the gift, to start a fresh year). This cannot be undone.
+      </div>
+      <button class="save-btn" style="background:none;border:1.5px solid #d94f4f;color:#d94f4f;" onclick="resetTokenProgress()">Reset all tokens</button>
+      <span class="status-msg" id="token-reset-status-msg"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-mydayprot" style="margin-top:40px;" onclick="toggleSection('mydayprot')">My Day: entry protection<span class="section-chevron" id="mydayprot-chevron">▾</span></div>
+  <div id="mydayprot-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:16px;">Controls what actions users can perform on saved entries in "All entries".</p>
+    <table class="perm-table" style="margin-bottom:0;">
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Allow deleting entries</td>
+          <td>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="allow-delete-cb" style="width:16px;height:16px;cursor:pointer;">
+              <span style="font-size:0.82rem;color:var(--muted)">Show the delete (✕) button in All entries</span>
+            </label>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="save-row">
+      <button class="save-btn" onclick="saveEntryProtection()">Save</button>
+      <span class="status-msg" id="entry-prot-status-msg"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-mydaypin" style="margin-top:40px;" onclick="toggleSection('mydaypin')">Guardian / Supporter PIN access<span class="section-chevron" id="mydaypin-chevron">▾</span></div>
+  <div id="mydaypin-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:16px;">When enabled, someone who is <em>not</em> logged in can enter My Day using a PIN. They can fill in the check-in form but cannot see history, calendar, or analytics. Their entry is tagged as filled by "supporter".</p>
+    <table class="perm-table" style="margin-bottom:0;">
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Open to everyone</td>
+          <td>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="myday-pin-public" style="width:16px;height:16px;cursor:pointer;">
+              <span style="font-size:0.82rem;color:var(--muted)">No login, no PIN: anyone can access My Day directly</span>
+            </label>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Enable PIN access</td>
+          <td>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="myday-pin-enabled" style="width:16px;height:16px;cursor:pointer;">
+              <span style="font-size:0.82rem;color:var(--muted)">Allow entry without login using the PIN below</span>
+            </label>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">PIN code</td>
+          <td>
+            <input type="text" id="myday-pin-code" inputmode="numeric" maxlength="8"
+              placeholder="e.g. 123"
+              style="width:120px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+                     font-family:'Nunito',sans-serif;font-size:0.95rem;color:var(--text);background:var(--surface);">
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="save-row">
+      <button class="save-btn" onclick="saveMydayPin()">Save PIN settings</button>
+      <span class="status-msg" id="myday-pin-status-msg"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-mydayroutine" style="margin-top:40px;" onclick="toggleSection('mydayroutine')">My Day: Health routine labels<span class="section-chevron" id="mydayroutine-chevron">▾</span></div>
+  <div id="mydayroutine-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:16px;">Customize the section title and slot names that appear in the daily check-in form. Changes take effect instantly. No redeploy needed.</p>
+    <table class="perm-table" style="margin-bottom:0;">
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Section title</td>
+          <td>
+            <input type="text" id="routine-title" placeholder="💊 Did I complete my daily health routine?"
+              style="width:100%;max-width:420px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+                     font-family:'Nunito',sans-serif;font-size:0.95rem;color:var(--text);background:var(--surface);">
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Morning slot name</td>
+          <td>
+            <input type="text" id="routine-am" placeholder="Morning"
+              style="width:180px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+                     font-family:'Nunito',sans-serif;font-size:0.95rem;color:var(--text);background:var(--surface);">
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Night slot name</td>
+          <td>
+            <input type="text" id="routine-pm" placeholder="Night"
+              style="width:180px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+                     font-family:'Nunito',sans-serif;font-size:0.95rem;color:var(--text);background:var(--surface);">
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="save-row">
+      <button class="save-btn" onclick="saveRoutineConfig()">Save routine labels</button>
+      <span class="status-msg" id="routine-status-msg"></span>
+    </div>
+    <!-- Streak counter -->
+    <p class="subtitle" style="margin-top:24px; margin-bottom:12px; border-top:1px solid var(--border); padding-top:16px;">
+      Streak counter: how many consecutive days the routine has been followed. The counter is reset here when starting fresh.
+    </p>
+    <table class="perm-table" style="margin-bottom:0;">
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Current streak</td>
+          <td id="routine-streak-display" style="font-family:'Nunito',sans-serif;font-size:0.95rem;color:var(--text);">Loading…</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Reset start date</td>
+          <td>
+            <input type="date" id="routine-reset-date"
+              style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+                     font-family:'Nunito',sans-serif;font-size:0.95rem;color:var(--text);background:var(--surface);">
+            <button class="save-btn" style="margin-left:8px;" onclick="saveRoutineResetDate()">Set start date</button>
+            <span class="status-msg" id="routine-reset-status-msg"></span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+<div class="section-label collapsible" id="sec-dayflow-activities" style="margin-top:40px;" onclick="toggleSection('dayflow-activities')">My Day: Day Flow activities<span class="section-chevron" id="dayflow-activities-chevron">▾</span></div>
+  <div id="dayflow-activities-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:14px;">
+      These are the activity options shown in the Day Flow picker, grouped into categories
+      (Creative &amp; Build, Skill Boost, Movement, Life &amp; Care, Wind-down; anything left
+      as "More options" still shows up, just ungrouped). Add, remove, reorder, or re-categorize
+      them here. Changes take effect immediately. No redeploy needed.
+    </p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:14px;background:var(--surface2);border-radius:12px;flex-wrap:wrap;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:.88rem;">Time splits per day:</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem;">
+        <input type="radio" name="dayflow-splits" value="1" id="splits-1"> 1 block (All day)
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem;">
+        <input type="radio" name="dayflow-splits" value="3" id="splits-3" checked> 3 blocks (Morning / Afternoon / Evening)
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem;">
+        <input type="radio" name="dayflow-splits" value="5" id="splits-5"> 5 blocks (detailed)
+      </label>
+      <button onclick="saveDayflowSplits()" class="save-btn" style="margin-left:auto;">Save</button>
+      <span class="status-msg" id="splits-status-msg"></span>
+    </div>
+    <div id="dayflow-activity-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-width:480px;"></div>
+    <div style="display:flex;gap:8px;max-width:480px;margin-bottom:8px;">
+      <button onclick="sortDayflowAZ()" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:'Nunito',sans-serif;font-size:.82rem;cursor:pointer;color:var(--muted);">Sort A–Z</button>
+      <span style="font-size:.78rem;color:var(--muted);align-self:center;">or use ▲▼ to set a custom order</span>
+    </div>
+    <div style="display:flex;gap:8px;max-width:480px;margin-bottom:16px;flex-wrap:wrap;">
+      <input id="dayflow-new-activity" placeholder="e.g. 🎸 Guitar Practice (just type an emoji then the name)"
+        style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.9rem;background:var(--surface);color:var(--text);"
+        onkeydown="if(event.key==='Enter') addDayflowActivity()">
+      <select id="dayflow-new-category" title="Category (optional)"
+        style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.85rem;background:var(--surface);color:var(--text);">
+        <option value="">More options</option>
+        <option value="Creative & Build">Creative &amp; Build</option>
+        <option value="Skill Boost">Skill Boost</option>
+        <option value="Movement">Movement</option>
+        <option value="Life & Care">Life &amp; Care</option>
+        <option value="Wind-down">Wind-down</option>
+      </select>
+      <button class="save-btn" onclick="addDayflowActivity()" style="white-space:nowrap;">+ Add</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" onclick="saveDayflowActivities()">Save activities</button>
+      <span class="status-msg" id="dayflow-activities-status-msg"></span>
+    </div>
+  </div>
+
+</div>
+
+<div class="admin-tab-pane active" id="admin-tab-site" role="tabpanel">
+
+<div class="section-label collapsible" id="sec-denylist" style="margin-top:40px;" onclick="toggleSection('denylist')">Access Denylist<span class="section-chevron" id="denylist-chevron">▾</span></div>
+  <div id="denylist-body">
+    <p class="subtitle" style="margin-top:-8px;margin-bottom:14px;">Anyone who signs in with Google gets access to the private tools by default. No need to add them here first. Use this list only to cut off a specific account (e.g. a lapsed subscription). One email per line, case doesn't matter. Remove an email to restore their access.</p>
+    <textarea id="denylist-input" class="group-members" placeholder="someone@example.com" style="min-height:100px;"></textarea>
+    <div class="save-row" style="margin-top:12px;">
+      <button class="save-btn" onclick="saveDenylist()">Save denylist</button>
+      <span class="status-msg" id="denylist-status"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-groups" style="margin-top:40px;" onclick="toggleSection('groups')">User groups<span class="section-chevron" id="groups-chevron">▾</span></div>
+  <div id="groups-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:12px;">Group people by email. Permissions below are granted per group, not per person. Add the same email to multiple groups if needed.</p>
+    <div id="groups-list"></div>
+    <div class="save-row" style="margin-top:4px; border-top:none; padding-top:0;">
+      <button class="save-btn" onclick="addGroup()">+ Add group</button>
+      <span class="status-msg" id="groups-status-msg"></span>
+    </div>
+  </div>
+
+<div class="section-label collapsible" id="sec-perms" style="margin-top:40px;" onclick="toggleSection('perms')">Feature permissions (R / W / X)<span class="section-chevron" id="perms-chevron">▾</span></div>
+  <div id="perms-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:12px;">R = can view data on that page. W = can add, edit or delete entries. X = can run special actions (import, reset). Click a letter to toggle it for that group + page. Saves immediately, like Linux file permissions.</p>
+    <div id="perm-matrix" class="perm-matrix-wrap"></div>
+    <span class="status-msg" id="perm-status-msg" style="margin-top:8px;display:block;min-height:18px;"></span>
+  </div>
+
+<div class="section-label collapsible" id="sec-stripemode" style="margin-top:40px;" onclick="toggleSection('stripemode')">Stripe billing mode<span class="section-chevron" id="stripemode-chevron">▾</span></div>
+  <div id="stripemode-body">
+    <p class="subtitle" style="margin-top:-8px; margin-bottom:14px;">Controls which Stripe keys and Prices <code>create-checkout-session.js</code> uses for NEW purchases: Test mode uses Stripe's test cards and charges nothing real; Live mode charges real cards. Takes effect immediately, no redeploy needed. Doesn't affect subscriptions already created in either mode, and doesn't affect the webhook receiver, which accepts events from both modes at once regardless of this switch.</p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="toggle-switch" id="stripeModeToggle" onclick="toggleStripeMode()">
+        <span class="track"></span><span class="toggle-label" id="stripeModeToggleLabel">Test</span>
+      </span>
+      <span class="status-msg" id="stripemode-status"></span>
+    </div>
+    <div id="stripemode-warn" style="display:none;margin-top:12px;padding:10px 14px;border-radius:10px;background:#fdecea;border:1px solid #f3b7b0;color:#8a2b20;font-size:0.78rem;font-weight:700;">⚠️ LIVE MODE: new checkouts will charge real cards.</div>
+  </div>
+
+<div class="info-card">
+    <div class="info-card-title">How to set up user roles</div>
+    <p>User roles (admin vs user) are stored in Firebase under <code>tools-you-the-winner/user-roles/{uid}</code>.</p>
+    <p>To make someone an admin: sign in as them once, then go to <strong>Firebase Console → Realtime Database</strong> and set their UID to <code>"admin"</code> under <code>user-roles/</code>.</p>
+    <p>To create new users: go to <strong>Firebase Console → Authentication → Users → Add user</strong>.</p>
+  </div>
+
+</div>
+
+</div>
+
+<script type="module">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getDatabase, ref, get, set, push, remove, update, onValue }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getStorage, ref as storageRef, listAll, deleteObject }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  import { CLIENT } from "./client.config.js";
+
+  const FB_CONFIG = CLIENT.firebase;
+
+  const app  = getApps().find(a => a.name === 'guard') || initializeApp(FB_CONFIG, 'guard');
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+  const storage = getStorage(app);
+
+  // Shared HTML-escaping helpers used throughout this page (quick nav,
+  // permission matrix, caregiver/family-plan lists, etc).
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
+
+// All pages governed by the feature-permission (R/W/X) system below.
+  // admin-panel.html itself is intentionally NOT in this list — it always
+  // stays behind the original hardcoded admin check in auth-guard.js, so a
+  // permissions mistake here can never lock anyone out of the tool that fixes it.
+  // Only pages that actually gate themselves via auth-guard.js's PAGE_KEY
+  // system belong here (drives the Feature Permissions grid below).
+  // daily-tools-landing.html, subscribe.html and migrate-to-users.html don't
+  // set window.PAGE_KEY, so auth-guard.js always treats them as public —
+  // listing them here would imply control that doesn't actually exist.
+  const ALL_PAGES = [
+    { key: 'my-daily-tools', label: 'My Daily Tools', file: 'my-daily-tools.html' },
+    { key: 'calm-corner',    label: 'Calm Corner',    file: 'calm-corner.html' },
+  ];
+
+  // Show logged-in user
+  onAuthStateChanged(auth, (user) => {
+    if (user) document.getElementById('user-email').textContent = user.email;
+  });
+
+  window.doSignOut = async function() {
+    try { await signOut(auth); } catch(e) {}
+    window.location.href = 'login.html';
+  };
+
+  // Quick Nav reflects whatever the Feature Permissions matrix currently grants —
+  // there's no separate page-access concept anymore. "Public" = the public
+  // pseudo-group has R; "Members" = some signed-in group has R; otherwise it
+  // hasn't been configured yet (shown so it's easy to spot and fix below).
+  function quickNavStatus(pageKey) {
+    if (permsData.public?.[pageKey]?.r) return { cls: 'public', label: 'Public' };
+    const anyGroupR = Object.keys(groupsData).some(gk => gk !== 'public' && permsData[gk]?.[pageKey]?.r === true);
+    if (anyGroupR) return { cls: 'private', label: 'Members' };
+    return { cls: 'admin', label: 'Not configured' };
+  }
+  let qnSortField = null; // null = original order, otherwise 'label' or 'statusLabel'
+  let qnSortDir = 1;       // 1 = ascending, -1 = descending
+
+  function getQuickNavRows() {
+    const rows = ALL_PAGES.map(p => {
+      const s = quickNavStatus(p.key);
+      return { label: p.label, file: p.file, statusLabel: s.label, cls: s.cls };
+    });
+    rows.push({ label: 'Access control (this page)', file: 'admin-settings.html', statusLabel: 'Admin (fixed)', cls: 'admin' });
+    return rows;
+  }
+
+  window.sortQuickNav = function(field) {
+    if (qnSortField === field) { qnSortDir = -qnSortDir; } else { qnSortField = field; qnSortDir = 1; }
+    renderQuickNav();
+  };
+
+  function renderQuickNav() {
+    const grid = document.getElementById('qn-grid');
+    if (!grid) return;
+    let rows = getQuickNavRows();
+    if (qnSortField) {
+      rows = rows.slice().sort((a, b) => {
+        const av = (a[qnSortField] || '').toLowerCase();
+        const bv = (b[qnSortField] || '').toLowerCase();
+        if (av < bv) return -1 * qnSortDir;
+        if (av > bv) return 1 * qnSortDir;
+        return 0;
+      });
+    }
+    grid.innerHTML = rows.map(r => `<tr>
+        <td><a href="${r.file}" target="_blank" rel="noopener noreferrer" style="color:var(--text);text-decoration:none;font-weight:700;">${escapeHtml(r.label)}</a><div style="font-size:0.66rem;color:var(--muted);">${r.file}</div></td>
+        <td><span class="qn-tag grp-${r.cls}">${escapeHtml(r.statusLabel)}</span></td>
+        <td style="text-align:center;"><a href="${r.file}" target="_blank" rel="noopener noreferrer" title="Open in new tab" style="text-decoration:none;color:var(--muted);">↗</a></td>
+      </tr>`).join('');
+    ['label', 'statusLabel'].forEach(field => {
+      const arrow = document.getElementById('qn-sort-' + field);
+      if (arrow) arrow.textContent = qnSortField === field ? (qnSortDir === 1 ? '▲' : '▼') : '';
+    });
+  }
+
+  // ── STRIPE BILLING MODE (added 2026-08-21) ──
+  // A single string flag at tools-you-the-winner/config/stripe-mode ('test'|
+  // 'live'), read by netlify/functions/create-checkout-session.js on every
+  // NEW checkout it creates, picking which STRIPE_SECRET_KEY_* /
+  // STRIPE_PRICE_*_* env vars to use (see that function's header comment).
+  // Defaults to 'test' if unset here (matches that function's own
+  // fallback), so a config path nobody ever explicitly set can't
+  // accidentally let real charges through. netlify/functions/stripe-webhook.js
+  // does NOT read this flag -- it tries both the Test and Live webhook
+  // secrets on every incoming event, since a webhook fired from a Live
+  // checkout can arrive at any time regardless of what this toggle
+  // currently says.
+  let stripeMode = 'test';
+  onValue(ref(db, 'tools-you-the-winner/config/stripe-mode'), (snap) => {
+    stripeMode = (snap.val() === 'live') ? 'live' : 'test';
+    const el = document.getElementById('stripeModeToggle');
+    const lbl = document.getElementById('stripeModeToggleLabel');
+    const warn = document.getElementById('stripemode-warn');
+    if (el) el.classList.toggle('live', stripeMode === 'live');
+    if (lbl) lbl.textContent = stripeMode === 'live' ? 'Live' : 'Test';
+    if (warn) warn.style.display = stripeMode === 'live' ? '' : 'none';
+  });
+  window.toggleStripeMode = async function() {
+    const next = stripeMode === 'live' ? 'test' : 'live';
+    if (next === 'live' && !confirm('Switch to LIVE Stripe mode? New checkouts will charge real cards using your live Stripe keys and Price IDs. Only do this after a full test-mode checkout has been verified working end to end.')) {
+      return;
+    }
+    try {
+      await set(ref(db, 'tools-you-the-winner/config/stripe-mode'), next);
+      flashStatus('stripemode-status', next === 'live' ? 'Saved. Stripe is now in LIVE mode.' : 'Saved. Stripe is back in TEST mode.', true);
+    } catch (e) {
+      console.error('[admin-settings] toggleStripeMode failed:', e);
+      flashStatus('stripemode-status', 'Could not save: ' + (e.message || e), false);
+    }
+  };
+
+  // ── DELETE PIN (goal / wish-list deletion guard) ──
+  onValue(ref(db, 'tools-you-the-winner/config/delete-pin'), (snap) => {
+    const v = snap.val();
+    const input = document.getElementById('delete-pin-input');
+    if(input) input.value = v ? String(v) : '';
+  });
+  window.saveDeletePin = async function() {
+    const raw = (document.getElementById('delete-pin-input').value || '').trim();
+    try {
+      if(raw) {
+        await set(ref(db, 'tools-you-the-winner/config/delete-pin'), raw);
+        flashStatus('delete-pin-status', 'PIN saved.', true);
+      } else {
+        await remove(ref(db, 'tools-you-the-winner/config/delete-pin'));
+        flashStatus('delete-pin-status', 'PIN cleared. DELETE word required instead.', true);
+      }
+    } catch(e) {
+      flashStatus('delete-pin-status', 'Could not save: ' + (e.message || e), false);
+    }
+  };
+
+  // ── ACCESS DENYLIST (open-by-default sign-in; explicit cutoff list) ──
+  // Every Google account can sign in and use the private ('auth'-level)
+  // tools by default (see auth-guard.js's isDenylisted()) — this list is the
+  // only way to block a specific account (e.g. a lapsed subscription)
+  // without editing code. Stored as a lowercase-email array at
+  // tools-you-the-winner/denylist.
+  onValue(ref(db, 'tools-you-the-winner/denylist'), (snap) => {
+    const v = snap.val();
+    const input = document.getElementById('denylist-input');
+    if (input) input.value = Array.isArray(v) ? v.join('\n') : '';
+  });
+  window.saveDenylist = async function() {
+    const raw = (document.getElementById('denylist-input').value || '');
+    const emails = raw.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean);
+    try {
+      if (emails.length) {
+        await set(ref(db, 'tools-you-the-winner/denylist'), emails);
+      } else {
+        await remove(ref(db, 'tools-you-the-winner/denylist'));
+      }
+      flashStatus('denylist-status', 'Denylist saved.', true);
+    } catch(e) {
+      flashStatus('denylist-status', 'Could not save: ' + (e.message || e), false);
+    }
+  };
+
+  // ── MOST USED TOOLS (added 2026-08-18) ──
+  // Reads the day-bucketed counters my-daily-tools.html's switchTab() now
+  // writes on every real tab change (see that file's "USAGE TRACKING"
+  // comment) and renders a ranked bar list per tab, split into signed-in
+  // vs demo/trial visitors so a promotion push's effect (which shows up as
+  // demo traffic first) is visible on its own rather than mixed in with
+  // the account owner's own day-to-day usage.
+  function _toolUsageTotals(data, sinceDays) {
+    const cutoff = sinceDays ? (Date.now() - sinceDays * 86400000) : null;
+    const totals = {};
+    Object.entries(data || {}).forEach(([tab, byDate]) => {
+      let sum = 0;
+      Object.entries(byDate || {}).forEach(([dateStr, count]) => {
+        if (cutoff !== null) {
+          const d = new Date(dateStr + 'T00:00:00');
+          if (isNaN(d.getTime()) || d.getTime() < cutoff) return;
+        }
+        sum += Number(count) || 0;
+      });
+      if (sum > 0) totals[tab] = sum;
+    });
+    return totals;
+  }
+
+  function _renderToolUsageBlock(title, data) {
+    const totals30 = _toolUsageTotals(data, 30);
+    const totalsAll = _toolUsageTotals(data, null);
+    const entries = Object.entries(totals30).sort((a, b) => b[1] - a[1]);
+    const meta = (window.TAB_NAV && window.TAB_NAV.TAB_META) || {};
+    const max = entries.length ? entries[0][1] : 0;
+    const rowsHtml = entries.length ? entries.map(([tab, count]) => {
+      const m = meta[tab] || { icon: '📄', label: tab };
+      const pct = max ? Math.max(4, Math.round((count / max) * 100)) : 0;
+      const allTime = totalsAll[tab] || count;
+      return `<div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:3px;">
+          <span>${m.icon} ${escapeHtml(m.label)}</span>
+          <span style="color:var(--muted);">${count}<span style="opacity:.65;"> · ${allTime} all-time</span></span>
+        </div>
+        <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;">
+          <div style="background:var(--accent);height:100%;width:${pct}%;"></div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="review-row-empty">No usage recorded yet in the last 30 days.</div>';
+    return `<div style="margin-bottom:20px;">
+      <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;">${escapeHtml(title)} (last 30 days)</div>
+      ${rowsHtml}
+    </div>`;
+  }
+
+  window.loadToolUsage = async function() {
+    const el = document.getElementById('toolusage-content');
+    const msg = document.getElementById('toolusage-msg');
+    if (!el) return;
+    el.innerHTML = '<div class="review-row-empty">Loading…</div>';
+    if (msg) msg.textContent = '';
+    try {
+      const [realSnap, demoSnap] = await Promise.all([
+        get(ref(db, 'tools-you-the-winner/usage-stats')),
+        get(ref(db, 'tools-you-the-winner/demo/usage-stats')),
+      ]);
+      el.innerHTML =
+        _renderToolUsageBlock('Signed-in users', realSnap.val() || {}) +
+        _renderToolUsageBlock('Demo / trial visitors', demoSnap.val() || {});
+      if (msg) msg.textContent = 'Updated ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      el.innerHTML = `<div class="review-row-empty" style="color:#c0392b;">Could not load: ${escapeHtml(e.message || String(e))}</div>`;
+    }
+  };
+  loadToolUsage();
+
+  // ── MY DAY PAGE SECTIONS ──
+  const MYDAY_CARDS = [
+    { key: 'dayflow',   label: '🌅 My Day Flow' },
+    { key: 'med',       label: '💊 Health routine' },
+    { key: 'act',       label: '🏆 Activities' },
+    { key: 'sleep',     label: '🌙 Sleep' },
+    { key: 'more',      label: '🌈 How am I doing (mood / energy)' },
+    { key: 'note',      label: '💬 Notes' },
+    { key: 'calendar',  label: '📅 My Day Calendar' },
+    { key: 'history',   label: '📋 All entries (history table)' },
+    { key: 'analytics', label: '📊 Monthly snapshot' },
+  ];
+  let mydayCardsConfig = {};
+  // Load daily-tools settings
+  (async () => {
+    try {
+      const [hnSnap, dmSnap, pssSnap] = await Promise.all([
+        get(ref(db, 'tools-you-the-winner/config/daily-tools-hide-nav')),
+        get(ref(db, 'tools-you-the-winner/config/daily-tools-demo-mode')),
+        get(ref(db, 'tools-you-the-winner/config/plans-simple-status')),
+      ]);
+      const setToggle = (cbId, trackId, thumbId, val) => {
+        const cb = document.getElementById(cbId);
+        const track = document.getElementById(trackId);
+        const thumb = document.getElementById(thumbId);
+        if (cb) cb.checked = val;
+        if (track) track.style.background = val ? 'var(--accent)' : 'var(--border)';
+        if (thumb) thumb.style.left = val ? '20px' : '2px';
+      };
+      setToggle('toggle-dt-hidenav', 'dt-hidenav-track', 'dt-hidenav-thumb', hnSnap.val() === true);
+      setToggle('toggle-dt-demo', 'dt-demo-track', 'dt-demo-thumb', dmSnap.val() === true);
+      setToggle('toggle-plans-simple-status', 'plans-simple-status-track', 'plans-simple-status-thumb', pssSnap.val() === true);
+    } catch(e) {}
+  })();
+
+  // ── TAB BAR DEFAULTS (Icons before "More" + tab order) ──
+  // Site-wide default read by my-daily-tools.html's tab-defaults sync (see
+  // that file, near SYNCED_SETTINGS_KEYS) — every account, new or already
+  // customized, gets pulled to this order/count once per saved
+  // "forceVersion" stamp. Reuses tab-nav-shared.js's TAB_META/
+  // DEFAULT_TAB_ORDER/MAX_VISIBLE_MIN/MAX so this list can never list a tab
+  // that doesn't actually exist in the tab bar, or drift from its real
+  // default order.
+  const TN = window.TAB_NAV || {};
+  const ADMIN_TAB_META = TN.TAB_META || {};
+  let adminTabOrder = (TN.DEFAULT_TAB_ORDER || []).slice();
+  let adminTabMaxVisible = TN.MAX_VISIBLE_DEFAULT || 5;
+
+  (async function loadTabDefaults() {
+    try {
+      const snap = await get(ref(db, 'tools-you-the-winner/config/tab-defaults'));
+      const cfg = snap.val() || {};
+      if (Array.isArray(cfg.order) && cfg.order.length) {
+        const merged = cfg.order.filter(t => ADMIN_TAB_META[t]);
+        (TN.DEFAULT_TAB_ORDER || []).forEach(t => { if (!merged.includes(t)) merged.push(t); });
+        adminTabOrder = merged;
+      }
+      const min = TN.MAX_VISIBLE_MIN || 3, max = TN.MAX_VISIBLE_MAX || 7;
+      if (typeof cfg.maxVisible === 'number' && cfg.maxVisible >= min && cfg.maxVisible <= max) {
+        adminTabMaxVisible = cfg.maxVisible;
+      }
+    } catch (e) {}
+    renderAdminTabMaxVisible();
+    renderAdminTabOrderList();
+  })();
+
+  function renderAdminTabMaxVisible() {
+    const wrap = document.getElementById('admin-tb-max-visible-group');
+    if (!wrap) return;
+    const min = TN.MAX_VISIBLE_MIN || 3, max = TN.MAX_VISIBLE_MAX || 7;
+    let h = '';
+    for (let n = min; n <= max; n++) {
+      const active = n === adminTabMaxVisible;
+      h += '<button onclick="window.setAdminTbMaxVisible(' + n + ')" style="font-size:.82rem;font-weight:800;width:34px;height:34px;border-radius:9px;border:1.5px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';background:' + (active ? 'var(--accent)' : 'var(--surface2)') + ';color:' + (active ? '#fff' : 'var(--muted)') + ';cursor:pointer;font-family:Nunito,sans-serif;">' + n + '</button>';
+    }
+    wrap.innerHTML = h;
+  }
+  window.setAdminTbMaxVisible = function(n) {
+    adminTabMaxVisible = n;
+    renderAdminTabMaxVisible();
+  };
+
+  function renderAdminTabOrderList() {
+    const list = document.getElementById('admin-tab-order-list');
+    if (!list) return;
+    const arrowBtn = 'font-size:.9rem;width:28px;height:28px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;padding:0;flex-shrink:0;';
+    const rows = adminTabOrder.filter(t => ADMIN_TAB_META[t]);
+    list.innerHTML = rows.map(function(tab, i) {
+      const isFirst = i === 0, isLast = i === rows.length - 1;
+      const meta = ADMIN_TAB_META[tab] || {};
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;' + (i > 0 ? 'border-top:1px solid var(--border);' : '') + '">'
+        + '<div style="flex:1;min-width:0;font-weight:700;font-size:.84rem;">' + (meta.icon || '') + ' ' + (meta.label || tab) + '</div>'
+        + '<button onclick="window.moveAdminTab(\'' + tab + '\',-1)" style="' + arrowBtn + (isFirst ? 'opacity:.25;cursor:default;' : '') + '" ' + (isFirst ? 'disabled' : '') + '>↑</button>'
+        + '<button onclick="window.moveAdminTab(\'' + tab + '\',1)" style="' + arrowBtn + (isLast ? 'opacity:.25;cursor:default;' : '') + '" ' + (isLast ? 'disabled' : '') + '>↓</button>'
+        + '</div>';
+    }).join('');
+  }
+  window.moveAdminTab = function(tab, dir) {
+    const idx = adminTabOrder.indexOf(tab);
+    const newIdx = idx + dir;
+    if (idx === -1 || newIdx < 0 || newIdx >= adminTabOrder.length) return;
+    const tmp = adminTabOrder[idx]; adminTabOrder[idx] = adminTabOrder[newIdx]; adminTabOrder[newIdx] = tmp;
+    renderAdminTabOrderList();
+  };
+  window.saveTabDefaults = async function() {
+    const msg = document.getElementById('tab-defaults-msg');
+    if (!confirm('This resets EVERY account\'s "Icons before More" count and tab order back to what\'s configured here, including accounts that already customized their own tab bar. Continue?')) return;
+    try {
+      await set(ref(db, 'tools-you-the-winner/config/tab-defaults'), {
+        maxVisible: adminTabMaxVisible,
+        order: adminTabOrder,
+        forceVersion: Date.now(),
+      });
+      flashStatus(msg, '✓ Saved. Every account resets to this the next time they open My Daily Tools.');
+    } catch (e) { flashStatus(msg, 'Error: ' + e.message, true); }
+  };
+
+  const mcSnap = await get(ref(db, 'tools-you-the-winner/config/myday-cards'));
+  mydayCardsConfig = mcSnap.val() || {};
+
+  function renderMydayCardsList() {
+    const wrap = document.getElementById('myday-cards-list');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    MYDAY_CARDS.forEach(c => {
+      const isOpen = mydayCardsConfig[c.key] !== false;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="order-name">${c.label}</td>
+        <td><span class="toggle-switch ${isOpen?'on':''}" onclick="toggleMydayCard('${c.key}', this)"><span class="track"></span><span class="toggle-label">${isOpen?'Open':'Closed'}</span></span></td>
+      `;
+      wrap.appendChild(tr);
+    });
+  }
+  renderMydayCardsList();
+  window.toggleMydayCard = function(key, el) {
+    mydayCardsConfig[key] = !(mydayCardsConfig[key] !== false);
+    el.className = 'toggle-switch ' + (mydayCardsConfig[key] ? 'on' : '');
+    el.querySelector('.toggle-label').textContent = mydayCardsConfig[key] ? 'Open' : 'Closed';
+  };
+  window.saveDtHideNav = async function(val) {
+  const track = document.getElementById('dt-hidenav-track');
+  const thumb = document.getElementById('dt-hidenav-thumb');
+  const msg   = document.getElementById('dt-hidenav-msg');
+  if (track) track.style.background = val ? 'var(--accent)' : 'var(--border)';
+  if (thumb) thumb.style.left = val ? '20px' : '2px';
+  try {
+    await set(ref(db, 'tools-you-the-winner/config/daily-tools-hide-nav'), val);
+    flashStatus(msg, 'Saved');
+  } catch(e) { flashStatus(msg, 'Error: ' + e.message, true); }
+};
+
+window.saveDtDemoMode = async function(val) {
+  const track = document.getElementById('dt-demo-track');
+  const thumb = document.getElementById('dt-demo-thumb');
+  const msg   = document.getElementById('dt-demo-msg');
+  if (track) track.style.background = val ? 'var(--accent)' : 'var(--border)';
+  if (thumb) thumb.style.left = val ? '20px' : '2px';
+  try {
+    await set(ref(db, 'tools-you-the-winner/config/daily-tools-demo-mode'), val);
+    flashStatus(msg, 'Saved');
+  } catch(e) { flashStatus(msg, 'Error: ' + e.message, true); }
+};
+
+window.savePlansSimpleStatus = async function(val) {
+  const track = document.getElementById('plans-simple-status-track');
+  const thumb = document.getElementById('plans-simple-status-thumb');
+  const msg   = document.getElementById('plans-simple-status-msg');
+  if (track) track.style.background = val ? 'var(--accent)' : 'var(--border)';
+  if (thumb) thumb.style.left = val ? '20px' : '2px';
+  try {
+    await set(ref(db, 'tools-you-the-winner/config/plans-simple-status'), val);
+    flashStatus(msg, 'Saved');
+  } catch(e) { flashStatus(msg, 'Error: ' + e.message, true); }
+};
+
+window.syncDemoData = async function() {
+  const msg = document.getElementById('dt-demo-msg');
+  if (msg) msg.textContent = 'Syncing...';
+  try {
+    const [money, plans, checklist, goalItems, goalStates, todos] = await Promise.all([
+      get(ref(db, 'tools-you-the-winner/daily-tools')),
+      get(ref(db, 'tools-you-the-winner/plans')),
+      get(ref(db, 'tools-you-the-winner/checklist')),
+      get(ref(db, 'tools-you-the-winner/goal_items')),
+      get(ref(db, 'tools-you-the-winner/goal_states')),
+      get(ref(db, 'tools-you-the-winner/todos')),
+    ]);
+    await Promise.all([
+      set(ref(db, 'tools-you-the-winner/demo/daily-tools'),  money.val()      || null),
+      set(ref(db, 'tools-you-the-winner/demo/plans'),        plans.val()      || null),
+      set(ref(db, 'tools-you-the-winner/demo/checklist'),    checklist.val()  || null),
+      set(ref(db, 'tools-you-the-winner/demo/goal_items'),   goalItems.val()  || null),
+      set(ref(db, 'tools-you-the-winner/demo/goal_states'),  goalStates.val() || null),
+      set(ref(db, 'tools-you-the-winner/demo/todos'),        todos.val()      || null),
+    ]);
+    flashStatus(msg, 'Demo data synced ✓');
+  } catch(e) { flashStatus(msg, 'Sync failed: ' + e.message, true); }
+};
+
+window.saveMydayCards = async function() {
+    const btn = document.getElementById('myday-cards-save-btn');
+    const msg = document.getElementById('myday-cards-status-msg');
+    btn.disabled = true;
+    try {
+      // Normalize: ensure every card key is explicitly boolean (undefined → true)
+      const toSave = {};
+      MYDAY_CARDS.forEach(c => { toSave[c.key] = mydayCardsConfig[c.key] !== false; });
+      await set(ref(db, 'tools-you-the-winner/config/myday-cards'), toSave);
+      msg.textContent = 'Saved!'; msg.className = 'status-msg ok';
+    } catch(e) { msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err'; }
+    finally { btn.disabled = false; setTimeout(() => { msg.textContent = ''; }, 3000); }
+  };
+
+  // ── TOKEN BANNER ──
+  (async function loadTokenBannerSetting() {
+    const [visSnap, dolSnap] = await Promise.all([
+      get(ref(db, 'tools-you-the-winner/config/token-banner-visible')).catch(() => null),
+      get(ref(db, 'tools-you-the-winner/config/token-show-dollars')).catch(() => null),
+    ]);
+    const visCb = document.getElementById('token-banner-cb');
+    const dolCb = document.getElementById('token-show-dollars-cb');
+    if (visCb) visCb.checked = visSnap?.val() !== false;   // default ON
+    if (dolCb) dolCb.checked = dolSnap?.val() === true;    // default OFF
+  })();
+  window.saveTokenBannerSetting = async function() {
+    const cb      = document.getElementById('token-banner-cb');
+    const dollarsCb = document.getElementById('token-show-dollars-cb');
+    const msg     = document.getElementById('token-banner-status-msg');
+    try {
+      await set(ref(db, 'tools-you-the-winner/config/token-banner-visible'), cb?.checked !== false);
+      await set(ref(db, 'tools-you-the-winner/config/token-show-dollars'), dollarsCb?.checked === true);
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.style.cssText = 'font-size:.82rem;margin-top:6px;color:#d94f4f;';
+    } finally { setTimeout(() => { msg.textContent = ''; }, 3000); }
+  };
+
+  window.resetTokenProgress = async function() {
+    const msg = document.getElementById('token-reset-status-msg');
+    if (!confirm('Reset ALL earned tokens back to zero? This cannot be undone.')) return;
+    if (!confirm('Really sure? This wipes the entire year\'s progress toward the reward.')) return;
+    try {
+      await remove(ref(db, 'tools-you-the-winner/tokens'));
+      if (msg) { msg.textContent = '✓ Tokens reset.'; msg.className = 'status-msg ok'; }
+    } catch (e) {
+      if (msg) { msg.textContent = 'Error: ' + e.message; msg.style.cssText = 'font-size:.82rem;margin-top:6px;color:#d94f4f;'; }
+    } finally {
+      setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+    }
+  };
+
+  // ── ENTRY PROTECTION ──
+  (async function loadEntryProtection() {
+    const snap = await get(ref(db, 'tools-you-the-winner/config/allow-delete')).catch(() => null);
+    const cb = document.getElementById('allow-delete-cb');
+    if (cb) cb.checked = snap?.val() === true;
+  })();
+  window.saveEntryProtection = async function() {
+    const cb  = document.getElementById('allow-delete-cb');
+    const msg = document.getElementById('entry-prot-status-msg');
+    try {
+      await set(ref(db, 'tools-you-the-winner/config/allow-delete'), cb?.checked === true);
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err';
+    } finally { setTimeout(() => { msg.textContent = ''; }, 3000); }
+  };
+
+  // ── GUARDIAN / SUPPORTER PIN ACCESS ──
+  (async function loadMydayPin() {
+    const snap = await get(ref(db, 'tools-you-the-winner/config/myday-pin')).catch(() => null);
+    const cfg  = snap?.val() || {};
+    const cbPublic  = document.getElementById('myday-pin-public');
+    const cb        = document.getElementById('myday-pin-enabled');
+    const inp       = document.getElementById('myday-pin-code');
+    if (cbPublic) cbPublic.checked = cfg.public  === true;
+    if (cb)       cb.checked       = cfg.enabled === true;
+    if (inp)      inp.value        = cfg.code     || '123';
+  })();
+  window.saveMydayPin = async function() {
+    const cbPublic = document.getElementById('myday-pin-public');
+    const cb       = document.getElementById('myday-pin-enabled');
+    const inp      = document.getElementById('myday-pin-code');
+    const msg      = document.getElementById('myday-pin-status-msg');
+    const code = (inp?.value || '').trim();
+    if (!code) { msg.textContent = 'Please enter a PIN code.'; msg.className = 'status-msg err'; return; }
+    try {
+      await set(ref(db, 'tools-you-the-winner/config/myday-pin'), {
+        public:  cbPublic?.checked === true,
+        enabled: cb?.checked       === true,
+        code:    code,
+      });
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err';
+    } finally {
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    }
+  };
+
+  // ── HEALTH ROUTINE LABELS ──
+  (async function loadRoutineConfig() {
+    const snap = await get(ref(db, 'tools-you-the-winner/config/myday-routine')).catch(() => null);
+    const cfg  = snap?.val() || {};
+    const titleEl = document.getElementById('routine-title');
+    const amEl    = document.getElementById('routine-am');
+    const pmEl    = document.getElementById('routine-pm');
+    if (titleEl) titleEl.value = cfg.title || '';
+    if (amEl)    amEl.value    = cfg.am    || '';
+    if (pmEl)    pmEl.value    = cfg.pm    || '';
+  })();
+  // Load streak counter
+  (async function loadRoutineStreak() {
+    const snap = await get(ref(db, 'tools-you-the-winner/medconfig/counterReset')).catch(() => null);
+    const resetDate = snap?.val() || null;
+    const display = document.getElementById('routine-streak-display');
+    const dateInp = document.getElementById('routine-reset-date');
+    if (dateInp && resetDate) dateInp.value = resetDate;
+    if (display) {
+      if (resetDate) {
+        const reset = new Date(resetDate + 'T00:00:00');
+        const today = new Date(); today.setHours(0,0,0,0);
+        const day = Math.floor((today - reset) / 86400000) + 1;
+        const since = reset.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        display.textContent = `Day ${day} (since ${since})`;
+      } else {
+        display.textContent = 'Not started. Set a start date below.';
+      }
+    }
+  })();
+  window.saveRoutineResetDate = async function() {
+    const msg = document.getElementById('routine-reset-status-msg');
+    const date = (document.getElementById('routine-reset-date')?.value || '').trim();
+    if (!date) { msg.textContent = 'Pick a date first.'; msg.className = 'status-msg err'; return; }
+    try {
+      await set(ref(db, 'tools-you-the-winner/medconfig/counterReset'), date);
+      // Refresh display
+      const reset = new Date(date + 'T00:00:00');
+      const today = new Date(); today.setHours(0,0,0,0);
+      const day = Math.floor((today - reset) / 86400000) + 1;
+      const since = reset.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const display = document.getElementById('routine-streak-display');
+      if (display) display.textContent = `Day ${day} (since ${since})`;
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err';
+    } finally {
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    }
+  };
+  window.saveRoutineConfig = async function() {
+    const msg = document.getElementById('routine-status-msg');
+    const title = (document.getElementById('routine-title')?.value || '').trim();
+    const am    = (document.getElementById('routine-am')?.value    || '').trim();
+    const pm    = (document.getElementById('routine-pm')?.value    || '').trim();
+    try {
+      await set(ref(db, 'tools-you-the-winner/config/myday-routine'), { title, am, pm });
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err';
+    } finally {
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    }
+  };
+
+  // ── DAY FLOW ACTIVITIES ──
+  let _dayflowActivities = [];
+  // 2026-08-22: parallel activity -> category map, keyed by the exact
+  // activity string (so it survives reordering/moving rows). Kept as its
+  // own Firebase path (dayflow-categories) rather than folded into
+  // dayflow-presets, so the existing plain-string array never has to change
+  // shape — must stay in sync with my-daily-tools.html's
+  // DEFAULT_FLOW_CATEGORIES/FLOW_CATEGORY_ORDER (Section 6 — MY DAY FLOW).
+  const DAYFLOW_CATEGORY_OPTIONS = ['Creative & Build','Skill Boost','Movement','Life & Care','Wind-down'];
+  let _dayflowCategories = {};
+
+  // 2026-08-23, per Marcelo: "Instrument Practice" -> "Play an Instrument"
+  // and "Social" -> "Friend Gathering" (see the matching comment/map in
+  // my-daily-tools.html, right above its dayflow-presets/dayflow-categories
+  // listeners — this is the same migration, applied here too so a site
+  // whose Firebase already has an old name doesn't keep showing it in the
+  // admin editor even after this file's own defaults are updated below).
+  const DAYFLOW_PRESET_RENAMES = {
+    '🎹 Piano Practice': '🎵 Play an Instrument',
+    '🎸 Instrument Practice': '🎵 Play an Instrument',
+    '👥 Social': '👥 Friend Gathering',
+  };
+  function _migrateDayflowPresetName(s) {
+    return Object.prototype.hasOwnProperty.call(DAYFLOW_PRESET_RENAMES, s) ? DAYFLOW_PRESET_RENAMES[s] : s;
+  }
+
+  (async () => {
+    try {
+      const snap = await get(ref(db, CLIENT.dbRootPath + '/config/dayflow-presets'));
+      // 2026-07-25: dropped Exercise, Work / Training, Chores, and Errands from
+      // the default list — those now duplicate the three pinned "Quick
+      // check-ins" chips on My Day Flow (Work/Training, Helped someone [whose
+      // own subtitle is literally "Chores, errands or serving"], Exercise),
+      // which also drive the dedicated streak tracking those categories
+      // deserve. This only affects a brand-new site with no dayflow-presets
+      // config saved yet — an existing custom list already in Firebase (like
+      // this deployment's) isn't touched by this default and needs its
+      // overlapping chips removed here in this same admin section instead.
+      const saved = snap.val();
+      _dayflowActivities = saved
+        ? [...new Set(saved.map(_migrateDayflowPresetName))]
+        : [
+          '💊 Medication','🎵 Play an Instrument','📚 Study',
+          '😴 Rest','📱 Free Time',
+          '🚗 Travel','👥 Friend Gathering','🎨 Creative Time',
+          '🧘 Relax','🩺 Doctor / Appointment',
+          '🚶 Walk','🕺 Dance to a Song','🤸 Quick Stretch',
+          '🎥 Learning Library Video','💡 Look Up Something New','💰 Budget Check-in',
+          '🛠️ Build or Fix Something','🧑‍🏫 Teach a Skill',
+          '🎵 Low Light + Music','📖 Read a Page'
+        ];
+    } catch(e) {
+      _dayflowActivities = [];
+    }
+    renderDayflowList();
+  })();
+
+  (async () => {
+    try {
+      const snap = await get(ref(db, CLIENT.dbRootPath + '/config/dayflow-categories'));
+      const saved = snap.val();
+      if (saved && typeof saved === 'object') {
+        _dayflowCategories = {};
+        Object.keys(saved).forEach(k => { _dayflowCategories[_migrateDayflowPresetName(k)] = saved[k]; });
+      } else {
+        _dayflowCategories = {
+          '🎵 Play an Instrument': 'Creative & Build', '🎨 Creative Time': 'Creative & Build',
+          '🛠️ Build or Fix Something': 'Creative & Build', '🧑‍🏫 Teach a Skill': 'Creative & Build',
+          '📚 Study': 'Skill Boost', '🎥 Learning Library Video': 'Skill Boost',
+          '💡 Look Up Something New': 'Skill Boost', '💰 Budget Check-in': 'Skill Boost',
+          '🚶 Walk': 'Movement', '🕺 Dance to a Song': 'Movement', '🤸 Quick Stretch': 'Movement',
+          '💊 Medication': 'Life & Care', '🩺 Doctor / Appointment': 'Life & Care',
+          '🚗 Travel': 'Life & Care', '👥 Friend Gathering': 'Life & Care',
+          '😴 Rest': 'Wind-down', '🧘 Relax': 'Wind-down',
+          '🎵 Low Light + Music': 'Wind-down', '📖 Read a Page': 'Wind-down',
+        };
+      }
+    } catch(e) {
+      _dayflowCategories = {};
+    }
+    renderDayflowList();
+  })();
+
+  window.renderDayflowList = function(editingIdx = -1) {
+    const el = document.getElementById('dayflow-activity-list');
+    if (!el) return;
+    if (!_dayflowActivities.length) {
+      el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">No activities yet. Add one below.</p>';
+      return;
+    }
+    el.innerHTML = _dayflowActivities.map((a, i) => {
+      if (i === editingIdx) {
+        // Inline edit row
+        return `<div style="display:flex;align-items:center;gap:6px;background:var(--accent-light);border:1.5px solid var(--accent);border-radius:10px;padding:6px 10px;">
+          <input id="dayflow-edit-input-${i}" value="${a.replace(/"/g,'&quot;')}"
+            style="flex:1;padding:6px 8px;border:1.5px solid var(--accent);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.9rem;background:var(--surface);color:var(--text);"
+            onkeydown="if(event.key==='Enter') confirmDayflowEdit(${i}); if(event.key==='Escape') renderDayflowList();">
+          <button onclick="confirmDayflowEdit(${i})" style="padding:5px 10px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;">Save</button>
+          <button onclick="renderDayflowList()" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:none;font-size:.82rem;cursor:pointer;color:var(--muted);">Cancel</button>
+        </div>`;
+      }
+      const curCat = _dayflowCategories[a] || '';
+      const catSelect = `<select onchange="setDayflowCategory(${i},this.value)" title="Category"
+        style="padding:4px 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface);font-size:.72rem;color:var(--muted);font-family:'Quicksand',sans-serif;">
+        <option value="" ${curCat===''?'selected':''}>More options</option>
+        ${DAYFLOW_CATEGORY_OPTIONS.map(c => `<option value="${c}" ${curCat===c?'selected':''}>${c}</option>`).join('')}
+      </select>`;
+      return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;flex-wrap:wrap;">
+        <span style="flex:1;font-size:.9rem;font-family:'Nunito',sans-serif;">${a}</span>
+        ${catSelect}
+        <button onclick="renderDayflowList(${i})" style="background:none;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:.78rem;padding:2px 8px;color:var(--accent);" title="Edit">✏️ Edit</button>
+        <button onclick="moveDayflowActivity(${i},-1)" ${i===0?'disabled':''} style="background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--muted);padding:2px 4px;" title="Move up">▲</button>
+        <button onclick="moveDayflowActivity(${i},1)" ${i===_dayflowActivities.length-1?'disabled':''} style="background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--muted);padding:2px 4px;" title="Move down">▼</button>
+        <button onclick="removeDayflowActivity(${i})" style="background:none;border:none;cursor:pointer;font-size:.85rem;color:#d94f4f;padding:2px 4px;" title="Remove">✕</button>
+      </div>`;
+    }).join('');
+    // Auto-focus the edit input if editing
+    if (editingIdx >= 0) {
+      const inp = document.getElementById('dayflow-edit-input-' + editingIdx);
+      if (inp) { inp.focus(); inp.select(); }
+    }
+  };
+
+  window.confirmDayflowEdit = function(i) {
+    const inp = document.getElementById('dayflow-edit-input-' + i);
+    const val = (inp?.value || '').trim();
+    if (val) {
+      const old = _dayflowActivities[i];
+      if (old !== val && Object.prototype.hasOwnProperty.call(_dayflowCategories, old)) {
+        _dayflowCategories[val] = _dayflowCategories[old];
+        delete _dayflowCategories[old];
+      }
+      _dayflowActivities[i] = val;
+    }
+    renderDayflowList();
+  };
+
+  window.setDayflowCategory = function(i, cat) {
+    const key = _dayflowActivities[i];
+    if (!key) return;
+    if (cat) _dayflowCategories[key] = cat;
+    else delete _dayflowCategories[key];
+  };
+
+  window.addDayflowActivity = function() {
+    const input = document.getElementById('dayflow-new-activity');
+    const catSel = document.getElementById('dayflow-new-category');
+    const val = (input.value || '').trim();
+    if (!val) return;
+    _dayflowActivities.push(val);
+    if (catSel && catSel.value) _dayflowCategories[val] = catSel.value;
+    input.value = '';
+    if (catSel) catSel.value = '';
+    renderDayflowList();
+  };
+
+  window.removeDayflowActivity = function(i) {
+    const removed = _dayflowActivities[i];
+    _dayflowActivities.splice(i, 1);
+    if (removed) delete _dayflowCategories[removed];
+    renderDayflowList();
+  };
+
+  window.sortDayflowAZ = function() {
+    _dayflowActivities.sort((a, b) => {
+      const clean = s => s.replace(/^[\s\S]*?([A-Za-zÀ-ɏ])/u, '$1').toLowerCase();
+      return clean(a).localeCompare(clean(b));
+    });
+    renderDayflowList();
+  };
+
+  window.moveDayflowActivity = function(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= _dayflowActivities.length) return;
+    [_dayflowActivities[i], _dayflowActivities[j]] = [_dayflowActivities[j], _dayflowActivities[i]];
+    renderDayflowList();
+  };
+
+  // Load current splits setting
+  (async () => {
+    try {
+      const snap = await get(ref(db, CLIENT.dbRootPath + '/config/dayflow-splits'));
+      const v = snap.val();
+      if (v === 1 || v === 3 || v === 5) {
+        const el = document.getElementById('splits-' + v);
+        if (el) el.checked = true;
+      }
+    } catch(e) {}
+  })();
+
+  window.saveDayflowSplits = async function() {
+    const msg = document.getElementById('splits-status-msg');
+    const sel = document.querySelector('input[name="dayflow-splits"]:checked');
+    if (!sel) return;
+    try {
+      await set(ref(db, CLIENT.dbRootPath + '/config/dayflow-splits'), parseInt(sel.value));
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err';
+    } finally { setTimeout(() => { msg.textContent = ''; }, 3000); }
+  };
+
+  window.saveDayflowActivities = async function() {
+    const msg = document.getElementById('dayflow-activities-status-msg');
+    try {
+      await set(ref(db, CLIENT.dbRootPath + '/config/dayflow-presets'), _dayflowActivities);
+      await set(ref(db, CLIENT.dbRootPath + '/config/dayflow-categories'), _dayflowCategories);
+      msg.textContent = '✓ Saved.'; msg.className = 'status-msg ok';
+    } catch(e) {
+      msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg err';
+    } finally {
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    }
+  };
+
+  // ── USER GROUPS & R/W/X PERMISSIONS ──
+  let groupsData = {};
+  let permsData  = {};
+
+  // Default grants for visitors who are NOT signed in.
+  const PUBLIC_DEFAULTS = {
+    'index':               { r: true,  w: false, x: false },
+    'piano':                { r: true,  w: false, x: false },
+    'about':                { r: true,  w: false, x: false },
+    'room-remodel':         { r: true,  w: false, x: false },
+    'daycare':              { r: true,  w: false, x: false },
+    'digital-film':         { r: true,  w: false, x: false },
+    'timeaway':             { r: true,  w: false, x: false },
+    'announce':             { r: true,  w: false, x: false },
+    'winner-story':         { r: true,  w: false, x: false },
+    'shop':                 { r: true,  w: false, x: false },
+    'contact':              { r: true,  w: false, x: false },
+    'money-planner-easy':   { r: true,  w: true,  x: false }, // shared public demo data
+    'plan2grow':            { r: false, w: false, x: false },
+    'money-planner':        { r: false, w: false, x: false },
+    'myday':                { r: false, w: false, x: false },
+    'teach':                { r: false, w: false, x: false },
+  };
+
+  async function loadGroupsAndPerms() {
+    const [gSnap, pSnap] = await Promise.all([
+      get(ref(db, 'tools-you-the-winner/usergroups')),
+      get(ref(db, 'tools-you-the-winner/permissions')),
+    ]);
+    groupsData = gSnap.val() || {};
+    permsData  = pSnap.val() || {};
+    if (Object.keys(groupsData).length === 0) {
+      groupsData = { family: { label: 'Family', members: [] } };
+    }
+
+    // Merge in any PUBLIC_DEFAULTS keys that aren't saved yet (one-time per key,
+    // never overwrites something already configured).
+    const missingPublic = {};
+    Object.keys(PUBLIC_DEFAULTS).forEach(k => {
+      if (!permsData.public || !(k in permsData.public)) missingPublic[k] = PUBLIC_DEFAULTS[k];
+    });
+    if (Object.keys(missingPublic).length) {
+      permsData.public = { ...(permsData.public || {}), ...missingPublic };
+      await set(ref(db, 'tools-you-the-winner/permissions/public'), permsData.public);
+    }
+
+    // One-time migration: agenda-schedule was always meant to travel with myday
+    // (it's linked from the myday page) — so any group/public that already
+    // grants read on myday gets the same read grant on agenda-schedule, the
+    // first time this runs.
+    let permsChanged = false;
+    ['public', ...Object.keys(groupsData)].forEach(gkey => {
+      const mydayPerm = permsData[gkey]?.myday;
+      if (mydayPerm?.r && !permsData[gkey]?.['agenda-schedule']) {
+        permsData[gkey] = permsData[gkey] || {};
+        permsData[gkey]['agenda-schedule'] = { r: true, w: false, x: false };
+        permsChanged = true;
+      }
+    });
+
+    // One-time migration: the two former "admin-only" pages move onto a real
+    // Admin group (created here if needed, containing the account that always
+    // had admin rights). Skipped once any group already has read on either page.
+    const adminPagesMigrated =
+      permsData.public?.['coach-alignment']?.r ||
+      Object.keys(groupsData).some(gk => permsData[gk]?.['coach-alignment']?.r);
+    if (!adminPagesMigrated) {
+      if (!groupsData.admin) {
+        groupsData.admin = { label: 'Admin', members: [CLIENT.primaryAdminEmail] };
+        await set(ref(db, 'tools-you-the-winner/usergroups/admin'), groupsData.admin);
+      }
+      permsData.admin = permsData.admin || {};
+      permsData.admin['coach-alignment']       = { r: true, w: true, x: true };
+      permsData.admin['room-remodel-internal'] = { r: true, w: true, x: true };
+      permsChanged = true;
+    }
+
+    if (permsChanged) {
+      await set(ref(db, 'tools-you-the-winner/permissions'), permsData);
+    }
+
+    renderQuickNav();
+    renderGroups();
+    renderPermMatrix();
+  }
+
+  function renderGroups() {
+    const wrap = document.getElementById('groups-list');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    Object.entries(groupsData).forEach(([gkey, g]) => {
+      const div = document.createElement('div');
+      div.className = 'group-row';
+      const safeLabel = (g.label || gkey).replace(/"/g, '&quot;');
+      const members = (g.members || []).join('\n');
+      div.innerHTML = `
+        <div class="group-row-head">
+          <input class="group-label-input" value="${safeLabel}" onchange="renameGroup('${gkey}', this.value)">
+          <button class="group-del-btn" onclick="deleteGroup('${gkey}')">Delete</button>
+        </div>
+        <textarea class="group-members" placeholder="One email per line" onchange="updateMembers('${gkey}', this.value)"></textarea>
+        <div class="group-hint">${(g.members || []).length} member(s)</div>
+      `;
+      div.querySelector('.group-members').value = members;
+      wrap.appendChild(div);
+    });
+  }
+
+  window.addGroup = async function() {
+    const key = 'group_' + Date.now();
+    groupsData[key] = { label: 'New group', members: [] };
+    // Render immediately so the screen always reflects the click, even if
+    // the Firebase write below fails (e.g. permission denied).
+    renderGroups();
+    renderPermMatrix();
+    try {
+      await set(ref(db, 'tools-you-the-winner/usergroups/' + key), groupsData[key]);
+      flashStatus('groups-status-msg', 'Group added', true);
+    } catch (e) {
+      console.error('[admin-settings] addGroup failed:', e);
+      flashStatus('groups-status-msg', 'Could not save to Firebase: ' + (e.message || e), false);
+    }
+  };
+
+  window.deleteGroup = async function(gkey) {
+    if (!confirm('Delete this group? This also removes its permissions.')) return;
+    delete groupsData[gkey];
+    delete permsData[gkey];
+    renderGroups();
+    renderPermMatrix();
+    try {
+      // Scoped removes only — never overwrite the whole node with local state,
+      // since that would silently wipe any group/permission added elsewhere
+      // (another tab, another admin) that this page's in-memory copy doesn't know about.
+      await remove(ref(db, 'tools-you-the-winner/usergroups/' + gkey));
+      await remove(ref(db, 'tools-you-the-winner/permissions/' + gkey));
+      flashStatus('groups-status-msg', 'Group deleted', true);
+    } catch (e) {
+      console.error('[admin-settings] deleteGroup failed:', e);
+      flashStatus('groups-status-msg', 'Could not delete from Firebase: ' + (e.message || e), false);
+    }
+  };
+
+  window.renameGroup = async function(gkey, newLabel) {
+    groupsData[gkey] = groupsData[gkey] || { members: [] };
+    groupsData[gkey].label = newLabel;
+    renderPermMatrix();
+    try {
+      await set(ref(db, 'tools-you-the-winner/usergroups/' + gkey + '/label'), newLabel);
+      flashStatus('groups-status-msg', 'Saved', true);
+    } catch (e) {
+      console.error('[admin-settings] renameGroup failed:', e);
+      flashStatus('groups-status-msg', 'Could not save: ' + (e.message || e), false);
+    }
+  };
+
+  window.updateMembers = async function(gkey, text) {
+    const emails = text.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean);
+    groupsData[gkey] = groupsData[gkey] || { label: gkey };
+    groupsData[gkey].members = emails;
+    renderGroups();
+    try {
+      await set(ref(db, 'tools-you-the-winner/usergroups/' + gkey + '/members'), emails);
+      flashStatus('groups-status-msg', 'Saved', true);
+    } catch (e) {
+      console.error('[admin-settings] updateMembers failed:', e);
+      flashStatus('groups-status-msg', 'Could not save: ' + (e.message || e), false);
+    }
+  };
+
+  function renderPermMatrix() {
+    const wrap = document.getElementById('perm-matrix');
+    if (!wrap) return;
+    const groupKeys = Object.keys(groupsData);
+    // 'public' is a fixed, non-deletable pseudo-group representing visitors
+    // who are NOT signed in. It always appears first.
+    const allCols = [{ key: 'public', label: 'Public (not signed in)', fixed: true }]
+      .concat(groupKeys.map(gkey => ({ key: gkey, label: groupsData[gkey].label || gkey, fixed: false })));
+
+    let html = '<table class="perm-table perm-matrix-table"><thead><tr><th>Page</th>';
+    allCols.forEach(col => { html += `<th>${escapeHtml(col.label)}</th>`; });
+    html += '</tr></thead><tbody>';
+    ALL_PAGES.forEach(page => {
+      html += `<tr><td style="font-weight:600;">${escapeHtml(page.label)}</td>`;
+      allCols.forEach(col => {
+        const p = (permsData[col.key] && permsData[col.key][page.key]) || { r: false, w: false, x: false };
+        const allOn = p.r && p.w && p.x;
+        html += `<td><div class="rwx-group" style="justify-content:center;">
+          <span class="rwx-flag r${p.r ? ' on' : ''}" onclick="window.togglePerm('${escapeAttr(col.key)}','${escapeAttr(page.key)}','r',this)" title="Read">R</span>
+          <span class="rwx-flag w${p.w ? ' on' : ''}" onclick="window.togglePerm('${escapeAttr(col.key)}','${escapeAttr(page.key)}','w',this)" title="Write">W</span>
+          <span class="rwx-flag x${p.x ? ' on' : ''}" onclick="window.togglePerm('${escapeAttr(col.key)}','${escapeAttr(page.key)}','x',this)" title="Extra">X</span>
+          ${!col.fixed ? `<span class="rwx-flag all${allOn ? ' on' : ''}" onclick="window.togglePermAll('${escapeAttr(col.key)}','${escapeAttr(page.key)}',this)">${allOn ? 'all on' : 'all'}</span>` : ''}
+        </div></td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  window.togglePerm = async function(groupKey, pageKey, flag, el) {
+    if (!permsData[groupKey]) permsData[groupKey] = {};
+    if (!permsData[groupKey][pageKey]) permsData[groupKey][pageKey] = { r: false, w: false, x: false };
+    const current = permsData[groupKey][pageKey][flag];
+    const newVal = !current;
+    permsData[groupKey][pageKey][flag] = newVal;
+    el.classList.toggle('on', newVal);
+    const cell = el.closest('td');
+    const allFlag = cell && cell.querySelector('.rwx-flag.all');
+    if (allFlag) {
+      const p2 = permsData[groupKey][pageKey];
+      allFlag.classList.toggle('on', !!(p2.r && p2.w && p2.x));
+    }
+    try {
+      await set(ref(db, `tools-you-the-winner/permissions/${groupKey}/${pageKey}/${flag}`), newVal);
+      flashStatus('perm-status-msg', 'Saved', true);
+      } catch (e) {
+      permsData[groupKey][pageKey][flag] = current;
+      el.classList.toggle('on', current);
+      flashStatus('perm-status-msg', 'Could not save: ' + (e.message || e), false);
+    }
+  };
+
+  window.togglePermAll = async function(groupKey, pageKey, el) {
+    if (!permsData[groupKey]) permsData[groupKey] = {};
+    if (!permsData[groupKey][pageKey]) permsData[groupKey][pageKey] = { r: false, w: false, x: false };
+    const p = permsData[groupKey][pageKey];
+    const allOn = !!(p.r && p.w && p.x);
+    const newVal = !allOn;
+    permsData[groupKey][pageKey] = { r: newVal, w: newVal, x: newVal };
+    el.classList.toggle('on', newVal);
+    const cell = el.closest('td');
+    if (cell) {
+      ['r','w','x'].forEach(flag => {
+        const btn = cell.querySelector('.rwx-flag.' + flag);
+        if (btn) btn.classList.toggle('on', newVal);
+      });
+    }
+    try {
+      await set(ref(db, 'tools-you-the-winner/permissions/' + groupKey + '/' + pageKey), permsData[groupKey][pageKey]);
+      flashStatus('perm-status-msg', 'Saved', true);
+      } catch (e) {
+      permsData[groupKey][pageKey] = { r: allOn, w: allOn, x: allOn };
+      flashStatus('perm-status-msg', 'Could not save: ' + (e.message || e), false);
+      renderPermMatrix();
+    }
+  };
+
+  // Kick off the initial load — groups & permissions are fetched once here;
+  // all further updates (add/delete/rename group, toggle perm) use the
+  // in-memory groupsData/permsData objects and write to Firebase directly.
+  loadGroupsAndPerms();
+
+  // ── CAREGIVER ACCESS ────────────────────────────────────────────────────
+  // Reads tools-you-the-winner/user-index (all signed-in users) and
+  // tools-you-the-winner/userlinks (parent→loved-one mappings).
+  // The link is stored at userlinks/{parentUid}/{lovedOneUid} and tells
+  // my-daily-tools.html to show an account-switcher for that parent.
+
+  let _cgUsers = {}; // uid → {email, name} loaded from user-index
+  let _cgEditingKey = null; // 'parentUid|lovedUid' of the row currently being edited, or null
+
+  function _cgEsc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function loadCaregiverSection() {
+    const usersSnap = await get(ref(db, 'tools-you-the-winner/user-index')).catch(() => null);
+    _cgUsers = usersSnap?.val() || {};
+
+    const makeOpts = () => Object.entries(_cgUsers).map(([uid, info]) => {
+      const label = _cgEsc((info.name ? info.name + ' · ' : '') + (info.email || uid));
+      return '<option value="' + uid + '">' + label + '</option>';
+    }).join('');
+    const blank = '<option value="">-- select user --</option>';
+
+    const pSel = document.getElementById('cg-parent-uid');
+    const lSel = document.getElementById('cg-loved-uid');
+    if (pSel) pSel.innerHTML = blank + makeOpts();
+    if (lSel) lSel.innerHTML = blank + makeOpts();
+
+    await renderCaregiverLinks();
+  }
+
+  async function renderCaregiverLinks() {
+    const list = document.getElementById('cg-links-list');
+    if (!list) return;
+    list.textContent = 'Loading…';
+
+    const snap = await get(ref(db, 'tools-you-the-winner/userlinks')).catch(() => null);
+    const allLinks = snap?.val() || {};
+
+    if (!Object.keys(allLinks).length) {
+      list.innerHTML = '<span style="color:var(--muted);">No links yet.</span>';
+      return;
+    }
+
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:.8rem;">'
+      + '<thead><tr style="background:var(--surface2);">'
+      + '<th style="padding:7px 10px;text-align:left;">Parent account</th>'
+      + '<th style="padding:7px 10px;text-align:left;">Loved one</th>'
+      + '<th style="padding:7px 10px;text-align:left;">Button name</th>'
+      + '<th style="padding:7px 10px;text-align:left;">Access</th>'
+      + '<th style="padding:7px 10px;"></th>'
+      + '</tr></thead><tbody>';
+
+    for (const [parentUid, links] of Object.entries(allLinks)) {
+      const pi = _cgUsers[parentUid] || {};
+      const parentLabel = _cgEsc((pi.name ? pi.name + ' · ' : '') + (pi.email || parentUid));
+      for (const [lovedUid, info] of Object.entries(links)) {
+        const li = _cgUsers[lovedUid] || {};
+        const lovedLabel = _cgEsc((li.name ? li.name + ' · ' : '') + (li.email || lovedUid));
+        const sPUid = parentUid.replace(/'/g,'');
+        const sLUid = lovedUid.replace(/'/g,'');
+        const rowKey = parentUid + '|' + lovedUid;
+
+        if (_cgEditingKey === rowKey) {
+          // Edit mode: name/relationship/access become inline inputs, Save/Cancel replace Remove.
+          html += '<tr style="border-top:1px solid var(--border);background:var(--surface2);">'
+            + '<td style="padding:7px 10px;">' + parentLabel + '</td>'
+            + '<td style="padding:7px 10px;">' + lovedLabel + '</td>'
+            + '<td style="padding:7px 10px;"><input id="cg-edit-name" type="text" value="' + _cgEsc(info.name||'') + '" '
+            + 'style="width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:.78rem;font-family:\'Nunito\',sans-serif;background:var(--surface);color:var(--text);"></td>'
+            + '<td style="padding:7px 10px;"><select id="cg-edit-access" '
+            + 'style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:.78rem;font-family:\'Nunito\',sans-serif;background:var(--surface);color:var(--text);">'
+            + '<option value="readonly"' + (info.access !== 'readwrite' ? ' selected' : '') + '>View only</option>'
+            + '<option value="readwrite"' + (info.access === 'readwrite' ? ' selected' : '') + '>View and edit</option>'
+            + '</select></td>'
+            + '<td style="padding:7px 10px;white-space:nowrap;">'
+            + '<button onclick="saveEditCaregiverLink(\'' + sPUid + '\',\'' + sLUid + '\')" '
+            + 'style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-family:\'Nunito\',sans-serif;margin-right:4px;">Save</button>'
+            + '<button onclick="cancelEditCaregiverLink()" '
+            + 'style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:\'Nunito\',sans-serif;">Cancel</button>'
+            + '</td></tr>';
+        } else {
+          const accessLabel = info.access === 'readwrite' ? 'View + edit' : 'View only';
+          html += '<tr style="border-top:1px solid var(--border);">'
+            + '<td style="padding:7px 10px;">' + parentLabel + '</td>'
+            + '<td style="padding:7px 10px;">' + lovedLabel + '</td>'
+            + '<td style="padding:7px 10px;">' + _cgEsc(info.name||'') + '</td>'
+            + '<td style="padding:7px 10px;">' + accessLabel + '</td>'
+            + '<td style="padding:7px 10px;white-space:nowrap;">'
+            + '<button onclick="startEditCaregiverLink(\'' + sPUid + '\',\'' + sLUid + '\')" '
+            + 'style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:\'Nunito\',sans-serif;margin-right:4px;">Edit</button>'
+            + '<button onclick="removeCaregiverLink(\'' + sPUid + '\',\'' + sLUid + '\')" '
+            + 'style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:\'Nunito\',sans-serif;">Remove</button>'
+            + '</td></tr>';
+        }
+      }
+    }
+    html += '</tbody></table>';
+    list.innerHTML = html;
+  }
+
+  window.addCaregiverLink = async function() {
+    const parentUid = document.getElementById('cg-parent-uid')?.value;
+    const lovedUid  = document.getElementById('cg-loved-uid')?.value;
+    const name      = (document.getElementById('cg-name')?.value || '').trim();
+    const rel       = (document.getElementById('cg-relationship')?.value || '').trim();
+    const access    = document.getElementById('cg-access')?.value || 'readonly';
+    const msgEl     = document.getElementById('cg-add-msg');
+
+    const warn = (txt) => { if (msgEl) { msgEl.textContent = txt; msgEl.style.color = 'var(--gold)'; } };
+    if (!parentUid) return warn('Select a parent account.');
+    if (!lovedUid)  return warn('Select a loved one account.');
+    if (parentUid === lovedUid) return warn('Parent and loved one must be different accounts.');
+    if (!name) return warn('Name is required.');
+
+    try {
+      await set(ref(db, 'tools-you-the-winner/userlinks/' + parentUid + '/' + lovedUid), {
+        name, relationship: rel, access, linkedAt: Date.now()
+      });
+      if (msgEl) { msgEl.textContent = 'Link added ✓'; msgEl.style.color = 'var(--accent)'; setTimeout(() => { if(msgEl) msgEl.textContent=''; }, 3000); }
+      document.getElementById('cg-name').value = '';
+      document.getElementById('cg-relationship').value = '';
+      await renderCaregiverLinks();
+    } catch(e) {
+      if (msgEl) { msgEl.textContent = 'Error: ' + e.message; msgEl.style.color = '#d94f4f'; }
+    }
+  };
+
+  window.startEditCaregiverLink = function(parentUid, lovedUid) {
+    _cgEditingKey = parentUid + '|' + lovedUid;
+    renderCaregiverLinks();
+  };
+
+  window.cancelEditCaregiverLink = function() {
+    _cgEditingKey = null;
+    renderCaregiverLinks();
+  };
+
+  window.saveEditCaregiverLink = async function(parentUid, lovedUid) {
+    const name   = (document.getElementById('cg-edit-name')?.value || '').trim();
+    const access = document.getElementById('cg-edit-access')?.value || 'readonly';
+    if (!name) { alert('Name is required.'); return; }
+    try {
+      // update(), not set() — preserves relationship/linkedAt already on the record
+      // instead of wiping them like a full overwrite would.
+      await update(ref(db, 'tools-you-the-winner/userlinks/' + parentUid + '/' + lovedUid), { name, access });
+      _cgEditingKey = null;
+      await renderCaregiverLinks();
+    } catch(e) {
+      alert('Error saving link: ' + e.message);
+    }
+  };
+
+  window.removeCaregiverLink = async function(parentUid, lovedUid) {
+    if (!confirm('Remove this caregiver link?')) return;
+    try {
+      await remove(ref(db, 'tools-you-the-winner/userlinks/' + parentUid + '/' + lovedUid));
+      await renderCaregiverLinks();
+    } catch(e) {
+      alert('Error removing link: ' + e.message);
+    }
+  };
+
+  loadCaregiverSection();
+  // ── END CAREGIVER ────────────────────────────────────────────────────────
+
+  // ── FAMILY PLAN SHARING (support lookup, added 2026-07-22) ────────────────
+  // Read-only-by-default list of every self-service Family Plan record under
+  // tools-you-the-winner/families, so support can find a customer's invite code or
+  // member list without asking the customer to dig for it themselves.
+  // Remove-member / delete-family actions reuse the exact same Firebase
+  // writes my-daily-tools.html's own removeFamilyPlanMember()/deleteFamilyPlan()
+  // use, so state stays consistent with what a customer could do themselves.
+  function _fpEsc(s) {
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let _fpExpanded = null; // familyId currently expanded, or null
+
+  window.toggleFamilyPlanRow = function(familyId) {
+    _fpExpanded = (_fpExpanded === familyId) ? null : familyId;
+    renderFamilyPlansAdmin();
+  };
+
+  async function renderFamilyPlansAdmin() {
+    const list = document.getElementById('fp-list');
+    if (!list) return;
+    list.textContent = 'Loading…';
+
+    const snap = await get(ref(db, 'tools-you-the-winner/families')).catch(() => null);
+    const families = snap?.val() || {};
+    const ids = Object.keys(families);
+
+    if (!ids.length) {
+      list.innerHTML = '<span style="color:var(--muted);">No Family Plans have been created yet.</span>';
+      return;
+    }
+
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:.8rem;">'
+      + '<thead><tr style="background:var(--surface2);">'
+      + '<th style="padding:7px 10px;text-align:left;">Family name</th>'
+      + '<th style="padding:7px 10px;text-align:left;">Invite code</th>'
+      + '<th style="padding:7px 10px;text-align:left;">Owner</th>'
+      + '<th style="padding:7px 10px;text-align:left;">Members</th>'
+      + '<th style="padding:7px 10px;"></th>'
+      + '</tr></thead><tbody>';
+
+    for (const familyId of ids) {
+      const fam = families[familyId] || {};
+      const members = fam.members || {};
+      const memberCount = Object.keys(members).length;
+      const safeId = familyId.replace(/'/g,'');
+      const isOpen = _fpExpanded === familyId;
+
+      html += '<tr style="border-top:1px solid var(--border);">'
+        + '<td style="padding:7px 10px;">' + _fpEsc(fam.name || '(unnamed)') + '</td>'
+        + '<td style="padding:7px 10px;font-family:monospace;letter-spacing:1px;">' + _fpEsc(fam.inviteCode || '—') + '</td>'
+        + '<td style="padding:7px 10px;">' + _fpEsc(fam.ownerName || fam.ownerUid || '—') + '</td>'
+        + '<td style="padding:7px 10px;">' + memberCount + '</td>'
+        + '<td style="padding:7px 10px;white-space:nowrap;">'
+        + '<button onclick="toggleFamilyPlanRow(\'' + safeId + '\')" style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:\'Nunito\',sans-serif;margin-right:4px;">' + (isOpen ? 'Hide' : 'Details') + '</button>'
+        + '<button onclick="adminDeleteFamilyPlan(\'' + safeId + '\')" style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid #d94f4f;background:none;color:#d94f4f;cursor:pointer;font-family:\'Nunito\',sans-serif;">Delete</button>'
+        + '</td></tr>';
+
+      if (isOpen) {
+        let memberRows = '';
+        for (const [mUid, mInfo] of Object.entries(members)) {
+          const isOwner = mUid === fam.ownerUid;
+          const safeMUid = mUid.replace(/'/g,'');
+          memberRows += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);">'
+            + '<span>' + _fpEsc(mInfo.name || mUid) + (isOwner ? ' <span style="color:var(--muted);font-size:.7rem;">(owner)</span>' : '') + '</span>'
+            + (isOwner ? '' : '<button onclick="adminRemoveFamilyPlanMember(\'' + safeId + '\',\'' + safeMUid + '\')" style="padding:2px 9px;font-size:.7rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:\'Nunito\',sans-serif;">Remove</button>')
+            + '</div>';
+        }
+        if (!memberRows) memberRows = '<div style="padding:5px 0;color:var(--muted);">No members.</div>';
+        html += '<tr><td colspan="5" style="padding:6px 10px 14px 20px;background:var(--surface2);">'
+          + '<div style="font-size:.74rem;font-weight:700;color:var(--muted);margin-bottom:4px;">Family ID: ' + _fpEsc(familyId) + '</div>'
+          + memberRows
+          + '</td></tr>';
+      }
+    }
+    html += '</tbody></table>';
+    list.innerHTML = html;
+  }
+
+  window.adminRemoveFamilyPlanMember = async function(familyId, memberUid) {
+    if (!confirm('Remove this member from the family plan? Their account goes back to its own private list.')) return;
+    try {
+      const famRef = ref(db, 'tools-you-the-winner/families/' + familyId);
+      const famSnap = await get(famRef);
+      const fam = famSnap.val() || {};
+      const ownerUid = fam.ownerUid;
+      await remove(ref(db, 'tools-you-the-winner/families/' + familyId + '/members/' + memberUid));
+      if (ownerUid) await remove(ref(db, 'tools-you-the-winner/family-plan-members/' + ownerUid + '/' + memberUid));
+      await update(ref(db, 'users/' + memberUid + '/settings'), { familyId: null, familyRole: null });
+      await renderFamilyPlansAdmin();
+    } catch (e) {
+      alert('Error removing member: ' + e.message);
+    }
+  };
+
+  window.adminDeleteFamilyPlan = async function(familyId) {
+    if (!confirm('Delete this Family Plan entirely? This disbands it for every member. Everyone goes back to their own private list. This cannot be undone.')) return;
+    try {
+      const famRef = ref(db, 'tools-you-the-winner/families/' + familyId);
+      const famSnap = await get(famRef);
+      const fam = famSnap.val() || {};
+      const ownerUid = fam.ownerUid;
+      const members = fam.members || {};
+      for (const mUid of Object.keys(members)) {
+        await update(ref(db, 'users/' + mUid + '/settings'), { familyId: null, familyRole: null });
+      }
+      if (ownerUid) await remove(ref(db, 'tools-you-the-winner/family-plan-members/' + ownerUid));
+      if (fam.inviteCode) await remove(ref(db, 'tools-you-the-winner/family-invite-codes/' + fam.inviteCode));
+      await remove(famRef);
+      _fpExpanded = null;
+      await renderFamilyPlansAdmin();
+    } catch (e) {
+      alert('Error deleting family: ' + e.message);
+    }
+  };
+
+  renderFamilyPlansAdmin();
+  // ── END FAMILY PLAN SHARING (support lookup) ───────────────────────────────
+
+  // ── VOICE NOTES CLEANUP (family-note-audio Storage browser) ────────────────
+  // Files live at family-note-audio/{YYYY-MM-DD}/note-*.webm and reply-*.webm
+  // (see myday.html / my-daily-tools.html saveFamilyNote/saveFamilyNoteReply).
+  // Deleting an old day's recording here also clears the audioUrl/replyAudioUrl
+  // fields on that day's family-notes record so no dead link is left behind —
+  // the typed text (if any) is untouched.
+  function _vcEsc(s) {
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function renderVoiceNotesCleanup() {
+    const list = document.getElementById('vc-list');
+    if (!list) return;
+    list.textContent = 'Loading…';
+    try {
+      const rootRef = storageRef(storage, 'family-note-audio');
+      const rootList = await listAll(rootRef);
+      const dateFolders = rootList.prefixes; // one per YYYY-MM-DD that has audio
+      if (!dateFolders.length) {
+        list.innerHTML = '<span style="color:var(--muted);">No voice notes in Storage.</span>';
+        return;
+      }
+      const withCounts = await Promise.all(dateFolders.map(async folderRef => {
+        const inner = await listAll(folderRef).catch(() => ({ items: [] }));
+        return { dateKey: folderRef.name, count: inner.items.length };
+      }));
+      withCounts.sort((a, b) => b.dateKey.localeCompare(a.dateKey)); // newest first
+
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:.8rem;">'
+        + '<thead><tr style="background:var(--surface2);">'
+        + '<th style="padding:7px 10px;text-align:left;">Date</th>'
+        + '<th style="padding:7px 10px;text-align:left;">Recordings</th>'
+        + '<th style="padding:7px 10px;"></th>'
+        + '</tr></thead><tbody>';
+      for (const row of withCounts) {
+        html += '<tr style="border-top:1px solid var(--border);">'
+          + '<td style="padding:7px 10px;">' + _vcEsc(row.dateKey) + '</td>'
+          + '<td style="padding:7px 10px;">' + row.count + '</td>'
+          + '<td style="padding:7px 10px;white-space:nowrap;">'
+          + '<button onclick="adminDeleteVoiceNotesForDate(\'' + row.dateKey.replace(/'/g,'') + '\')" style="padding:3px 10px;font-size:.72rem;border-radius:6px;border:1px solid #d94f4f;background:none;color:#d94f4f;cursor:pointer;font-family:\'Nunito\',sans-serif;">Delete</button>'
+          + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      list.innerHTML = html;
+    } catch (e) {
+      list.innerHTML = '<span style="color:#d94f4f;">Could not load voice notes: ' + _vcEsc(e.message) + '</span>';
+    }
+  }
+
+  async function deleteVoiceNotesFolder(dateKey) {
+    const folderRef = storageRef(storage, 'family-note-audio/' + dateKey);
+    const inner = await listAll(folderRef);
+    for (const item of inner.items) {
+      await deleteObject(item).catch(() => {});
+    }
+    // Clear dead links on that day's note, if it still exists — leaves any
+    // typed text/reply alone.
+    await update(ref(db, 'tools-you-the-winner/family-notes/' + dateKey), { audioUrl: null, replyAudioUrl: null }).catch(() => {});
+  }
+
+  window.adminDeleteVoiceNotesForDate = async function(dateKey) {
+    if (!confirm('Delete all voice recordings for ' + dateKey + '? This cannot be undone.')) return;
+    try {
+      await deleteVoiceNotesFolder(dateKey);
+      await renderVoiceNotesCleanup();
+    } catch (e) {
+      alert('Error deleting voice notes: ' + e.message);
+    }
+  };
+
+  window.adminDeleteOldVoiceNotes = async function() {
+    const daysInput = document.getElementById('vc-days');
+    const statusEl  = document.getElementById('vc-bulk-status');
+    const days = parseInt(daysInput && daysInput.value, 10) || 90;
+    if (!confirm('Delete all voice recordings older than ' + days + ' days? This cannot be undone.')) return;
+    if (statusEl) statusEl.textContent = 'Deleting…';
+    try {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffKey = cutoff.toISOString().slice(0, 10); // YYYY-MM-DD, matches dateKey format
+      const rootList = await listAll(storageRef(storage, 'family-note-audio'));
+      const oldFolders = rootList.prefixes.filter(f => f.name < cutoffKey);
+      for (const folderRef of oldFolders) {
+        await deleteVoiceNotesFolder(folderRef.name);
+      }
+      if (statusEl) statusEl.textContent = 'Deleted ' + oldFolders.length + ' day(s) of old recordings.';
+      await renderVoiceNotesCleanup();
+    } catch (e) {
+      if (statusEl) statusEl.textContent = "Couldn't finish. Try again.";
+      alert('Error deleting old voice notes: ' + e.message);
+    }
+  };
+
+  renderVoiceNotesCleanup();
+  // ── END VOICE NOTES CLEANUP ─────────────────────────────────────────────────
+
+  function flashStatus(id, msg, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-msg ' + (ok === true ? 'ok' : ok === false ? 'err' : '');
+    clearTimeout(el._flashTimer);
+    el._flashTimer = setTimeout(() => {
+      if (el) { el.textContent = ''; el.className = 'status-msg'; }
+    }, 3000);
+  }
+</script>
+</body>
+</html>

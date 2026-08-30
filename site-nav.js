@@ -30,6 +30,7 @@
 
   // Admin-only extras (shown inside My Tools when admin)
   const ADMIN_LINKS = [
+    { href: 'admin-settings.html',   label: '🔐 Access Control' },
     { href: 'migrate-to-users.html', label: '🔧 Migrate Data' },
   ];
 
