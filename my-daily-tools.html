@@ -8309,12 +8309,21 @@ window.removeRmMilestone = function(pi, mi) {
              amount already counted toward the goal (birthday money, a
              bonus, etc.); Monthly expense is a recurring cost subtracted
              from what's actually left over to save each month. Both
-             default to $0 (no effect) when left blank. -->
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;">
-          <label style="font-size:.68rem;font-weight:700;color:var(--text);white-space:nowrap;">Gift $</label>
-          <input type="number" step="0.01" min="0" id="payroll-goal-gift" placeholder="0" title="A one-time amount already counted toward this goal" style="width:70px;padding:5px 6px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.74rem;background:var(--surface2);color:var(--text);">
-          <label style="font-size:.68rem;font-weight:700;color:var(--text);white-space:nowrap;margin-left:6px;">Monthly expense $</label>
-          <input type="number" step="0.01" min="0" id="payroll-goal-expense" placeholder="0" title="A recurring monthly cost subtracted from what's left over to save" style="width:70px;padding:5px 6px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.74rem;background:var(--surface2);color:var(--text);">
+             default to $0 (no effect) when left blank. Restyled
+             2026-08-30 per Marcelo ("make the fields ... more aligned,
+             there are two separated") to match the label-above-input
+             column layout the Goal $ / Hrs per month steppers use above,
+             instead of the old label-beside-input inline row -- all four
+             fields now line up the same way. -->
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;margin-bottom:6px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:.68rem;font-weight:700;color:var(--text);white-space:nowrap;">Gift $</label>
+            <input type="number" step="0.01" min="0" id="payroll-goal-gift" placeholder="0" title="A one-time amount already counted toward this goal" style="width:70px;padding:5px 6px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.74rem;background:var(--surface2);color:var(--text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:.68rem;font-weight:700;color:var(--text);white-space:nowrap;">Monthly expense $</label>
+            <input type="number" step="0.01" min="0" id="payroll-goal-expense" placeholder="0" title="A recurring monthly cost subtracted from what's left over to save" style="width:70px;padding:5px 6px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.74rem;background:var(--surface2);color:var(--text);">
+          </div>
         </div>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.68rem;font-weight:700;color:var(--text);margin-bottom:8px;">
           <input type="checkbox" id="payroll-goal-use-net" checked> Use estimated net (take-home) pay
@@ -13814,7 +13823,19 @@ window._renderSavingsGoalChart = function(points, goal, monthsNeeded, raises) {
   var tickStep = Math.max(1, Math.round(totalMonths / 5) || 1);
   var tickMonths = [];
   for (var tm = 0; tm <= totalMonths; tm += tickStep) tickMonths.push(tm);
-  if (tickMonths[tickMonths.length - 1] !== totalMonths) tickMonths.push(totalMonths);
+  if (tickMonths[tickMonths.length - 1] !== totalMonths) {
+    // 2026-08-30 fix: appending totalMonths unconditionally could land it
+    // right next to the previous regular tick (e.g. steps of 3 landing on
+    // 12, then totalMonths=13 tacked on right after) -- close enough that
+    // the two date labels overlapped each other. If it's too close,
+    // replace the last tick instead of adding a new one alongside it.
+    var lastTick = tickMonths[tickMonths.length - 1];
+    if (tickMonths.length > 1 && (totalMonths - lastTick) < tickStep * 0.5) {
+      tickMonths[tickMonths.length - 1] = totalMonths;
+    } else {
+      tickMonths.push(totalMonths);
+    }
+  }
   var markerAnchor = (goalX > W - padR - 60) ? 'end' : ((goalX < padL + 60) ? 'start' : 'middle');
   var markerX = markerAnchor === 'end' ? (W - padR) : (markerAnchor === 'start' ? padL : goalX);
 
@@ -13861,9 +13882,12 @@ window._renderSavingsGoalChart = function(points, goal, monthsNeeded, raises) {
     svg += '<circle cx="' + rx + '" cy="' + ry + '" r="4" fill="var(--accent2)" stroke="var(--bg)" stroke-width="1.5"/>';
     svg += '<text x="' + rLabelX + '" y="' + (ry - 9) + '" text-anchor="' + rAnchor + '" font-size="8.5" font-weight="700" fill="var(--accent2)" font-family="Quicksand,sans-serif">📈 $' + Number(r.rate).toFixed(2) + '/hr</text>';
   });
-  [0, goal].forEach(function(v) {
-    svg += '<text x="' + (padL - 6) + '" y="' + (yFor(v) + 3) + '" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Quicksand,sans-serif">$' + v.toFixed(0) + '</text>';
-  });
+  // 2026-08-30 fix: this used to also draw a "$goal" y-axis tick, but it
+  // sat almost exactly on top of the "Goal $X" annotation next to the
+  // dashed goal line just above (same value, ~8px apart) -- the two
+  // labels visibly overlapped on every render. That annotation already
+  // shows the goal amount clearly, so only $0 is labeled here now.
+  svg += '<text x="' + (padL - 6) + '" y="' + (yFor(0) + 3) + '" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Quicksand,sans-serif">$0</text>';
   svg += '</svg>';
   wrap.innerHTML = svg;
 };
