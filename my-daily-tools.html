@@ -8246,7 +8246,7 @@ window.removeRmMilestone = function(pi, mi) {
         <span class="txn-collapse-chevron" id="payroll-chevron-chart">▼</span>
       </div>
       <div id="payroll-section-chart" style="display:none;padding:0 14px 14px;">
-        <div style="font-size:.7rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">Cumulative net (take-home) for this period. Solid = already confirmed; dashed = still on the schedule but not yet confirmed.</div>
+        <div id="payroll-chart-desc" style="font-size:.7rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">Cumulative net (take-home) for this period. Solid = already confirmed; dashed = still on the schedule but not yet confirmed.</div>
         <div style="margin-bottom:8px;">
           <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text);cursor:pointer;">
             <input type="checkbox" id="payroll-chart-deduct-on" onchange="window.renderPayrollChart()"> Deduct a monthly cost
@@ -8262,6 +8262,15 @@ window.removeRmMilestone = function(pi, mi) {
           <input id="payroll-chart-goal" type="number" step="0.01" min="0" placeholder="Goal $ (optional)" oninput="window.renderPayrollChart()" style="width:120px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.74rem;background:var(--surface2);color:var(--text);">
         </div>
         <div id="payroll-chart-svg-wrap" style="width:100%;overflow-x:auto;"></div>
+        <!-- Cumulative-line vs day-by-day-bars toggle — added 2026-08-31.
+             Placed under the chart rather than above it since it's a "how
+             do you want to read this" choice best made after already
+             seeing the default view, matching where similar view toggles
+             sit elsewhere (e.g. Plans' 🎴 card-view toggle). -->
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button id="payroll-chart-mode-cumulative" onclick="window.setPayrollChartViewMode('cumulative')" style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);font-family:'Nunito',sans-serif;font-weight:700;font-size:.7rem;color:var(--text);cursor:pointer;">📈 Cumulative</button>
+          <button id="payroll-chart-mode-bars" onclick="window.setPayrollChartViewMode('bars')" style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);font-family:'Nunito',sans-serif;font-weight:700;font-size:.7rem;color:var(--text);cursor:pointer;">📊 Day by day</button>
+        </div>
         <div id="payroll-chart-legend" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:.68rem;color:var(--muted);"></div>
       </div>
     </div>
@@ -13539,10 +13548,25 @@ function _payrollChartData(range, mode, filingStatus, deductAmt, deductOn) {
   return units.map(function(u, idx) {
     var net = _payrollNetEstimateForPPY(u.gross, ppy, filingStatus).net;
     var deduction = (deductOn && deductAmt > 0) ? (useMonthly ? deductAmt : (deductAmt / u.daysInUnit)) : 0;
-    cum += (net - deduction);
-    return { idx: idx, y: cum, label: u.label, isPast: u.isPast };
+    var val = net - deduction; // this bucket's own amount, not running total — added for the bar view, see window.renderPayrollChart
+    cum += val;
+    return { idx: idx, y: cum, val: val, label: u.label, isPast: u.isPast };
   });
 }
+// View toggle for the chart below: 'cumulative' (original line, running
+// total over the period) or 'bars' (added 2026-08-31 per Marcelo, one bar
+// per day/month showing that unit's OWN net amount so individual days or
+// months can be compared side by side, rather than only ever seeing the
+// accumulated total). Persisted per-device like the other view toggles in
+// this app (sched-view-mode, sched-edit-mode) since it's a display
+// preference, not data.
+function _payrollChartViewMode() {
+  try { return localStorage.getItem('payroll-chart-view-mode') === 'bars' ? 'bars' : 'cumulative'; } catch (e) { return 'cumulative'; }
+}
+window.setPayrollChartViewMode = function(mode) {
+  try { localStorage.setItem('payroll-chart-view-mode', mode === 'bars' ? 'bars' : 'cumulative'); } catch (e) {}
+  window.renderPayrollChart();
+};
 window.renderPayrollChart = function() {
   var wrap = document.getElementById('payroll-chart-svg-wrap');
   var legend = document.getElementById('payroll-chart-legend');
@@ -13556,6 +13580,15 @@ window.renderPayrollChart = function() {
   var goalVal = parseFloat(goalEl && goalEl.value) || 0;
   var pts = _payrollChartData(range, _payrollMode, _payrollFilingStatus, deductAmt, deductOn);
   if (!pts.length) { wrap.innerHTML = '<div style="color:var(--muted);font-size:.74rem;padding:12px 0;">Not enough data yet.</div>'; if (legend) legend.innerHTML = ''; return; }
+  var mode = _payrollChartViewMode();
+  var cumBtn = document.getElementById('payroll-chart-mode-cumulative'), barBtn = document.getElementById('payroll-chart-mode-bars');
+  if (cumBtn) { cumBtn.style.background = mode === 'cumulative' ? 'var(--accent)' : 'var(--surface2)'; cumBtn.style.color = mode === 'cumulative' ? '#fff' : 'var(--text)'; }
+  if (barBtn) { barBtn.style.background = mode === 'bars' ? 'var(--accent)' : 'var(--surface2)'; barBtn.style.color = mode === 'bars' ? '#fff' : 'var(--text)'; }
+  var desc = document.getElementById('payroll-chart-desc');
+  if (desc) desc.textContent = mode === 'bars'
+    ? 'Each bar is that day\'s (or month\'s) own net amount, so you can compare them side by side. Solid = already confirmed; lighter = still on the schedule but not yet confirmed.'
+    : 'Cumulative net (take-home) for this period. Solid = already confirmed; dashed = still on the schedule but not yet confirmed.';
+  if (mode === 'bars') { _renderPayrollBarChart(wrap, legend, pts, goalVal); return; }
   var W = 640, H = 190, padL = 46, padR = 12, padT = 12, padB = 22;
   var allY = pts.map(function(p) { return p.y; });
   allY.push(0);
@@ -13607,6 +13640,57 @@ window.renderPayrollChart = function() {
       + (goalVal > 0 ? '<span><span style="display:inline-block;width:10px;height:2px;background:#f9a825;vertical-align:middle;margin-right:4px;"></span>Goal</span>' : '');
   }
 };
+// Day-by-day (or month-by-month, in Yearly mode) bar view — added
+// 2026-08-31 per Marcelo, so individual periods can be compared directly
+// instead of only reading the running total. Each bar plots that unit's own
+// `val` (not the cumulative `y`); past/confirmed bars are solid, future/
+// scheduled ones lighter, matching the cumulative view's solid-vs-dashed
+// language as closely as a filled bar can. Bars can go negative (a day with
+// only the monthly deduction and no shift) and are drawn up or down from a
+// zero baseline accordingly. Horizontal scroll on the outer wrap (already
+// on #payroll-chart-svg-wrap) handles months/years with many bars — a fixed
+// per-bar width keeps bars readable instead of squeezing to illegibility.
+function _renderPayrollBarChart(wrap, legend, pts, goalVal) {
+  var padL = 46, padR = 12, padT = 14, padB = 22, barW = 22, gap = 10;
+  var innerW = pts.length * (barW + gap);
+  var W = padL + innerW + padR, H = 190;
+  var allVals = pts.map(function(p) { return p.val; });
+  allVals.push(0);
+  var minV = Math.min.apply(null, allVals), maxV = Math.max.apply(null, allVals);
+  if (minV === maxV) maxV = minV + 1;
+  // Zero baseline always visible even if every value is positive (or every
+  // value is negative), same idea as the cumulative chart's rangeY handling.
+  var rangeV = maxV - minV;
+  var padTB = H - padT - padB;
+  function yForVal(v) { return padT + (1 - (v - minV) / rangeV) * padTB; }
+  var zeroY = yForVal(0);
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:none;height:auto;display:block;" preserveAspectRatio="xMinYMid meet">';
+  svg += '<line x1="' + padL + '" y1="' + zeroY + '" x2="' + (W - padR) + '" y2="' + zeroY + '" stroke="var(--border)" stroke-width="1"/>';
+  pts.forEach(function(p, i) {
+    var x = padL + i * (barW + gap);
+    var barY = Math.min(zeroY, yForVal(p.val));
+    var barH = Math.max(1, Math.abs(zeroY - yForVal(p.val)));
+    var fill = p.val < 0 ? '#c0473a' : 'var(--accent)';
+    var op = p.isPast ? '1' : '.5';
+    svg += '<rect x="' + x + '" y="' + barY + '" width="' + barW + '" height="' + barH + '" rx="3" fill="' + fill + '" opacity="' + op + '"/>';
+    svg += '<text x="' + (x + barW / 2) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="Quicksand,sans-serif">' + _schedEscape(p.label) + '</text>';
+  });
+  [minV, 0, maxV].forEach(function(v) {
+    if (v === 0 && minV !== 0 && maxV !== 0) {
+      svg += '<text x="' + (padL - 6) + '" y="' + (yForVal(0) + 3) + '" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Quicksand,sans-serif">$0</text>';
+    } else {
+      svg += '<text x="' + (padL - 6) + '" y="' + (yForVal(v) + 3) + '" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Quicksand,sans-serif">$' + v.toFixed(0) + '</text>';
+    }
+  });
+  svg += '</svg>';
+  wrap.innerHTML = svg;
+  if (legend) {
+    legend.innerHTML = '<span><span style="display:inline-block;width:10px;height:10px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px;"></span>Actual (confirmed)</span>'
+      + '<span><span style="display:inline-block;width:10px;height:10px;background:var(--accent);opacity:.5;vertical-align:middle;margin-right:4px;border-radius:2px;"></span>Projected (scheduled)</span>'
+      + '<span><span style="display:inline-block;width:10px;height:10px;background:#c0473a;vertical-align:middle;margin-right:4px;border-radius:2px;"></span>Net loss (deduction only)</span>'
+      + (goalVal > 0 ? '<span style="opacity:.7;">Goal line only shows in Cumulative view</span>' : '');
+  }
+}
 // Generic press-and-hold stepper for numeric fields (Payroll Savings Goal
 // Planner Goal $/Hrs per month) — added 2026-08-28 per Marcelo, replacing
 // the previous row of fixed quick-fill chip buttons. A single tap nudges
