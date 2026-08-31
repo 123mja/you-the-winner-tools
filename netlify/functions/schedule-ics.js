@@ -115,6 +115,12 @@ exports.handler = async function(event) {
     var schedSnap = await db.ref(up + '/schedule').once('value');
     var schedule = schedSnap.val() || {};
 
+
+	var settingsSnap = await db.ref(up + '/schedule-settings').once('value');
+	var settings = settingsSnap.val() || {};
+	var timeZone = settings.timezone || 'America/Chicago';
+
+
     var lines = [];
     lines.push('BEGIN:VCALENDAR');
     lines.push('VERSION:2.0');
@@ -122,6 +128,10 @@ exports.handler = async function(event) {
     lines.push('CALSCALE:GREGORIAN');
     lines.push('METHOD:PUBLISH');
     lines.push('X-WR-CALNAME:My Schedule');
+	
+	lines.push('X-WR-TIMEZONE:' + timeZone);
+	// lines.push('X-WR-TIMEZONE:America/Chicago'); // added mja
+	
     // A hint some calendar apps honor for their own poll interval; Google
     // in practice uses its own ~12-24h cadence regardless.
     lines.push('REFRESH-INTERVAL;VALUE=DURATION:PT12H');
@@ -132,8 +142,12 @@ exports.handler = async function(event) {
       lines.push('BEGIN:VEVENT');
       lines.push(foldLine('UID:' + id + '@you-the-winner.com'));
       lines.push('DTSTAMP:' + nowUTCStamp());
-      lines.push('DTSTART:' + toICSDateTime(s.date, s.start));
-      lines.push('DTEND:' + toICSDateTime(s.date, s.end));
+      // lines.push('DTSTART:' + toICSDateTime(s.date, s.start));
+      // lines.push('DTEND:' + toICSDateTime(s.date, s.end));
+	  
+	  lines.push('DTSTART;TZID=America/Chicago:' + toICSDateTime(s.date, s.start));
+      lines.push('DTEND;TZID=America/Chicago:' + toICSDateTime(s.date, s.end));
+	  
       lines.push(foldLine('SUMMARY:' + icsEscape(s.label || 'Shift')));
       if (s.notes) lines.push(foldLine('DESCRIPTION:' + icsEscape(s.notes)));
       lines.push('STATUS:' + (s.confirmed ? 'CONFIRMED' : 'TENTATIVE'));
