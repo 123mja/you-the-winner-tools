@@ -1582,12 +1582,21 @@
   // than Marcelo's messages. Root cause of caregiver/supported-individual
   // messages not reaching each other, reported 2026-08-08. Matches the same
   // fix applied to my-daily-tools.html's familyNotesRoot().
+  // 2026-08-30 fix: matches the same reorder applied to my-daily-tools.html's
+  // own familyNotesRoot() (see the long comment there) — a real, code-
+  // verified Family Plan membership (window._mydFamilyRoot) must be checked
+  // BEFORE the CLIENT.adminEmails legacy shortcut, not after. The old order
+  // silently diverted 123mja@gmail.com (a real caregiver who is ALSO this
+  // fork's legacy admin/reference email) away from a real family's shared
+  // thread into this unrelated fixed literal path, even though he had a
+  // perfectly good, correctly-resolved window._mydFamilyRoot pointing at the
+  // real family. The email-match branches now only apply as a fallback for
+  // an account with no real Family Plan record at all.
   window._mydFamilyNotesRoot = function() {
+    if (window._mydFamilyRoot) return window._mydFamilyRoot + '/family-notes'; // real family-plan membership/ownership always wins
     const myEmail = ((window._authUser && window._authUser.email) || '').toLowerCase();
     const _mydAdminEmails = (CLIENT.adminEmails || []).map(function(e){ return (e||'').toLowerCase(); });
-    if (_mydAdminEmails.indexOf(myEmail) !== -1) return 'tools-you-the-winner/family-notes'; // Mel's own household
-    if (_mydAdminEmails.indexOf((window._mydFamilyOwnerEmail||'').toLowerCase()) !== -1) return 'tools-you-the-winner/family-notes'; // verified member of Mel's family
-    if (window._mydFamilyRoot) return window._mydFamilyRoot + '/family-notes'; // someone else's own family
+    if (_mydAdminEmails.indexOf(myEmail) !== -1) return 'tools-you-the-winner/family-notes'; // legacy reference household, no real Family Plan record
     return (window._tenantRoot || 'users/' + (window._authUser && window._authUser.uid)) + '/family-notes'; // no family — isolated
   };
 
@@ -7775,6 +7784,21 @@ window.removeRmMilestone = function(pi, mi) {
           <button onclick="openPlansColumnsModal()" title="Show or hide table columns" style="flex-shrink:0;width:32px;height:32px;padding:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">🎛️</button>
           <button id="plans-reorder-toggle-btn" onclick="window.togglePlansCustomOrderMode()" title="Turn on manual reordering (▲▼ arrows per row)" style="flex-shrink:0;width:32px;height:32px;padding:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-size:.86rem;cursor:pointer;display:none;align-items:center;justify-content:center;">🔀</button>
           <button id="plans-view-toggle-btn" onclick="togglePlansViewMode()" title="Switch between table and one-at-a-time card view" style="flex-shrink:0;width:32px;height:32px;padding:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">🎴</button>
+          <!-- Import/Export CSV, moved into a "⋮" More menu 2026-08-30 per
+               Marcelo: the two dashed-border text buttons down by "+ New"
+               were too visually loud for something used "so often" that it
+               didn't need that much emphasis -- folded into the same kind
+               of compact overflow menu Schedule's ☰ already uses (see
+               window.toggleSchedActionsMenu), instead of two
+               permanently-visible buttons competing with +New for
+               attention. -->
+          <div style="position:relative;flex-shrink:0;">
+            <button id="plans-more-menu-btn" onclick="window.togglePlansMoreMenu()" title="More: import/export CSV" style="width:32px;height:32px;padding:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">⋮</button>
+            <div id="plans-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.15);min-width:180px;z-index:35;overflow:hidden;">
+              <button onclick="window.closePlansMoreMenu();document.getElementById('plans-import-file-input').click()" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--text);cursor:pointer;">⬆️ Import CSV</button>
+              <button onclick="window.closePlansMoreMenu();window.exportPlansCSV()" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-top:1px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--text);cursor:pointer;">⬇️ Export CSV</button>
+            </div>
+          </div>
         </div>
       </div>
       <div id="plans-list" aria-live="polite"><div class="checklist-empty">Loading…</div></div>
@@ -7796,8 +7820,6 @@ window.removeRmMilestone = function(pi, mi) {
            disappear on every account with a short plan list. -->
       <div style="display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
         <button id="plans-add-btn-top" onclick="openAddPlanModal()" style="display:none;padding:6px 14px;background:transparent;color:var(--accent);border:1.5px dashed var(--border);border-radius:8px;font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;white-space:nowrap;">＋ New</button>
-        <button onclick="document.getElementById('plans-import-file-input').click()" title="Import plans from a CSV file" style="padding:6px 14px;background:transparent;color:var(--text);border:1.5px dashed var(--border);border-radius:8px;font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;white-space:nowrap;">⬆️ Import CSV</button>
-        <button onclick="window.exportPlansCSV()" title="Export all plans to a CSV file" style="padding:6px 14px;background:transparent;color:var(--text);border:1.5px dashed var(--border);border-radius:8px;font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;white-space:nowrap;">⬇️ Export CSV</button>
       </div>
       <div id="plans-hidden-link" class="checklist-hidden-link" onclick="toggleHiddenPlans()"></div>
       <!-- ── PLANS STATS ── -->
@@ -7988,6 +8010,13 @@ window.removeRmMilestone = function(pi, mi) {
         <button onclick="window.openPayrollModal()" title="Payroll Report" style="border:1.5px solid var(--border);border-radius:10px;background:var(--surface);padding:7px 10px;cursor:pointer;color:var(--text);line-height:1;display:flex;align-items:center;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 9h2M20 9h2M2 15h2M20 15h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
+        <!-- Read/Edit mode lock, added 2026-08-30 per Marcelo ("should have
+             a way to avoid accidentally edit... read mode/edit mode"). Grid
+             opens locked (🔒 Read mode) every time; tap to unlock (✏️ Edit
+             mode) before anything on the grid can be created, dragged,
+             moved, resized, or double-tap-confirmed. See _schedIsEditMode
+             and window.toggleSchedEditMode above _schedWireScrollGuard. -->
+        <button id="sched-edit-mode-btn" onclick="window.toggleSchedEditMode()" title="Read mode — tap to unlock editing" style="border:1.5px solid var(--border);border-radius:10px;background:var(--surface);padding:7px 10px;cursor:pointer;color:var(--text);line-height:1;font-size:.85rem;">🔒</button>
         <div style="position:relative;">
           <button id="sched-actions-menu-btn" onclick="window.toggleSchedActionsMenu()" style="border:1.5px solid var(--border);border-radius:10px;background:var(--surface);padding:7px 12px;font-size:.85rem;cursor:pointer;color:var(--text);line-height:1;">☰</button>
           <div id="sched-actions-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.15);min-width:200px;z-index:35;overflow:hidden;">
@@ -13060,6 +13089,38 @@ function _schedWireScrollGuard() {
   var scrollEl = document.getElementById('sched-grid-scroll');
   if (scrollEl) scrollEl.addEventListener('scroll', function() { _schedLastScrollAt = Date.now(); }, { passive: true });
 }
+
+// Read mode / Edit mode toggle — added 2026-08-30 per Marcelo, on top of
+// (not instead of) the scroll-recency guard above: that guard only catches
+// one specific accidental-tap shape (a finger landing right as scrolling
+// stops). It does nothing to stop a genuinely deliberate-looking tap or
+// drag from someone who just wanted to glance at the schedule -- a
+// supported individual or a caregiver quickly checking a shift mid-day
+// shouldn't be one stray drag away from moving or creating one. Defaults to
+// Read mode (locked) every time the pane loads; per-device only (localStorage
+// 'sched-edit-mode'), deliberately NOT synced via SYNCED_SETTINGS_KEYS —
+// this is a moment-to-moment safety toggle, not a real cross-device
+// preference, same reasoning as 'sched-view-mode' just above.
+function _schedIsEditMode() {
+  try { return localStorage.getItem('sched-edit-mode') === '1'; } catch (e) { return false; }
+}
+window._schedIsEditMode = _schedIsEditMode;
+window.toggleSchedEditMode = function() {
+  var next = !_schedIsEditMode();
+  try { localStorage.setItem('sched-edit-mode', next ? '1' : '0'); } catch (e) {}
+  _schedApplyEditModeUI();
+  showToast(next ? '✏️ Edit mode — you can add, move and confirm shifts' : '🔒 Read mode — tap ✏️ to make changes');
+};
+function _schedApplyEditModeUI() {
+  var on = _schedIsEditMode();
+  var btn = document.getElementById('sched-edit-mode-btn');
+  if (!btn) return;
+  btn.textContent = on ? '✏️' : '🔒';
+  btn.title = on ? 'Edit mode is ON — tap to lock the schedule' : 'Read mode — tap to unlock editing';
+  btn.style.background = on ? 'var(--accent)' : 'var(--surface)';
+  btn.style.color = on ? '#fff' : 'var(--text)';
+}
+window._schedApplyEditModeUI = _schedApplyEditModeUI;
 var _schedTapHintShown = false;
 function _schedMaybeShowTapHint() {
   if (_schedTapHintShown) return;
@@ -14432,6 +14493,7 @@ window.renderScheduleNative = function() {
   _schedWireDrag();
   _schedWireBlocks();
   _schedWireScrollGuard();
+  _schedApplyEditModeUI();
 };
 
 // Tap-or-drag on a day column: a plain tap opens Add Shift at that hour
@@ -14469,8 +14531,16 @@ function _schedWireDrag() {
     function clearOverlay() { if (overlay) { overlay.remove(); overlay = null; } }
     col.addEventListener('pointerdown', function(e) {
       if (e.target.closest('.sched-block')) return;
+      // Read mode (default, see window.toggleSchedEditMode above): no
+      // create-drag at all, so a stray touch while just browsing the
+      // schedule can never start a new shift.
+      if (!_schedIsEditMode()) return;
       dragging = true; startHour = curHour = hourFromY(e.clientY);
       try { col.setPointerCapture(e.pointerId); } catch(err) {}
+    });
+    col.addEventListener('click', function(e) {
+      if (_schedIsEditMode() || e.target.closest('.sched-block')) return;
+      showToast('🔒 Read mode — tap ✏️ Edit to make changes');
     });
     col.addEventListener('pointermove', function(e) {
       if (!dragging) return;
@@ -14570,6 +14640,11 @@ function _schedWireBlocks() {
     var startClientX = 0, startClientY = 0, origTop = 0, origHeight = 0, origCol = null;
     block.addEventListener('pointerdown', function(e) {
       e.stopPropagation(); // don't also let the day-column start a "create" drag
+      // Read mode (default): no move/resize/tap-to-edit/double-tap-confirm
+      // at all — see window.toggleSchedEditMode above _schedWireScrollGuard.
+      // The 'click' listener just below still gives a gentle nudge instead
+      // of silently doing nothing.
+      if (!_schedIsEditMode()) return;
       var rect = block.getBoundingClientRect();
       var offsetY = e.clientY - rect.top;
       mode = offsetY <= 8 ? 'resize-start' : (offsetY >= rect.height - 8 ? 'resize-end' : 'move');
@@ -14580,6 +14655,11 @@ function _schedWireBlocks() {
       origHeight = parseFloat(block.style.height);
       try { block.setPointerCapture(e.pointerId); } catch(err) {}
       block.style.cursor = mode === 'move' ? 'grabbing' : 'ns-resize';
+    });
+    block.addEventListener('click', function(e) {
+      if (_schedIsEditMode()) return; // edit mode: handled by the tap/double-tap dispatcher via pointerup instead
+      e.stopPropagation(); // don't also trigger the day-column's own read-mode toast below
+      showToast('🔒 Read mode — tap ✏️ Edit to make changes');
     });
     block.addEventListener('pointermove', function(e) {
       if (!dragging) return;
@@ -14666,6 +14746,11 @@ function _schedWireBlocks() {
 var _schedEditingId = null; // null while the modal is adding a new shift; a push id while editing one
 window.openAddShiftModal = function(dateStr, startHour, endHour) {
   if (!guardWrite()) return;
+  // Reachable directly from the ☰ menu's "+ Add Shift" (bypasses the grid's
+  // own pointer-event gating above), so Read mode is re-checked here too —
+  // same defense-in-depth pattern as _rewardsIsCaregiver() checks in Level
+  // Up Board.
+  if (!_schedIsEditMode()) { showToast('🔒 Switch to ✏️ Edit mode first'); return; }
   _schedEditingId = null;
   document.getElementById('sched-modal-title').textContent = 'Add a shift';
   document.getElementById('sched-modal-date').value = dateStr || window.localDateStr();
@@ -14717,6 +14802,7 @@ function _schedRefreshLabelSuggestions() {
 }
 window.saveShiftModal = function() {
   if (!guardWrite()) return;
+  if (!_schedIsEditMode()) { showToast('🔒 Switch to ✏️ Edit mode first'); return; }
   var date = document.getElementById('sched-modal-date').value;
   var start = document.getElementById('sched-modal-start').value;
   var end = document.getElementById('sched-modal-end').value;
@@ -14755,6 +14841,7 @@ window.saveShiftModal = function() {
 window.deleteShiftModal = async function() {
   if (!_schedEditingId) return;
   if (!guardWrite()) return;
+  if (!_schedIsEditMode()) { showToast('🔒 Switch to ✏️ Edit mode first'); return; }
   if (!(await window.appConfirm('Delete this shift?', { detail: 'This can\'t be undone.', confirmLabel: 'Yes, delete' }))) return;
   remove(ref(db, SchedUP + '/schedule/' + _schedEditingId)).then(function() {
     showToast('Shift deleted');
@@ -14764,6 +14851,7 @@ window.deleteShiftModal = async function() {
 
 window.openBatchImportModal = function() {
   if (!guardWrite()) return;
+  if (!_schedIsEditMode()) { showToast('🔒 Switch to ✏️ Edit mode first'); return; }
   document.getElementById('sched-batch-text').value = '';
   document.getElementById('sched-batch-preview').innerHTML = '';
   document.getElementById('sched-batch-confirm-btn').style.display = 'none';
@@ -14825,6 +14913,7 @@ window.confirmBatchImport = function() {
 // it twice never duplicates entries.
 window.copyLastWeekToThisWeek = async function() {
   if (!guardWrite()) return;
+  if (!_schedIsEditMode()) { showToast('🔒 Switch to ✏️ Edit mode first'); return; }
   var prevMonday = _schedAddDays(_schedWeekStart, -7);
   var prevEntries = _schedEntriesForWeek(prevMonday);
   if (!prevEntries.length) { showToast('No shifts in the previous week to copy'); return; }
@@ -14855,6 +14944,7 @@ var _schedDupTargets = [];
 
 window.openDuplicateDayModal = function(dateStr) {
   if (!guardWrite()) return;
+  if (!_schedIsEditMode()) { showToast('🔒 Switch to ✏️ Edit mode first'); return; }
   _schedDupSourceDate = dateStr;
   _schedDupTargets = [];
   var shifts = _schedEntries().filter(function(s) { return s.date === dateStr; });
@@ -21455,6 +21545,27 @@ function _downloadTextFile(filename, text, mime) {
   setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 }
 
+// "⋮" More menu for Import/Export CSV (folded off the persistent bar
+// 2026-08-30, see the HTML comment above #plans-more-menu-btn) — same
+// open/close/outside-click pattern as Schedule's ☰ menu
+// (window.toggleSchedActionsMenu / _schedActionsMenuOutside above).
+window.togglePlansMoreMenu = function() {
+  var m = document.getElementById('plans-more-menu');
+  if (!m) return;
+  var open = m.style.display !== 'none';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) setTimeout(function() { document.addEventListener('pointerdown', _plansMoreMenuOutside, true); }, 30);
+};
+window.closePlansMoreMenu = function() {
+  var m = document.getElementById('plans-more-menu');
+  if (m) m.style.display = 'none';
+  document.removeEventListener('pointerdown', _plansMoreMenuOutside, true);
+};
+function _plansMoreMenuOutside(e) {
+  var m = document.getElementById('plans-more-menu'), btn = document.getElementById('plans-more-menu-btn');
+  if (m && !m.contains(e.target) && e.target !== btn) window.closePlansMoreMenu();
+}
+
 var PLANS_CSV_HEADERS = ['title', 'emoji', 'subtitle', 'due', 'tag', 'priority', 'status', 'link', 'phone', 'note'];
 window.exportPlansCSV = function() {
   var keys = Object.keys(_plansData || {});
@@ -23679,18 +23790,38 @@ var plansFamilyNoteEls = null;
 // CLIENT.adminEmails list instead of equality against the single
 // primaryAdminEmail string — matches what the surrounding code comments
 // already described as the intent.
+//
+// 2026-08-30 fix: the CLIENT.adminEmails shortcut above was a single-tenant
+// idea ("the one household this whole app was originally built for") that
+// stopped being safe to check FIRST the moment this product became a real
+// multi-tenant SaaS. Reported bug: 123mja@gmail.com (a real caregiver, a
+// genuine code-verified member of 123melissaca@gmail.com's real Family
+// Plan, same as any other member) saw Today's Message and Requests as
+// completely empty, while 123melissaca herself and a second real caregiver
+// on the same family plan (123mja123@gmail.com, NOT in adminEmails) both
+// saw the real thread fine. Root cause: 123mja@gmail.com's email happens to
+// ALSO be CLIENT.primaryAdminEmail/adminEmails (this fork's legacy
+// reference-household shortcut), and that check ran BEFORE the real
+// _familyInfo/family-plan-membership check below — so 123mja got silently
+// diverted to the fixed literal 'tools-you-the-winner/family-notes' path
+// (which nothing actually writes to for this family) instead of the real
+// family's 'users/{ownerUid}/family-notes' thread that 123melissaca (as
+// owner) and 123mja123 (as a normal member) both correctly land on. A real,
+// code-verified Family Plan membership must always win over this legacy
+// email-allowlist shortcut — an admin's personal email can legitimately
+// ALSO belong to a real customer family. The old email-match branches are
+// now demoted to a final fallback, only used when someone has NO real
+// family-plan record at all (the original "reference household with no
+// Family Plan document" case this shortcut was built for).
 function familyNotesRoot() {
   if (_demoMode) return 'tools-you-the-winner/demo/family-notes';
   if (window._viewingAs && window._viewingAs.uid) {
     return 'users/' + window._viewingAs.uid + '/family-notes';
   }
+  if (window._familyInfo) return 'users/' + window._familyInfo.ownerUid + '/family-notes'; // real family-plan membership/ownership always wins
   const myEmail = ((window._melUser && window._melUser.email) || '').toLowerCase();
   const _familyAdminEmails = (CLIENT.adminEmails || []).map(function(e){ return (e||'').toLowerCase(); });
-  if (_familyAdminEmails.indexOf(myEmail) !== -1) return 'tools-you-the-winner/family-notes'; // Mel's own household
-  if (window._familyInfo && _familyAdminEmails.indexOf((window._familyInfo.ownerEmail||'').toLowerCase()) !== -1) {
-    return 'tools-you-the-winner/family-notes'; // verified member of Your own family
-  }
-  if (window._familyInfo) return 'users/' + window._familyInfo.ownerUid + '/family-notes'; // someone else's own family
+  if (_familyAdminEmails.indexOf(myEmail) !== -1) return 'tools-you-the-winner/family-notes'; // legacy reference household, no real Family Plan record
   return UP + '/family-notes'; // no family at all — fully isolated
 }
 

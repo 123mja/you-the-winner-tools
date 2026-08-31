@@ -162,7 +162,7 @@
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence }
+  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, getRedirectResult, signOut, setPersistence, browserLocalPersistence }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { CLIENT } from "./client.config.js";
 
@@ -182,6 +182,7 @@
   const googleBtn   = document.getElementById('google-btn');
   const debugInfo   = document.getElementById('debug-info');
   const tryDifferentLink = document.getElementById('try-different-account');
+  const popupFallbackNote = document.getElementById('popup-fallback');
 
   // Make sure sign-in state survives the full-page redirect on mobile.
   try { await setPersistence(auth, browserLocalPersistence); } catch (e) {
@@ -196,6 +197,7 @@
     errorBox.classList.remove('show');
     errorBox.textContent = '';
     if (tryDifferentLink) tryDifferentLink.style.display = 'none';
+    if (popupFallbackNote) popupFallbackNote.style.display = 'none';
   }
   function setDebug(msg) {
     if (debugInfo) debugInfo.textContent = msg;
@@ -252,7 +254,7 @@ function describeSignInError(err) {
       return "This site isn't authorized for sign-in yet. Contact the site owner.";
     }
     if (code === 'auth/popup-blocked') {
-      return 'Your browser blocked the sign-in popup. Try the link below.';
+      return 'Your browser blocked the sign-in window. If you opened this from your Home Screen icon, please open it in Safari/Chrome directly and try again.';
     }
     if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
       return 'Sign-in was closed before finishing. Please try again.';
@@ -266,6 +268,17 @@ function describeSignInError(err) {
     if (code === 'auth/user-disabled') {
       return 'This account has been disabled. Contact the site owner.';
     }
+    // 2026-08-31 fix: added for the iPhone/Safari "missing initial state" bug
+    // (see the doGoogleSignIn rewrite below) — these two codes are what
+    // Firebase's SDK actually throws when a storage-partitioned browser
+    // can't complete a redirect-based sign-in. Previously fell through to
+    // the generic "Sign-in failed" message below, which was at least
+    // friendly, but the real bug was that we were *causing* this error by
+    // routing iPhone Safari into signInWithRedirect in the first place —
+    // see the removed redirect-fallback branch.
+    if (code === 'auth/missing-initial-state' || code === 'auth/web-storage-unsupported') {
+      return "We couldn't finish signing you in on this browser. Please make sure cookies/site data aren't blocked for this site, then tap Continue with Google again.";
+    }
     return 'Sign-in failed. Please try again.';
   }
 
@@ -277,27 +290,27 @@ function describeSignInError(err) {
 
   // Main entry point (Google button).
   // Uses signInWithPopup on all devices — this is the most reliable flow on
-  // modern iOS Safari and Android Chrome. The old redirect flow broke on iOS 17+
-  // because Apple's ITP blocks the third-party cookies Firebase needs to pass
-  // state back from firebaseapp.com after the redirect.
-  // If the popup itself is blocked (some browsers do this), we fall back to redirect.
+  // modern iOS Safari and Android Chrome.
   //
-  // 2026-08-30 postmortem: this used to unconditionally call
-  // provider.setCustomParameters({ prompt: 'select_account' }) here, added
-  // per Marcelo so a denied account wouldn't be stuck reusing itself with
-  // no way to switch. That broke sign-in outright ("cannot login at all
-  // ... even after cleaning cookies") -- forcing the account-chooser UI to
-  // render and wait on a manual click keeps the popup open longer and
-  // adds a real interaction step inside it, which is exactly the kind of
-  // thing that can trip auth/popup-blocked partway through -- and the
-  // redirect fallback right below is the same flow already called out
-  // above as broken on iOS 17+ Safari, so once that happened there was no
-  // way back in at all. Reverted: the default path here is back to
-  // exactly its original, proven-working, no-forced-prompt behavior.
-  // "Choose a different account" now lives only in
-  // window.signInWithDifferentAccount below, surfaced as an explicit link
-  // that appears after a denial (see handleSignedInResult) instead of
-  // being baked into every sign-in attempt.
+  // 2026-08-31 fix: this used to fall back to signInWithRedirect() whenever
+  // the popup itself reported auth/popup-blocked. That fallback is exactly
+  // what broke on iPhone Safari ("Unable to process request due to missing
+  // initial state..."): our authDomain (you-the-winner-tools.firebaseapp.com,
+  // see client.config.js) is a different site than tools.you-the-winner.com,
+  // and Safari's storage partitioning (Firefox 109+ and Chrome 115+ also do
+  // this now) means signInWithRedirect's cross-site sessionStorage handoff
+  // can't complete there. auth/popup-blocked itself is also disproportionately
+  // common on iPhone specifically -- any user who added this page to their
+  // Home Screen is running it in standalone mode, where popups don't work at
+  // all, so EVERY sign-in attempt from a Home Screen icon used to hit this
+  // exact broken fallback. Rather than trade one error for a guaranteed
+  // worse one, we now just surface a clear, actionable message and let the
+  // person retry the popup directly (a plain second tap succeeds far more
+  // often than not, since most blocks are transient) -- no redirect fallback
+  // at all. See SKILL.md for the fuller writeup and the two remaining
+  // options (Netlify proxy to firebaseapp.com, or bypassing Firebase's
+  // wrapper via Google Identity Services directly) if a real
+  // popup-incapable case turns up later.
   async function doGoogleSignIn(forceAccountPicker) {
     hideError();
     setLoading(true);
@@ -311,16 +324,9 @@ function describeSignInError(err) {
     } catch (err) {
       console.warn('[login] sign-in error:', err);
       setLoading(false);
-      if (err && err.code === 'auth/popup-blocked') {
-        // Popup blocked — fall back to redirect flow
-        try {
-          await signInWithRedirect(auth, provider);
-          // Page navigates away; result picked up by getRedirectResult below
-        } catch (redirectErr) {
-          showError(describeSignInError(redirectErr));
-        }
-      } else {
-        showError(describeSignInError(err));
+      showError(describeSignInError(err));
+      if (err && err.code === 'auth/popup-blocked' && popupFallbackNote) {
+        popupFallbackNote.style.display = 'block';
       }
     }
   }
@@ -339,7 +345,14 @@ function describeSignInError(err) {
     try { await signOut(auth); } catch (e) {}
   };
 
-  // Pick up the result of a redirect-based sign-in (mobile flow), if any.
+  // Defensive cleanup only, as of 2026-08-31: signInWithGoogle() above no
+  // longer ever calls signInWithRedirect(), so nothing here should normally
+  // fire. This stays only to gracefully finish (or fail quietly) for anyone
+  // who was genuinely mid-redirect at the moment this fix went out, rather
+  // than leaving them stuck. describeSignInError() now has a friendly
+  // branch for auth/missing-initial-state, so if this does still surface,
+  // the person sees plain language and lands back on this same login
+  // screen, never the raw Firebase error text.
   (async () => {
     try {
       const result = await getRedirectResult(auth);
@@ -349,6 +362,7 @@ function describeSignInError(err) {
       }
     } catch (err) {
       console.warn('[login] redirect result error:', err);
+      try { await signOut(auth); } catch (e2) {}
       showError(describeSignInError(err));
     } finally {
       setLoading(false);
