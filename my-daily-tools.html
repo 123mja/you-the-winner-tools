@@ -5490,9 +5490,14 @@
 <div class="tab-pane" id="pane-roadmap">
   <div style="max-width:480px;margin:0 auto;">
 
-    <!-- Header -->
-    <div style="text-align:center;padding:10px 0 12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);">🗺️ My Roadmap for Life</div>
+    <!-- Header — standardized 2026-08-31 to match Cycle/My Plans' tinted
+         box treatment (background:var(--accent-light) + var(--accent)
+         title), per Marcelo: headers across tabs had drifted into several
+         different treatments (plain text in var(--text), plain text in
+         var(--accent), a hardcoded var(--gold) on Wishlist, and only Cycle/
+         Plans having any background at all). -->
+    <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">🗺️ My Roadmap for Life</div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Tap any step to see details and update it</div>
     </div>
 
@@ -5547,9 +5552,9 @@
 <div class="tab-pane" id="pane-things">
   <div style="max-width:480px;margin:0 auto;">
 
-    <!-- Header -->
-    <div style="text-align:center;padding:10px 0 12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);">⚖️ Value of Things</div>
+    <!-- Header — standardized 2026-08-31, see Roadmap's header comment above for why. -->
+    <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">⚖️ Value of Things</div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Add anything and see how it compares in size</div>
     </div>
 
@@ -5695,9 +5700,9 @@
 <div class="tab-pane" id="pane-tasklists">
   <div style="max-width:480px;margin:0 auto;">
 
-    <!-- Header -->
-    <div style="text-align:center;padding:10px 0 12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);">⬆️ Level Up Board</div>
+    <!-- Header — standardized 2026-08-31, see Roadmap's header comment above for why. -->
+    <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">⬆️ Level Up Board</div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Check things off as you go</div>
     </div>
 
@@ -5911,8 +5916,9 @@
 <div class="tab-pane" id="pane-rewards">
   <div style="max-width:480px;margin:0 auto;">
 
-    <div style="text-align:center;padding:10px 0 12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);">🏆 Rewards</div>
+    <!-- Header — standardized 2026-08-31, see Roadmap's header comment for why. -->
+    <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">🏆 Rewards</div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Earn tokens for good things, spend them on rewards</div>
       <!-- Live date/time (2026-08-17 (2)), same format/pattern as
            #plans-datetime and #cycle-datetime — see the matching IIFE near
@@ -6616,9 +6622,9 @@ window.removeRmMilestone = function(pi, mi) {
 <div class="tab-pane" id="pane-help">
   <div style="max-width:480px;margin:0 auto;">
 
-    <!-- Header -->
-    <div style="text-align:center;padding:10px 0 12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);">❓ Help &amp; Support</div>
+    <!-- Header — standardized 2026-08-31, see Roadmap's header comment above for why. -->
+    <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">❓ Help &amp; Support</div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Getting-started guide, FAQ, bug reports, and feature requests</div>
     </div>
 
@@ -7763,7 +7769,7 @@ window.removeRmMilestone = function(pi, mi) {
   <!-- MY PLANS / GOALS -->
   <div style="background:var(--surface);border-radius:var(--radius);box-shadow:0 2px 12px rgba(15,31,28,.07);overflow:hidden;margin-bottom:14px;">
     <div class="home-collapse-header" onclick="toggleDtSection('plans')" role="button" tabindex="0" aria-expanded="true" id="plans-section-hdr"
-         style="padding:14px 16px;margin:0;border-bottom:none;background:var(--surface2);">
+         style="padding:14px 16px;margin:0;border-bottom:none;background:var(--accent-light);">
       <div>
         <!-- 2026-08-31 fix: was color:var(--gold) / background:var(--gold-bg)
              on the row above -- that's the fixed "reward" color trio used
@@ -7771,10 +7777,15 @@ window.removeRmMilestone = function(pi, mi) {
              every other tab's header uses (see Calendar's header a bit
              below, color:var(--accent)). That's why this stayed yellow
              while switching themes changed every other tab's header color.
-             Swapped to var(--accent) here + a neutral var(--surface2)
-             header background (same token the Calendar mode-toggle row
-             already uses) so this now tracks the selected theme like every
-             other tab. -->
+             Swapped to var(--accent) + var(--accent-light) (2026-08-31 (2):
+             updated from an interim var(--surface2) background to
+             var(--accent-light) once every other tab's header was
+             standardized onto that same tinted-box treatment — see Cycle's
+             header comment for the reference pattern) so this now tracks
+             the selected theme exactly like every other tab, just kept
+             left-aligned with its chevron/sync-dot since this one doubles
+             as a collapsible Home-dashboard card header, unlike the plain
+             centered titles the standalone-only tabs use. -->
         <div style="font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:800;color:var(--accent);">🌱 My Plans</div>
         <div style="font-size:.72rem;color:var(--muted);font-weight:500;margin-top:2px;">Bigger plans and ideas for the future</div>
         <div id="plans-datetime" style="font-size:.68rem;color:var(--muted);font-weight:600;margin-top:4px;"></div>
@@ -7978,8 +7989,12 @@ window.removeRmMilestone = function(pi, mi) {
 <div class="tab-pane" id="pane-calendar">
   <div style="max-width:560px;margin:0 auto;">
     <div id="sched-sticky-header">
-      <div style="text-align:center;padding:4px 0 10px;">
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:var(--accent);">📅 Calendar</div>
+      <!-- Header — standardized 2026-08-31, see Roadmap's header comment
+           (in pane-roadmap) for why; padding/margin trimmed slightly
+           versus the other tabs since this sits inside the sticky wrapper
+           right above the Month/Week/Today/Year toggle buttons. -->
+      <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:10px 16px;margin-bottom:8px;">
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">📅 Calendar</div>
         <div id="calendar-pane-sub" style="font-size:.8rem;color:var(--muted);margin-top:3px;"></div>
       </div>
       <!-- Buttons on this pane were resized 2026-08-24 (per Marcelo: "all the
@@ -8482,8 +8497,10 @@ window.removeRmMilestone = function(pi, mi) {
 </div>
 
 <div class="tab-pane" id="pane-calm">
-  <div style="text-align:center;padding:4px 0 16px;">
-    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:var(--accent);">Calm Corner</div>
+  <!-- Header — standardized 2026-08-31, see Roadmap's header comment (in
+       pane-roadmap) for why. -->
+  <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">Calm Corner</div>
     <div style="font-size:.8rem;color:var(--muted);margin-top:3px;">Pick what you need right now</div>
   </div>
 
@@ -8759,9 +8776,13 @@ window.removeRmMilestone = function(pi, mi) {
 <div class="tab-pane" id="pane-wishlist">
   <div style="max-width:480px;margin:0 auto;">
 
-    <!-- Header -->
-    <div style="text-align:center;padding:10px 0 12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--gold);">⭐ Wish List</div>
+    <!-- Header — standardized 2026-08-31: was color:var(--gold) with no
+         background at all (the same fixed "reward" color trio Wish List
+         items/Rewards use for their icons, not the theme-following
+         var(--accent) every other tab's header now uses consistently —
+         same class of issue as the Plans header fix earlier this session). -->
+    <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">⭐ Wish List</div>
     </div>
 
     <!-- Manual savings pool — shown only in manual mode -->
