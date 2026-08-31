@@ -391,6 +391,18 @@
   </div>
 </header>
 
+<!-- "Access denied" banner — added 2026-08-31. auth-guard.js's
+     accessDenied() redirects here with ?denied=1 whenever a signed-in user
+     is blocked from a page (missing permission row, denylisted account,
+     etc.). Before this, that query param was silently ignored -- the
+     person landed on this normal marketing page with zero indication
+     anything had gone wrong. Purely client-side read of the query string;
+     no data lookup needed to explain the situation in general terms. -->
+<div id="denied-banner" style="display:none;background:var(--gold-bg);border-bottom:1.5px solid var(--gold-border);padding:10px 20px;text-align:center;font-family:'Quicksand',sans-serif;font-size:.85rem;color:var(--text);">
+  <span>You don't have access to that page with this account. If you think this is a mistake, use <a href="#tab-contact" onclick="openContactTab(event,'Bug Report')" style="color:var(--accent);font-weight:700;">Contact</a> below and we'll take a look.</span>
+  <button onclick="document.getElementById('denied-banner').style.display='none'" aria-label="Dismiss" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;margin-left:10px;vertical-align:middle;">✕</button>
+</div>
+
 <!-- ── HERO ── -->
 <div class="hero-wrap" id="top">
   <div class="hero-leaf-r">🌿</div>
@@ -886,6 +898,19 @@ function submitContactForm(e) {
   });
   return false;
 }
+
+// Show the "access denied" banner when auth-guard.js's accessDenied()
+// redirects here with ?denied=1. Kept separate from the hash-deep-link IIFE
+// below since this reads the query string, not the hash, and has nothing
+// to do with the Learn More tabs.
+(function() {
+  try {
+    if (new URLSearchParams(location.search).get('denied') === '1') {
+      var b = document.getElementById('denied-banner');
+      if (b) b.style.display = 'block';
+    }
+  } catch (e) {}
+})();
 
 // Deep-link support: arriving with e.g. #tab-help (used by my-daily-tools.html's
 // Help tab and the Settings "Getting Started & FAQ" link) previously did nothing —

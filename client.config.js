@@ -67,6 +67,16 @@ const CLIENT = {
   // See netlify/edge-functions/root-redirect.js for the domain routing.
   domain: 'tools.you-the-winner.com',
 
+  // Path auth-guard.js's accessDenied() redirects to (with ?denied=1
+  // appended) when a signed-in user is blocked from a page. Added
+  // 2026-08-31 -- auth-guard.js previously hardcoded '/index.html' here,
+  // which is correct for the Engine fork (index.html is its real public
+  // homepage) but doesn't exist at all on this Tools deployment, whose
+  // actual public landing page is daily-tools-landing.html. Any page that
+  // ever fell into auth-guard.js's final accessDenied() branch was getting
+  // a raw Netlify 404 instead of a real "access denied" screen.
+  publicHome: '/daily-tools-landing.html',
+
   // ---------------------------------------------------------------------
   // ADMIN ACCESS
   // ---------------------------------------------------------------------
