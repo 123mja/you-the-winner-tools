@@ -5701,8 +5701,15 @@
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Check things off as you go</div>
     </div>
 
-    <!-- New list button -->
-    <div style="margin-bottom:8px;">
+    <!-- New list button — caregiver-only, shown/hidden by
+         window.tlSyncCaregiverOnlyUi() (called from renderTaskListsTab),
+         same as Import just below. Added 2026-08-31: this wrap previously
+         had no id and was never actually wired into tlSyncCaregiverOnlyUi()
+         despite openTaskListDialog()'s own comment claiming it already was
+         -- the function-level guard there was working, but nothing hid the
+         button itself, so a supported individual could open (and get
+         bounced from) the New List dialog. -->
+    <div id="tasklists-newlist-wrap" style="margin-bottom:8px;">
       <button onclick="window.openTaskListDialog()" style="width:100%;padding:11px;background:none;color:var(--accent);border:1.5px dashed var(--accent);border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;">＋ New list</button>
     </div>
 
@@ -7756,9 +7763,19 @@ window.removeRmMilestone = function(pi, mi) {
   <!-- MY PLANS / GOALS -->
   <div style="background:var(--surface);border-radius:var(--radius);box-shadow:0 2px 12px rgba(15,31,28,.07);overflow:hidden;margin-bottom:14px;">
     <div class="home-collapse-header" onclick="toggleDtSection('plans')" role="button" tabindex="0" aria-expanded="true" id="plans-section-hdr"
-         style="padding:14px 16px;margin:0;border-bottom:none;background:var(--gold-bg);">
+         style="padding:14px 16px;margin:0;border-bottom:none;background:var(--surface2);">
       <div>
-        <div style="font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:800;color:var(--gold);">🌱 My Plans</div>
+        <!-- 2026-08-31 fix: was color:var(--gold) / background:var(--gold-bg)
+             on the row above -- that's the fixed "reward" color trio used
+             for Wish List / Rewards, not the theme-following var(--accent)
+             every other tab's header uses (see Calendar's header a bit
+             below, color:var(--accent)). That's why this stayed yellow
+             while switching themes changed every other tab's header color.
+             Swapped to var(--accent) here + a neutral var(--surface2)
+             header background (same token the Calendar mode-toggle row
+             already uses) so this now tracks the selected theme like every
+             other tab. -->
+        <div style="font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:800;color:var(--accent);">🌱 My Plans</div>
         <div style="font-size:.72rem;color:var(--muted);font-weight:500;margin-top:2px;">Bigger plans and ideas for the future</div>
         <div id="plans-datetime" style="font-size:.68rem;color:var(--muted);font-weight:600;margin-top:4px;"></div>
       </div>
@@ -16353,10 +16370,11 @@ window.toggleTaskItemInstructions = function(itemId) {
 window.openTaskListDialog = function(id) {
   // Caregiver-only, added 2026-08-29 per Marcelo -- creating/editing a
   // list (and reaching its Delete button) is caregiver management, not
-  // something a supported individual should be able to do. The UI already
-  // hides every button that calls this (the "+ New list" button and the
-  // header's pencil icon), but guard here too since this is a window-level
-  // function reachable directly.
+  // something a supported individual should be able to do. The UI hides
+  // every button that calls this (the "+ New list" button, gated via
+  // window.tlSyncCaregiverOnlyUi() as of 2026-08-31 -- see that function --
+  // and the header's pencil icon), but guard here too since this is a
+  // window-level function reachable directly.
   if (!_rewardsIsCaregiver()) { window.showToast && window.showToast('Only a caregiver can manage lists'); return; }
   _editingTaskListId = id || null;
   var list = id ? _taskListsData[id] : null;
@@ -16438,8 +16456,11 @@ window.deleteTaskListFromDialog = async function() {
 // Firebase keys, everything starts uncompleted), so importing a list
 // never overwrites anything the caregiver already has. ──
 window.tlSyncCaregiverOnlyUi = function() {
+  var isCg = _rewardsIsCaregiver();
+  var newListWrap = document.getElementById('tasklists-newlist-wrap');
+  if (newListWrap) newListWrap.style.display = isCg ? '' : 'none';
   var importWrap = document.getElementById('tasklists-import-wrap');
-  if (importWrap) importWrap.style.display = _rewardsIsCaregiver() ? '' : 'none';
+  if (importWrap) importWrap.style.display = isCg ? '' : 'none';
 };
 window.exportTaskList = function() {
   if (!_rewardsIsCaregiver()) { window.showToast && window.showToast('Only a caregiver can export a list'); return; }
