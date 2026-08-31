@@ -7837,16 +7837,14 @@ window.removeRmMilestone = function(pi, mi) {
       </div>
       <!-- "+ New" moved here from the filters row above (2026-08-06) — it's
            tapped far less often than search/filter/view controls, so
-           sitting up there made it too easy to hit by accident; down here
-           near the pagination Prev/Next (table view) — or, in Card View,
-           just below that same row's carousel Prev/Next, since this bar
-           stays in a fixed position below #plans-list regardless of which
-           view mode's controls are currently rendered above it — it's a
-           deliberate, separate tap. Kept as its own persistent bar (not
-           nested inside #plans-pagination) because that row hides itself
-           whenever there's only one page, which would've made the button
-           disappear on every account with a short plan list. -->
-      <div style="display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+           sitting up there made it too easy to hit by accident. This bar
+           (#plans-add-btn-bar) is only actually shown in table view now —
+           2026-08-31, per Marcelo, its own "+ New" was folded directly into
+           the carousel's Prev/Next/Play row instead (see
+           renderPlansCarouselCard) to stop Card View from spending two
+           rows of vertical space on what's really one control cluster. See
+           renderPlans() below for the show/hide toggle between the two. -->
+      <div id="plans-add-btn-bar" style="display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
         <button id="plans-add-btn-top" onclick="openAddPlanModal()" style="display:none;padding:6px 14px;background:transparent;color:var(--accent);border:1.5px dashed var(--border);border-radius:8px;font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;white-space:nowrap;">＋ New</button>
       </div>
       <div id="plans-hidden-link" class="checklist-hidden-link" onclick="toggleHiddenPlans()"></div>
@@ -21252,6 +21250,15 @@ function renderPlansCarouselCard(items, canEdit, today2) {
       <button class="checklist-page-btn" onclick="movePlansCarousel(-1)" ${idx===0?'disabled':''}>‹ Prev</button>
       ${total >= 2 ? `<button class="checklist-page-btn" onclick="togglePlansCarouselPlay()" title="${_plansCarouselPlaying?'Stop autoplay':'Resume autoplay'}" style="min-width:38px;">${_plansCarouselPlaying?'⏹':'▶️'}</button>` : ''}
       <button class="checklist-page-btn" onclick="movePlansCarousel(1)" ${idx>=total-1?'disabled':''}>Next ›</button>
+      <!-- "+ New" folded into this same row 2026-08-31, per Marcelo: it was
+           sitting in its own separate row below this one, using two rows'
+           worth of vertical space for what's really one control cluster in
+           Card View. The standalone bar just below (#plans-add-btn-top) is
+           now hidden specifically while in carousel mode — see
+           window.setPlansViewMode — so this is the only "+ New" shown here,
+           not a duplicate. Table view is unaffected: that bar still shows
+           there exactly as before. -->
+      ${canEdit ? `<button class="checklist-page-btn" onclick="openAddPlanModal()" style="color:var(--accent);">＋ New</button>` : ''}
     </div>
     ${total >= 2 ? `<div style="display:flex;align-items:center;gap:6px;">
       <span style="font-size:.68rem;color:var(--muted);font-weight:700;">⏱️ Speed</span>
@@ -21266,6 +21273,12 @@ function renderPlansCarouselCard(items, canEdit, today2) {
 
 function renderPlans() {
 const el = document.getElementById('plans-list'); if(!el) return;
+// "+ New" bar only shows in table view — in Card View it's rendered inline
+// with Prev/Next/Play instead (see renderPlansCarouselCard). Synced here
+// (rather than only in setPlansViewMode) so it's also correct the first
+// time this pane renders after a page load that starts directly in
+// Card View (localStorage-persisted plans-view-mode).
+{const addBar = document.getElementById('plans-add-btn-bar'); if (addBar) addBar.style.display = _plansViewMode === 'carousel' ? 'none' : '';}
 try { window.renderWelcomeSnapshot && window.renderWelcomeSnapshot(); } catch(e) {}
 var _ps=document.getElementById('plans-sort-preset');if(_ps&&_ps.value!==_plansSortPreset)_ps.value=_plansSortPreset;
 const pppEl = document.getElementById('plans-per-page'); if(pppEl && pppEl.value != _plansPerPage) pppEl.value = _plansPerPage;
