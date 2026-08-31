@@ -12549,9 +12549,17 @@ window._recordToolUsage = function(tabName) {
    Firebase at P+'/settings/{key}', reusing the same path convention already used by
    plans-font-size and roadmap-config. Demo-only / transient keys are deliberately
    excluded (plans-font-size-demo, cycle-demo-periods, daily-tools-tab — the last is
-   "which tab is open right now", not a durable preference worth forcing across devices). */
+   "which tab is open right now", not a durable preference worth forcing across devices).
+   2026-08-31: sched-start-hour and sched-week-start were REMOVED from this list —
+   P is always UP (this signed-in account's own uid), never redirected to a family
+   owner's uid, so they were only syncing across one person's own devices, not across
+   family members sharing the same schedule (reported as "same as the Payroll
+   presets bug, but for the schedule's starting hour"). Both now live at
+   SchedUP+'/schedule-settings/startHour' and '.../weekStartsOn' instead — the
+   same family-aware bucket hourlyRate/savingsGoalPresets already correctly use.
+   See _getSchedStartHour/window._schedSyncSharedPrefs for the read side. */
 const SYNCED_SETTINGS_KEYS = [
-  'calendar-tab-enabled','calendar-url','calendar-view-mode','calm-tab-enabled','cycle-tracker-enabled',
+  'calendar-tab-enabled','calendar-view-mode','calm-tab-enabled','cycle-tracker-enabled',
   'daily-tools-tab-order','default-landing-tab','dt-hide-nav',
   'home-tab-enabled','home-today-message-enabled','myday-tab-enabled',
   'plans-tab-enabled',
@@ -12563,7 +12571,7 @@ const SYNCED_SETTINGS_KEYS = [
   'plans-show-icon','plans-show-priority','plans-show-tag','plans-uppercase-title',
   'plans-sort-dir','plans-sort-field','plans-sort-override','plans-sort-preset','plans-custom-order',
   'plans-view-mode',
-  'rm-config','roadmap-tab-enabled','sched-start-hour','sched-week-start','settings-tab-visible','tb-max-visible',
+  'rm-config','roadmap-tab-enabled','settings-tab-visible','tb-max-visible',
   'tab-defaults-applied-version',
   'things-tab-enabled','rewards-tab-enabled','tasklists-tab-enabled',
   'today-message-enabled','today-message-start-open',
@@ -13061,10 +13069,31 @@ function _schedWireRangeSlider() {
 // Configurable per-account via Settings → Misc → Schedule Preferences
 // (added 2026-08-24, per Marcelo: "first hour of the weekly menu should be
 // configurable, right now is at 6am, as well as which day should be
-// considered the first day of the week"). Both are synced cross-device
-// (SYNCED_SETTINGS_KEYS below) since they're real preferences about how the
-// schedule should look, not per-device UI state like which sub-view was
-// last open (see _getSchedViewMode's comment for that distinction).
+// considered the first day of the week"). Both were ORIGINALLY synced via
+// the generic SYNCED_SETTINGS_KEYS mechanism below, on the assumption that
+// was already family-plan-aware like SchedUP/PlansUP -- it isn't.
+// SYNCED_SETTINGS_KEYS mirrors through Firebase at P+'/settings/{key}',
+// and P (see 'let P' above) is always UP, the SIGNED-IN account's own uid,
+// never redirected to a family owner's uid the way PlansUP/SchedUP are. So
+// this was correctly syncing across ONE person's own devices, but NOT
+// across family members sharing the same schedule -- reported 2026-08-31
+// ("the same is happening [as the Payroll rate/presets bug] to the
+// settings starting hour on ytw schedule"), same root cause class as that
+// bug, just a different setting that had never been moved onto the
+// family-aware path in the first place.
+//
+// 2026-08-31 fix: moved both onto SchedUP+'/schedule-settings/startHour'
+// and '.../weekStartsOn' -- the exact same shared bucket hourlyRate/
+// rateHistory/savingsGoalPresets already correctly use -- and removed both
+// keys from SYNCED_SETTINGS_KEYS below so there's only one source of truth
+// for them now, not two competing ones. localStorage is kept as a fast,
+// synchronous, offline-friendly CACHE only (SCHED_DAY_START is read
+// synchronously all over the grid-rendering code, so it can't wait on a
+// Firebase round-trip on every render) -- window._schedSyncSharedPrefs()
+// refreshes that cache from the real shared value once SchedUP is known
+// (see its call sites, right after _applyFamilyPlanRedirect resolves and
+// after any explicit account switch), and re-renders if the shared value
+// differs from whatever this device had cached.
 function _getSchedStartHour() {
   try {
     var v = parseInt(localStorage.getItem('sched-start-hour'), 10);
@@ -13076,6 +13105,86 @@ function _getSchedWeekStartsOn() {
   try { return localStorage.getItem('sched-week-start') === 'sun' ? 'sun' : 'mon'; } catch(e) { return 'mon'; }
 }
 window._getSchedWeekStartsOn = _getSchedWeekStartsOn;
+// Pulls the real shared value from SchedUP+'/schedule-settings/' and
+// reconciles the local cache + any already-rendered grid. Safe to call any
+// number of times (e.g. on every account switch); a get() that finds
+// nothing at that path (brand-new account, nobody's ever changed the
+// default) just leaves the existing cached/default value alone rather than
+// overwriting it with null.
+window._schedSyncSharedPrefs = function() {
+  if (!SchedUP) return;
+  Promise.all([
+    get(ref(db, SchedUP + '/schedule-settings/startHour')).then(function(snap) { return snap.val(); }).catch(function() { return null; }),
+    get(ref(db, SchedUP + '/schedule-settings/weekStartsOn')).then(function(snap) { return snap.val(); }).catch(function() { return null; }),
+    get(ref(db, SchedUP + '/schedule-settings/calendarUrl')).then(function(snap) { return snap.val(); }).catch(function() { return null; })
+  ]).then(function(vals) {
+    var sharedStart = vals[0], sharedWeekStart = vals[1], sharedCalUrl = vals[2];
+    var changed = false, calChanged = false;
+    if (sharedStart != null && sharedStart !== _getSchedStartHour()) {
+      try { localStorage.setItem('sched-start-hour', String(sharedStart)); } catch(e) {}
+      SCHED_DAY_START = sharedStart;
+      changed = true;
+    }
+    if ((sharedWeekStart === 'sun' || sharedWeekStart === 'mon') && sharedWeekStart !== _getSchedWeekStartsOn()) {
+      try { localStorage.setItem('sched-week-start', sharedWeekStart); } catch(e) {}
+      changed = true;
+    }
+    // 2026-08-31 fix: the Google Calendar embed link had the exact same bug
+    // as the two settings above -- it was syncing via the generic
+    // SYNCED_SETTINGS_KEYS/P mechanism (own account only), so a caregiver
+    // viewing a shared family plan saw their OWN saved calendar link (or
+    // the hardcoded DEFAULT_CAL_URL) instead of whichever calendar the
+    // family's caregiver actually set up. Reported: "if I'm accessing a
+    // share of someone I should have his Google calendar link that is set
+    // by the caregiver." Moved onto the same shared bucket as the two
+    // settings above; empty string is a valid "explicitly cleared, use the
+    // default" state, so it's compared/stored as '' rather than skipped
+    // like the null-meaning-not-set case is for the other two keys.
+    if (typeof sharedCalUrl === 'string' && sharedCalUrl !== (localStorage.getItem('calendar-url') || '')) {
+      try {
+        if (sharedCalUrl) localStorage.setItem('calendar-url', sharedCalUrl);
+        else localStorage.removeItem('calendar-url');
+      } catch(e) {}
+      calChanged = true;
+    }
+    if (changed) {
+      _schedWeekStart = _schedMonday(_schedWeekStart);
+      window.renderScheduleNative && window.renderScheduleNative();
+      window.renderScheduleMonth && window.renderScheduleMonth();
+      window.renderScheduleYear && window.renderScheduleYear();
+    }
+    if (changed || calChanged) {
+      window.renderCalendarPane && window.renderCalendarPane();
+      var calInput = document.getElementById('calendar-url-input');
+      if (calInput) calInput.value = localStorage.getItem('calendar-url') || '';
+    }
+  });
+};
+// Shared-aware replacement for the classic <script> block's initial
+// window.setCalendarUrl (which only wrote to localStorage) -- this
+// definition runs later (module scripts execute after classic scripts) and
+// wins, so every caller still just calls window.setCalendarUrl() same as
+// before. Keeps the same validation/messaging UX, just also writes through
+// to SchedUP so the rest of the family picks it up via
+// window._schedSyncSharedPrefs() above.
+window.setCalendarUrl = function(url) {
+  if (!guardWrite()) return;
+  url = (url || '').trim();
+  var msg = document.getElementById('calendar-url-msg');
+  if (url && !/^https?:\/\//i.test(url)) {
+    if (msg) { msg.textContent = 'Enter a full web address, starting with https://'; msg.style.color = '#d94f4f'; }
+    return;
+  }
+  try {
+    if (url) localStorage.setItem('calendar-url', url);
+    else localStorage.removeItem('calendar-url');
+  } catch(e) {}
+  set(ref(db, SchedUP + '/schedule-settings/calendarUrl'), url).catch(function() {});
+  var input = document.getElementById('calendar-url-input');
+  if (input) input.value = url;
+  if (msg) { msg.textContent = url ? 'Saved ✓' : 'Cleared. Calendar will use the default link.'; msg.style.color = 'var(--accent)'; setTimeout(function(){ if(msg) msg.textContent=''; }, 2500); }
+  try { window.renderCalendarPane && window.renderCalendarPane(); } catch(e) {}
+};
 // Mon/Tue/... or Sun/Mon/... — short form for the Month/Year grid headers,
 // long form for the Week grid header — matching whichever day the account
 // has chosen to start its week on.
@@ -13173,18 +13282,39 @@ window.renderSchedPrefsSettings = function() {
   }
   hourSel.value = String(_getSchedStartHour());
   wkSel.value = _getSchedWeekStartsOn();
+  // Fetch fresh from the shared SchedUP path on top of the cached values
+  // above, same lazy-fetch-on-open pattern as the Payroll Rate card just
+  // below (there's no realtime listener on schedule-settings, so another
+  // family member's change since this device's last sync wouldn't
+  // otherwise show up until this card is reopened).
+  window._schedSyncSharedPrefs && window._schedSyncSharedPrefs();
+  setTimeout(function() {
+    hourSel.value = String(_getSchedStartHour());
+    wkSel.value = _getSchedWeekStartsOn();
+  }, 400);
 };
 window.saveSchedPrefs = function() {
+  if (!guardWrite()) return;
   var hourSel = document.getElementById('sched-pref-start-hour');
   var wkSel = document.getElementById('sched-pref-week-start');
   if (!hourSel || !wkSel) return;
   var h = parseInt(hourSel.value, 10);
   if (isNaN(h) || h < 0 || h > 22) h = 6;
+  var wk = wkSel.value === 'sun' ? 'sun' : 'mon';
   try {
     localStorage.setItem('sched-start-hour', String(h));
-    localStorage.setItem('sched-week-start', wkSel.value === 'sun' ? 'sun' : 'mon');
+    localStorage.setItem('sched-week-start', wk);
   } catch(e) {}
   SCHED_DAY_START = h;
+  // 2026-08-31 fix: these two are shared, family-wide schedule settings
+  // (see the long comment above _getSchedStartHour), not a per-device
+  // preference — write through to the same SchedUP+'/schedule-settings/'
+  // bucket the Payroll Rate card just below uses, so anyone else viewing
+  // this same shared schedule picks it up too (via
+  // window._schedSyncSharedPrefs on their own next load/account-switch),
+  // not just this device.
+  set(ref(db, SchedUP + '/schedule-settings/startHour'), h).catch(function() {});
+  set(ref(db, SchedUP + '/schedule-settings/weekStartsOn'), wk).catch(function() {});
   // Re-anchor the currently-viewed week to the same calendar week under the
   // (possibly new) first-day-of-week convention, rather than jumping back
   // to today.
@@ -22598,7 +22728,7 @@ window.toggleFamilyMemberRole = function(memberUid, newRole) {
   newRole = newRole === 'caregiver' ? 'caregiver' : 'child';
   requireDeletePin(function() { _doSetFamilyMemberRole(memberUid, newRole); }, {
     title: '🔐 Confirm Role Change',
-    hint: newRole === 'caregiver' ? "Enter your PIN to make this person a caregiver/parent." : "Enter your PIN to make this person's role Child/Loved one.",
+    hint: newRole === 'caregiver' ? "Enter your PIN to make this person a caregiver/parent." : "Enter your PIN to make this person's role Supported/Loved one.",
     confirmLabel: 'Confirm', noPinWord: 'ROLE'
   });
 };
@@ -22870,12 +23000,12 @@ window.renderFamilyPlanSection = async function() {
     const mCareRole = mInfo.role === 'caregiver' ? 'caregiver' : 'child';
     const safeUid = mUid.replace(/'/g,'');
     const safeName = (mInfo.name || 'Member').replace(/'/g,'');
-    const roleBadge = '<span style="font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;background:' + (mCareRole === 'caregiver' ? 'var(--accent-light);color:var(--accent);' : 'var(--surface2);color:var(--muted);') + '">' + (mCareRole === 'caregiver' ? '👪 Caregiver' : '🧒 Child') + '</span>';
+    const roleBadge = '<span style="font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;background:' + (mCareRole === 'caregiver' ? 'var(--accent-light);color:var(--accent);' : 'var(--surface2);color:var(--muted);') + '">' + (mCareRole === 'caregiver' ? '👪 Caregiver' : '💛 Supported') + '</span>';
     let actions = '';
     if (!isOwnerRow) {
       actions += '<button onclick="startOwnershipTransfer(\'' + safeUid + '\',\'' + safeName + '\')" style="padding:3px 10px;font-size:.7rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-family:\'Nunito\',sans-serif;">Make Owner</button>';
     }
-    actions += '<button onclick="toggleFamilyMemberRole(\'' + safeUid + '\',\'' + (mCareRole === 'caregiver' ? 'child' : 'caregiver') + '\')" style="padding:3px 10px;font-size:.7rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-family:\'Nunito\',sans-serif;">' + (mCareRole === 'caregiver' ? 'Make Child' : 'Make Caregiver') + '</button>';
+    actions += '<button onclick="toggleFamilyMemberRole(\'' + safeUid + '\',\'' + (mCareRole === 'caregiver' ? 'child' : 'caregiver') + '\')" style="padding:3px 10px;font-size:.7rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-family:\'Nunito\',sans-serif;">' + (mCareRole === 'caregiver' ? 'Make Supported' : 'Make Caregiver') + '</button>';
     if (!isOwnerRow) {
       actions += '<button onclick="removeFamilyPlanMember(\'' + safeUid + '\')" style="padding:3px 10px;font-size:.7rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:\'Nunito\',sans-serif;">Remove</button>';
     }
@@ -23326,6 +23456,7 @@ window.switchToAccount = function(targetUid, targetName) {
   // down knew to refresh it — see that fix's comment for the full story.
   try { window._renderCycleCalendarIfOpen && window._renderCycleCalendarIfOpen(); } catch(e) {}
   _registerPlanListeners(UP, PlansUP, CycleUP, RmUP, RwUP, SchedUP, TlUP);
+  window._schedSyncSharedPrefs && window._schedSyncSharedPrefs(); // SchedUP just changed above — refresh the cached start-hour/week-start for the newly-viewed account
   _renderCaregiverSwitcher();
   _renderFamilyPlanBanner();
   _resetFamilyNoteForAccountSwitch();
@@ -23360,6 +23491,7 @@ window.switchToOwnAccount = async function() {
   // 2026-08-13 fix: this call was missing its 3rd argument (CycleUP), the
   // same bug as switchToAccount() — see that comment for what it caused.
   _registerPlanListeners(UP, PlansUP, CycleUP, RmUP, RwUP, SchedUP, TlUP);
+  window._schedSyncSharedPrefs && window._schedSyncSharedPrefs(); // SchedUP just changed above — refresh the cached start-hour/week-start for whichever account this landed on
   // 2026-08-18 fix, per Marcelo (found while adding Money/Wishlist their
   // own "Viewing" cards): MP gets correctly recomputed by
   // _applyFamilyPlanRedirect() just above, but the live Money/Wishlist
@@ -25861,6 +25993,7 @@ async function _migrateTodosIntoPlans() {
 // the wrong data.
 window._applyFamilyPlanRedirect(user.uid).then(function() {
   _registerPlanListeners(UP, PlansUP, CycleUP, RmUP, RwUP, SchedUP, TlUP);
+  window._schedSyncSharedPrefs && window._schedSyncSharedPrefs(); // SchedUP is now known for real — reconcile the local start-hour/week-start cache with the shared value before the grid's first paint settles
   _registerMoneyListeners(MP);
   try { _calendarAutoOpenOnLanding(); } catch(e) {}
   _renderFamilyPlanBanner();
