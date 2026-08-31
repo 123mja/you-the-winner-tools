@@ -15346,10 +15346,33 @@ window.getIncomeCats = getIncomeCats;
 function getExpenseCats() { return _expenseCats || DEFAULT_EXPENSE_CATS.slice(); }
 window.getExpenseCats = getExpenseCats;
 
+// 2026-08-31 fix: this used to filter on the single goal.accountId field,
+// which gets OVERWRITTEN on every new deposit (see the deposit handler:
+// "if(acctId) goal.accountId = acctId"). goal.saved is a running total that
+// can be built up from deposits made against SEVERAL different accounts
+// over time (each correctly recorded, per-deposit, in
+// goal.transactions[txnId].accountId — same data Wishlist's own goal-detail
+// "Past savings" list already reads from). So a goal funded partly from
+// Account A and partly from Account B was showing its ENTIRE saved total
+// as reserved against whichever account happened to be used most
+// recently, and $0 reserved against the other — this is exactly the
+// mismatch reported ("reserved bucket doesn't match what Wishlist shows").
+// Now sums from the actual per-transaction accountId, falling back to the
+// legacy single-field behavior only for goals saved before per-transaction
+// tracking existed (a saved amount with no transactions object at all).
 function getReservedForAccount(accountId) {
-  // Sum of saved amounts on active (not completed) goals linked to this account
-  return Object.values(_goalBasket).filter(g=>g.accountId===accountId && !g.completed)
-               .reduce((s,g)=>s+(Number(g.saved)||0), 0);
+  var total = 0;
+  Object.values(_goalBasket).forEach(function(g) {
+    if (g.completed) return;
+    if (g.transactions && Object.keys(g.transactions).length) {
+      Object.values(g.transactions).forEach(function(t) {
+        if (t.accountId === accountId) total += (Number(t.amount) || 0);
+      });
+    } else if (g.accountId === accountId) {
+      total += (Number(g.saved) || 0);
+    }
+  });
+  return total;
 }
 function getAvailableBalance(account) {
   if(!account) return 0;
