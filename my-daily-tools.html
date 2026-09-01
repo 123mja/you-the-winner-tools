@@ -854,6 +854,16 @@
        anchor target that's display:none can't be scrolled to. -->
   <a id="myday-top"></a>
 
+  <!-- Header — standardized 2026-08-31 to match every other tab (see
+       Roadmap's header comment for the reference pattern). Added
+       specifically for this embedded-in-my-daily-tools.html context:
+       myday.html's own .header is hidden entirely while embedded (see the
+       comment above), and nothing themed had ever been put in its place —
+       that's why My Day looked different from every other tab's header. -->
+  <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">🌿 My Day</div>
+  </div>
+
 
   <!-- Sticky date/time strip — kept compact and separate from the big title
        so only this thin bar pins while scrolling, not the whole header
@@ -8538,7 +8548,7 @@ window.removeRmMilestone = function(pi, mi) {
 <div id="money-modal" class="modal-overlay">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">What happened with your money today? 💰</div>
+    <div class="modal-title" id="money-modal-title">What happened with your money today? 💰</div>
     <div class="type-tabs">
       <button class="type-tab" id="tt-got"   onclick="setModalType('got')">💵 I Got Money</button>
       <button class="type-tab" id="tt-spent" onclick="setModalType('spent')">🛒 I Spent Money</button>
@@ -8674,7 +8684,22 @@ window.removeRmMilestone = function(pi, mi) {
       <input class="gmodal-input" id="awm-icon" placeholder="🎯" maxlength="4" style="width:68px;text-align:center;flex-shrink:0;margin-bottom:0;">
       <input class="gmodal-input" id="awm-name" placeholder="Item name…" style="flex:1;margin-bottom:0;">
     </div>
-    <input class="gmodal-input" id="awm-price" type="number" min="0" step="0.01" placeholder="Target price (e.g. 350)">
+    <!-- Target price — given the same slider+quick-scale UX as Money
+         Planner's amount input 2026-08-31, per Marcelo ("make it like at
+         my money"). Self-contained (own ids/state, window.wlAmtSliderInput/
+         wlAmtNumberInput below) rather than reusing window.moneyAmtSliderInput
+         directly, since that one is hardwired to #modal-amount/#money-amt-slider
+         -- this reuses the exact same CSS classes so it looks identical. -->
+    <div class="money-amt-wrap">
+      <div class="money-amt-display" id="wl-amt-display">$0</div>
+      <div class="money-amt-scale-row">
+        <button type="button" class="money-amt-scale-btn" onclick="window.wlAmtSliderInput(10)">$10</button>
+        <button type="button" class="money-amt-scale-btn" onclick="window.wlAmtSliderInput(100)">$100</button>
+        <button type="button" class="money-amt-scale-btn" onclick="window.wlAmtSliderInput(1000)">$1,000</button>
+      </div>
+      <input type="range" class="money-amt-slider" id="wl-amt-slider" min="0" max="200" step="1" value="0" oninput="window.wlAmtSliderInput(this.value)" aria-label="Drag to set target price">
+    </div>
+    <input class="gmodal-input" id="awm-price" type="number" min="0" step="0.01" placeholder="or type an exact amount" oninput="window.wlAmtNumberInput(this.value)">
     <input class="gmodal-input" id="awm-url" type="url" placeholder="Link to buy it (optional): https://…">
     <div id="awm-achieved-row" style="display:none;align-items:center;gap:10px;margin:10px 0 4px;padding:8px 10px;background:var(--gold-bg);border:1px solid var(--gold-border);border-radius:8px;cursor:pointer;" onclick="document.getElementById('awm-achieved').click()">
       <input type="checkbox" id="awm-achieved" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation()">
@@ -12161,7 +12186,17 @@ window.toggleSection = toggleSection;
 
 /* ── MONEY MODAL ── */
 let _modalType = 'got';
+// Set by window.editTxn() below; null means the Money Modal's next Save is
+// a normal new transaction. Read (and cleared) by submitTransaction()/
+// closeMoneyModal() — added 2026-08-31 to add real editing to Money
+// Planner's transaction list, which previously only had a delete button
+// (mirrors the same gap editGoalTxn already fixed for Wishlist goal
+// deposits, but a full modal re-edit here since a regular transaction has
+// more fields — type/account/category — than a goal deposit does).
+let _editingTxnId = null;
 function openMoneyModal(type) {
+  _editingTxnId = null; // opening fresh via "I Got Money"/"I Spent Money"/"Move Money" — not an edit
+  document.getElementById('money-modal-title').textContent = 'What happened with your money today? 💰';
   setModalType(type || 'got');
   document.getElementById('modal-note').value = '';
   _moneyAmtSliderMax = 200; // reset the slider's grown range from any previous entry
@@ -12171,8 +12206,43 @@ function openMoneyModal(type) {
 }
 window.openMoneyModal = openMoneyModal;
 
-function closeMoneyModal() { document.getElementById('money-modal').classList.remove('open'); }
+function closeMoneyModal() {
+  document.getElementById('money-modal').classList.remove('open');
+  _editingTxnId = null; // so a cancelled edit doesn't silently overwrite the next NEW transaction
+}
 window.closeMoneyModal = closeMoneyModal;
+
+// Opens the same Money Modal used to add a transaction, pre-filled with an
+// existing one's values — added 2026-08-31, see the _editingTxnId comment
+// above. Category is matched back to an id by name (the stored transaction
+// only ever kept category name+icon, not its id — see submitTransaction),
+// so a since-renamed or since-deleted category just falls back to
+// whatever the select's first option is, same as a brand-new entry would.
+window.editTxn = function(id) {
+  const t = _transactions[id];
+  if (!t) return;
+  const type = t.type === 'income' ? 'got' : (t.type === 'transfer' ? 'move' : 'spent');
+  _editingTxnId = id;
+  document.getElementById('money-modal-title').textContent = 'Edit this transaction';
+  setModalType(type);
+  try { populateModalSelects(); } catch(e) { console.warn('populateModalSelects:', e); }
+  if (type === 'move') {
+    document.getElementById('modal-acct-1').value = t.from || '';
+    document.getElementById('modal-acct-2').value = t.to || '';
+  } else {
+    document.getElementById('modal-acct-1').value = t.account || '';
+    const cats = type === 'got' ? getIncomeCats() : getExpenseCats();
+    const match = cats.find(c => c.name === t.category);
+    if (match) document.getElementById('modal-cat').value = match.id;
+  }
+  document.getElementById('modal-note').value = t.note || '';
+  _moneyAmtSliderMax = 200;
+  window.moneyAmtNumberInput(t.amount);
+  document.getElementById('modal-amount').value = t.amount;
+  const cta = document.getElementById('modal-cta');
+  cta.textContent = 'Save changes';
+  document.getElementById('money-modal').classList.add('open');
+};
 
 function setModalType(type) {
   _modalType = type;
@@ -12245,6 +12315,43 @@ window.moneyAmtNumberInput = function(v) {
   const slider = document.getElementById('money-amt-slider');
   if (slider) slider.value = amt;
   const disp = document.getElementById('money-amt-display');
+  if (disp) disp.textContent = '$' + _moneyAmtFmt(amt);
+};
+
+// Wish List's own copy of the slider above, targeting #awm-price instead of
+// #modal-amount — added 2026-08-31, see the HTML comment at #wl-amt-slider.
+// _wlAmtSliderMax mirrors _moneyAmtSliderMax's "grow, never shrink
+// mid-session" behavior, just kept separate since the two modals can be
+// open at different amount scales entirely (a $12 wish vs. a $4,000 paycheck).
+let _wlAmtSliderMax = 200;
+function _wlAmtGrowMaxFor(amt) {
+  if (amt > _wlAmtSliderMax) {
+    const target = amt * 1.25;
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(target, 1))));
+    _wlAmtSliderMax = Math.ceil(target / mag) * mag;
+  }
+  const slider = document.getElementById('wl-amt-slider');
+  if (slider) {
+    slider.max = _wlAmtSliderMax;
+    slider.step = _wlAmtSliderMax > 2000 ? 50 : _wlAmtSliderMax > 500 ? 10 : 1;
+  }
+}
+window.wlAmtSliderInput = function(v) {
+  const amt = Math.max(0, Number(v) || 0);
+  _wlAmtGrowMaxFor(amt);
+  const slider = document.getElementById('wl-amt-slider');
+  if (slider) slider.value = amt;
+  const disp = document.getElementById('wl-amt-display');
+  if (disp) disp.textContent = '$' + _moneyAmtFmt(amt);
+  const input = document.getElementById('awm-price');
+  if (input) input.value = amt ? amt : '';
+};
+window.wlAmtNumberInput = function(v) {
+  const amt = Math.max(0, Number(v) || 0);
+  _wlAmtGrowMaxFor(amt);
+  const slider = document.getElementById('wl-amt-slider');
+  if (slider) slider.value = amt;
+  const disp = document.getElementById('wl-amt-display');
   if (disp) disp.textContent = '$' + _moneyAmtFmt(amt);
 };
 
@@ -12445,16 +12552,20 @@ window.openAddWishlistItem = function(key) {
       if(def || ov) c = {...(def||{}), ...(ov||{})};
     }
     c = c || {};
+    _wlAmtSliderMax = 200; // reset the slider's grown range from any previous item, before prefilling
     document.getElementById('awm-icon').value     = c.icon||'';
     document.getElementById('awm-name').value     = c.name||'';
     document.getElementById('awm-price').value    = c.price!=null ? c.price : '';
+    window.wlAmtSliderInput(c.price!=null ? c.price : 0);
     document.getElementById('awm-url').value      = c.url||'';
     document.getElementById('awm-achieved').checked = !!(c.achieved);
     if(achievedRow) achievedRow.style.display = 'flex';
   } else {
+    _wlAmtSliderMax = 200;
     document.getElementById('awm-icon').value     = '';
     document.getElementById('awm-name').value     = '';
     document.getElementById('awm-price').value    = '';
+    window.wlAmtSliderInput(0);
     document.getElementById('awm-url').value      = '';
     document.getElementById('awm-achieved').checked = false;
     if(achievedRow) achievedRow.style.display = 'none';
@@ -15498,6 +15609,7 @@ function renderTransactions() {
             <div class="txn-acct">${isMove?`${t.fromName||'?'} → ${t.toName||'?'}`:(acct?acct.name:'')}</div>
           </div>
           <span class="txn-amt ${cls}">${sign}$${window.fmtMoney(t.amount)}</span>
+          <button class="txn-edit" onclick="editTxn('${t.id}')" title="Edit" style="background:none;border:none;cursor:pointer;opacity:.6;padding:0 2px;font-size:.9rem;">✏️</button>
           <button class="txn-del" onclick="deleteTxn('${t.id}')" title="Delete">🗑</button>
         </div>`;
       }).join('')}
@@ -18589,6 +18701,32 @@ window.submitTransaction = async function() {
   const date = window.localDateStr();
   const ts = Date.now();
 
+  // 2026-08-31: editing an existing transaction (see window.editTxn above)
+  // reuses this exact function/modal — the only difference is that before
+  // applying the NEW amount/account effect below, we first undo whatever
+  // the OLD transaction did to whichever account(s) it originally touched.
+  // Otherwise a $50 grocery run edited up to $80 would apply on top of the
+  // original $50 instead of replacing it. Doesn't matter if the type,
+  // account, or both changed between old and new — reversing by the old
+  // transaction's OWN recorded type/account(s)/amount and then applying
+  // the new one the normal way handles every combination the same way a
+  // delete-then-add would, just as one atomic edit.
+  const editingId = _editingTxnId;
+  const oldTxn = editingId ? _transactions[editingId] : null;
+  if (oldTxn) {
+    if (oldTxn.type === 'transfer') {
+      const oldFrom = accts.find(a=>a.id===oldTxn.from);
+      const oldTo = accts.find(a=>a.id===oldTxn.to);
+      if (oldFrom) oldFrom.balance = (Number(oldFrom.balance)||0) + (Number(oldTxn.amount)||0);
+      if (oldTo) oldTo.balance = (Number(oldTo.balance)||0) - (Number(oldTxn.amount)||0);
+    } else {
+      const oldAcct = accts.find(a=>a.id===oldTxn.account);
+      if (oldAcct) {
+        oldAcct.balance = (Number(oldAcct.balance)||0) + (oldTxn.type==='income' ? -(Number(oldTxn.amount)||0) : (Number(oldTxn.amount)||0));
+      }
+    }
+  }
+
   if(_modalType==='move') {
     if(acct1Id===acct2Id){ window.showToast('Choose different accounts!'); return; }
     const fromAcct = accts.find(a=>a.id===acct1Id);
@@ -18597,7 +18735,10 @@ window.submitTransaction = async function() {
     if(toAcct)   toAcct.balance   = (Number(toAcct.balance)||0)   + amount;
     await saveAccounts(accts);
     const txn = {type:'transfer',amount,from:acct1Id,to:acct2Id,fromName:fromAcct?.name,toName:toAcct?.name,catIcon:'↔',category:'Transfer',note,date,ts};
-    try { await push(ref(db,MP+'/transactions'), txn); } catch(e){ console.error('txn push:',e); window.showToast('⚠️ Transaction not saved. Check Firebase rules'); }
+    try {
+      if (editingId) await update(ref(db,MP+'/transactions/'+editingId), txn);
+      else await push(ref(db,MP+'/transactions'), txn);
+    } catch(e){ console.error('txn push:',e); window.showToast('⚠️ Transaction not saved. Check Firebase rules'); }
   } else {
     const acct = accts.find(a=>a.id===acct1Id);
     if(acct) {
@@ -18605,7 +18746,10 @@ window.submitTransaction = async function() {
         acct.balance=(Number(acct.balance)||0)+amount;
       } else {
         // Warn if spending from savings would exceed available balance
-        if(acct.type==='savings') {
+        // (skip this guard while editing — the old amount was already
+        // reversed off this same account above, so "available" already
+        // accounts for freeing that money back up).
+        if(acct.type==='savings' && !editingId) {
           const avail = getAvailableBalance(acct);
           if(amount > avail) {
             const reserved = getReservedForAccount(acct.id);
@@ -18618,12 +18762,16 @@ window.submitTransaction = async function() {
     }
     await saveAccounts(accts);
     const txn = {type:_modalType==='got'?'income':'expense',amount,account:acct1Id,accountName:acct?.name,category:cat.name||'',catIcon:cat.icon||'💳',note,date,ts};
-    try { await push(ref(db,MP+'/transactions'), txn); } catch(e){ console.error('txn push:',e); window.showToast('⚠️ Transaction not saved. Check Firebase rules'); }
+    try {
+      if (editingId) await update(ref(db,MP+'/transactions/'+editingId), txn);
+      else await push(ref(db,MP+'/transactions'), txn);
+    } catch(e){ console.error('txn push:',e); window.showToast('⚠️ Transaction not saved. Check Firebase rules'); }
   }
+  _editingTxnId = null;
   closeMoneyModal();
   renderAll();
   window.fireBurst(_modalType==='got'?'💵':_modalType==='spent'?'🛒':'↔');
-  window.showToast(_modalType==='got'?'Money added!':_modalType==='spent'?'Expense recorded!':'Moved!');
+  window.showToast(editingId ? 'Transaction updated!' : (_modalType==='got'?'Money added!':_modalType==='spent'?'Expense recorded!':'Moved!'));
 };
 
 window.deleteTxn = async function(id) {
