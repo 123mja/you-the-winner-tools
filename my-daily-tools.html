@@ -6802,10 +6802,10 @@ window.removeRmMilestone = function(pi, mi) {
        id's display — reusing it meant that logic needed no changes at all. -->
   <div class="settings-tabbar">
     <button id="settings-tab-appearance" class="settings-tab active" onclick="switchSettingsTab('appearance')">🎨 Appearance</button>
+    <button id="settings-tab-calendar" class="settings-tab" onclick="switchSettingsTab('calendar')">📅 Calendar &amp; Schedule</button>
     <button id="settings-tab-content" class="settings-tab" onclick="switchSettingsTab('content')">🗺️ Content</button>
     <button id="settings-tab-money" class="settings-tab" onclick="switchSettingsTab('money')">💵 Money</button>
     <button id="settings-tab-sharing" class="settings-tab" onclick="switchSettingsTab('sharing')">👪 Sharing</button>
-    <button id="settings-tab-misc" class="settings-tab" onclick="switchSettingsTab('misc')">🗂️ Misc</button>
     <button id="settings-jump-danger" class="settings-tab" onclick="switchSettingsTab('danger')" style="display:none;">🛠️ Admin</button>
   </div>
 
@@ -7117,11 +7117,53 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
+    <!-- Home Quick Links (2026-08-12, moved here from the Money tab 2026-08-14
+       per Marcelo's request — it's a Home-page feature, not a money one) —
+       closed by default, same collapsible pattern as elsewhere in Settings.
+       6 slots split by who *sets the default label* (cg1/cg2/cg3 vs u1/u2/u3) —
+       see _bookmarkIsCaregiverSlot(). 2026-08-13: a caregiver viewing-as a
+       linked account can now edit all 6 (previously locked to just cg1/cg2/cg3);
+       the account owner's own direct access is unchanged — still just
+       u1/u2/u3. See _bookmarkCanEditSlot(). Two Save buttons since a given
+       viewer usually only needs one group at a time (though a caregiver can
+       now use both); renderSettingsBookmarks() hides whichever button
+       doesn't apply to the current viewer. 2026-08-14: added a read-only
+       "Currently set" preview (#settings-bookmarks-preview) above the edit
+       rows so it's obvious at a glance what each of the 6 slots already
+       points to, without having to read placeholder-vs-value text inside
+       each input box — the edit rows below were already pre-filled with the
+       current label/url per slot (see renderSettingsBookmarks()), but that
+       wasn't an obviously "read" view on its own. -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="txn-collapse-header" onclick="toggleSettingsSection('bookmarks')" style="padding:14px 16px;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);">🔖 Home Quick Links</span>
+      <span class="txn-collapse-chevron" id="settings-chevron-bookmarks">▼</span>
+    </div>
+    <div id="settings-section-bookmarks" style="display:none;padding:0 16px 14px;">
+      <div style="padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Up to 6 links shown in a "Quick Links" shelf on Home. A supporter viewing this account can edit all 6; the account owner, using it directly, can edit the last 3.</div>
+        <div id="settings-bookmarks-preview" style="margin-bottom:14px;"></div>
+        <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Edit</div>
+        <div id="settings-bookmarks-rows"></div>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="settings-btn" id="bm-save-caregiver-btn" onclick="window.saveBookmarkGroup('caregiver')">Save supporter links</button>
+            <span class="status-msg" id="bm-save-caregiver-msg" style="font-size:.72rem;color:var(--accent);"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="settings-btn" id="bm-save-user-btn" onclick="window.saveBookmarkGroup('user')">Save my links</button>
+            <span class="status-msg" id="bm-save-user-msg" style="font-size:.72rem;color:var(--accent);"></span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="settings-tabpage" id="settings-tabpage-content">
-  <!-- ── Group: Content ── -->
-  <div id="settings-group-content" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">🗺️ Content</div>
+  </div>
+
+  <div class="settings-tabpage" id="settings-tabpage-calendar">
+  <!-- ── Group: Calendar & Schedule ── -->
+  <div id="settings-group-calendar" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">📅 Calendar &amp; Schedule</div>
 
   <!-- Calendar link (added 2026-07-31 — was hardcoded to Marcelo's own
        Google Calendar cid; now configurable per account, synced cross-device
@@ -7154,21 +7196,123 @@ window.removeRmMilestone = function(pi, mi) {
       <span class="txn-collapse-chevron" id="settings-chevron-schedfeed">▼</span>
     </div>
     <div id="settings-section-schedfeed" style="display:none;padding:0 16px 14px;">
-      <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">Share your 🗓️ YTW Schedule shifts as a read-only feed that Google Calendar, Apple Calendar, or Outlook can subscribe to. This is separate from the Calendar Link above — that one shows an outside calendar in this app; this one sends your shifts out.</div>
-      <div id="schedfeed-nolink" style="display:none;">
-        <button onclick="window.generateScheduleFeedLink()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;">Create feed link</button>
-      </div>
-      <div id="schedfeed-haslink" style="display:none;">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <input id="schedfeed-url-input" type="text" readonly style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.76rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
-          <button onclick="window.copyScheduleFeedLink()" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Copy</button>
-        </div>
-        <div style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;"><strong>To add it in Google Calendar:</strong> on a computer, open Google Calendar → left sidebar "Other calendars" ＋ → "From URL" → paste the link above → Add calendar. Google checks subscribed feeds roughly every 12–24 hours (not something either of us can speed up). Google Calendar's mobile app can't add feeds directly — subscribe once on the web and it appears in the app too.</div>
-        <button onclick="window.revokeScheduleFeedLink()" style="margin-top:10px;background:none;border:none;color:#d94f4f;font-family:'Nunito',sans-serif;font-weight:700;font-size:.74rem;cursor:pointer;padding:0;">Revoke &amp; create a new link</button>
-      </div>
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">Share your 🗓️ YTW Schedule shifts as a read-only feed that Google Calendar, Apple Calendar, or Outlook can subscribe to. This is separate from the Calendar Link above — that one shows an outside calendar in this app; this one sends your shifts out. Up to 3 independent links (2026-08-31, per Marcelo) — each one exports the exact same schedule, so this is for subscribing from more than one place (a second device, a spouse's calendar, etc.) without them sharing one revoke button. Only set up the ones you actually need; 2 and 3 are optional.</div>
+      <div id="schedfeed-slot-1"></div>
+      <div id="schedfeed-slot-2" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+      <div id="schedfeed-slot-3" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
       <div id="schedfeed-msg" style="font-size:.72rem;margin-top:8px;color:var(--muted);"></div>
     </div>
   </div>
+
+  <!-- Schedule Preferences (2026-08-24, per Marcelo: "first hour of the
+       weekly menu should be configurable, right now is at 6am, as well as
+       which day should be considered the first day of the week") — two
+       account-level preferences for the YTW Schedule week/month/year grids.
+       Synced cross-device (SYNCED_SETTINGS_KEYS, see window.saveSchedPrefs)
+       since these are real preferences about how the schedule should look,
+       not per-device UI state like which sub-view was last open. -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="txn-collapse-header" onclick="toggleSettingsSection('sched-prefs')" style="padding:14px 16px;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);">🕐 Schedule Preferences</span>
+      <span class="txn-collapse-chevron" id="settings-chevron-sched-prefs">▼</span>
+    </div>
+    <div id="settings-section-sched-prefs" style="display:none;padding:0 16px 14px;">
+      <div style="padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Controls how the Week/Month/Year grids on Tools → Calendar → YTW Schedule look.</div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">First day of the week</label>
+          <select id="sched-pref-week-start" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);">
+            <option value="mon">Monday</option>
+            <option value="sun">Sunday</option>
+          </select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">First hour shown on the Week grid</label>
+          <select id="sched-pref-start-hour" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);"></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="settings-btn" onclick="window.saveSchedPrefs()">Save</button>
+          <span class="status-msg" id="sched-pref-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payroll Rate — added 2026-08-25, per Marcelo: a baseline hourly
+       rate used by the Payroll Report (see openPayrollModal near
+       window.renderScheduleNative) unless a specific shift overrides it,
+       or a dated rate-history entry below applies instead.
+       Stored in Firebase (SchedUP+'/schedule-settings/hourlyRate'), not
+       localStorage, since it's real payroll data that should follow the
+       family-shared schedule account the same way shifts themselves do,
+       not stay stuck on one device. -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="txn-collapse-header" onclick="toggleSettingsSection('payroll-rate'); window.renderPayrollRateSettings && window.renderPayrollRateSettings();" style="padding:14px 16px;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;margin-right:4px;"><rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 9h2M20 9h2M2 15h2M20 15h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Payroll Rate</span>
+      <span class="txn-collapse-chevron" id="settings-chevron-payroll-rate">▼</span>
+    </div>
+    <div id="settings-section-payroll-rate" style="display:none;padding:0 16px 14px;">
+      <div style="padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">The baseline hourly rate used to estimate pay for shifts marked ✅ confirmed in YTW Schedule, for any date before your first scheduled rate change below. Any single shift can still override this from its own edit screen.</div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Baseline hourly rate ($)</label>
+          <input id="payroll-rate-input" type="number" step="0.01" min="0" placeholder="e.g. 18.50" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <button class="settings-btn" onclick="window.savePayrollRate()">Save</button>
+          <span class="status-msg" id="payroll-rate-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
+        </div>
+
+        <!-- Rate history — added per Marcelo's request: a rate change should
+             only apply forward from a chosen date, never rewrite pay
+             already calculated for earlier dates. Stored as a flat map at
+             SchedUP+'/schedule-settings/hourlyRateHistory/{YYYY-MM-DD}' =
+             rate. Lookup (see _payrollRateForDate in the payroll JS) finds
+             the most recent history date on/before a given shift's date;
+             if none exists yet, it falls back to the baseline rate above,
+             so existing accounts with only a baseline rate keep behaving
+             exactly as before until a first history entry is added. -->
+        <div style="border-top:1px solid var(--border);padding-top:14px;">
+          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Schedule a rate change</label>
+          <div style="font-size:.7rem;color:var(--muted);margin-bottom:8px;line-height:1.4;">Only pay from this date forward will use the new rate — everything before stays at whatever rate was in effect at the time.</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input id="payroll-history-rate" type="number" step="0.01" min="0" placeholder="New rate ($)" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
+            <input id="payroll-history-date" type="date" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <button class="settings-btn" onclick="window.addPayrollRateHistoryEntry()">Add rate change</button>
+            <span class="status-msg" id="payroll-history-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
+          </div>
+          <div id="payroll-history-list" style="font-size:.76rem;"></div>
+        </div>
+
+        <!-- Filing status — added for the Payroll Report's Net (take-home)
+             estimate. Texas has no state income tax, so Net here is Gross
+             minus an estimated federal income tax withholding plus FICA
+             (Social Security 6.2% + Medicare 1.45%) only. This is a rough
+             single/MFJ/HoH bracket estimate for planning purposes, not a
+             substitute for a real paycheck or W-4. -->
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px;">
+          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Filing status (for Net pay estimate)</label>
+          <select id="payroll-filing-status" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);margin-bottom:10px;">
+            <option value="single">Single</option>
+            <option value="mfj">Married filing jointly</option>
+            <option value="hoh">Head of household</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="settings-btn" onclick="window.savePayrollFilingStatus()">Save</button>
+            <span class="status-msg" id="payroll-filing-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="settings-tabpage" id="settings-tabpage-content">
+  <!-- ── Group: Content ── -->
+  <div id="settings-group-content" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">🗺️ Content</div>
 
   <!-- "About Each Tool" used to live here — moved 2026-08-15 per Marcelo
        ("shouldn't be in Settings, belongs in the Help ? menu instead") to
@@ -7352,6 +7496,24 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
+  </div>
+
+  <div class="settings-tabpage" id="settings-tabpage-danger">
+  <!-- ── Group: Data Cleanup (renamed from "Danger Zone" 2026-07-31, at
+       Marcelo's request — same section/IDs/logic, just calmer, less-alarming
+       label text. IDs kept as "danger" throughout on purpose so nothing else
+       that references toggleSettingsSection('danger') etc. needs to change.
+       Hidden by default (added 2026-08-05) — irreversible bulk-delete
+       actions, so only shown for the site's admin account, same pattern
+       already used for demo-setup-card/clone-config-card below; see the
+       "Show admin-only cards" block in onAuthStateChanged.
+       2026-08-14: this whole tabpage is now surfaced under the tab bar's
+       "🛠️ Admin" button instead of "🧹 Cleanup" (Data Cleanup is the only
+       thing admins do here, so the tab itself is now framed as admin-only
+       rather than named after this one section) — tab button id/key both
+       still "danger" internally, see switchSettingsTab() comment above. -->
+  <div id="settings-group-danger" style="display:none;font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">🧹 Data Cleanup</div>
+
   <!-- Clone Config (admin only) -->
   <div id="clone-config-card" style="display:none;margin-bottom:12px;">
     <div class="card" style="padding:0;overflow:hidden;">
@@ -7449,175 +7611,6 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
-  </div>
-
-  <div class="settings-tabpage" id="settings-tabpage-misc">
-  <!-- ── Group: Misc ── -->
-  <div id="settings-group-misc" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">🗂️ Misc</div>
-
-  <!-- Home Quick Links (2026-08-12, moved here from the Money tab 2026-08-14
-       per Marcelo's request — it's a Home-page feature, not a money one) —
-       closed by default, same collapsible pattern as elsewhere in Settings.
-       6 slots split by who *sets the default label* (cg1/cg2/cg3 vs u1/u2/u3) —
-       see _bookmarkIsCaregiverSlot(). 2026-08-13: a caregiver viewing-as a
-       linked account can now edit all 6 (previously locked to just cg1/cg2/cg3);
-       the account owner's own direct access is unchanged — still just
-       u1/u2/u3. See _bookmarkCanEditSlot(). Two Save buttons since a given
-       viewer usually only needs one group at a time (though a caregiver can
-       now use both); renderSettingsBookmarks() hides whichever button
-       doesn't apply to the current viewer. 2026-08-14: added a read-only
-       "Currently set" preview (#settings-bookmarks-preview) above the edit
-       rows so it's obvious at a glance what each of the 6 slots already
-       points to, without having to read placeholder-vs-value text inside
-       each input box — the edit rows below were already pre-filled with the
-       current label/url per slot (see renderSettingsBookmarks()), but that
-       wasn't an obviously "read" view on its own. -->
-  <div class="card" style="padding:0;overflow:hidden;">
-    <div class="txn-collapse-header" onclick="toggleSettingsSection('bookmarks')" style="padding:14px 16px;">
-      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);">🔖 Home Quick Links</span>
-      <span class="txn-collapse-chevron" id="settings-chevron-bookmarks">▼</span>
-    </div>
-    <div id="settings-section-bookmarks" style="display:none;padding:0 16px 14px;">
-      <div style="padding-top:10px;border-top:1px solid var(--border);">
-        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Up to 6 links shown in a "Quick Links" shelf on Home. A supporter viewing this account can edit all 6; the account owner, using it directly, can edit the last 3.</div>
-        <div id="settings-bookmarks-preview" style="margin-bottom:14px;"></div>
-        <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Edit</div>
-        <div id="settings-bookmarks-rows"></div>
-        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button class="settings-btn" id="bm-save-caregiver-btn" onclick="window.saveBookmarkGroup('caregiver')">Save supporter links</button>
-            <span class="status-msg" id="bm-save-caregiver-msg" style="font-size:.72rem;color:var(--accent);"></span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button class="settings-btn" id="bm-save-user-btn" onclick="window.saveBookmarkGroup('user')">Save my links</button>
-            <span class="status-msg" id="bm-save-user-msg" style="font-size:.72rem;color:var(--accent);"></span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Schedule Preferences (2026-08-24, per Marcelo: "first hour of the
-       weekly menu should be configurable, right now is at 6am, as well as
-       which day should be considered the first day of the week") — two
-       account-level preferences for the YTW Schedule week/month/year grids.
-       Synced cross-device (SYNCED_SETTINGS_KEYS, see window.saveSchedPrefs)
-       since these are real preferences about how the schedule should look,
-       not per-device UI state like which sub-view was last open. -->
-  <div class="card" style="padding:0;overflow:hidden;">
-    <div class="txn-collapse-header" onclick="toggleSettingsSection('sched-prefs')" style="padding:14px 16px;">
-      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);">🕐 Schedule Preferences</span>
-      <span class="txn-collapse-chevron" id="settings-chevron-sched-prefs">▼</span>
-    </div>
-    <div id="settings-section-sched-prefs" style="display:none;padding:0 16px 14px;">
-      <div style="padding-top:10px;border-top:1px solid var(--border);">
-        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Controls how the Week/Month/Year grids on Tools → Calendar → YTW Schedule look.</div>
-        <div style="margin-bottom:12px;">
-          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">First day of the week</label>
-          <select id="sched-pref-week-start" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);">
-            <option value="mon">Monday</option>
-            <option value="sun">Sunday</option>
-          </select>
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">First hour shown on the Week grid</label>
-          <select id="sched-pref-start-hour" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);"></select>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <button class="settings-btn" onclick="window.saveSchedPrefs()">Save</button>
-          <span class="status-msg" id="sched-pref-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Payroll Rate — added 2026-08-25, per Marcelo: a baseline hourly
-       rate used by the Payroll Report (see openPayrollModal near
-       window.renderScheduleNative) unless a specific shift overrides it,
-       or a dated rate-history entry below applies instead.
-       Stored in Firebase (SchedUP+'/schedule-settings/hourlyRate'), not
-       localStorage, since it's real payroll data that should follow the
-       family-shared schedule account the same way shifts themselves do,
-       not stay stuck on one device. -->
-  <div class="card" style="padding:0;overflow:hidden;">
-    <div class="txn-collapse-header" onclick="toggleSettingsSection('payroll-rate'); window.renderPayrollRateSettings && window.renderPayrollRateSettings();" style="padding:14px 16px;">
-      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;margin-right:4px;"><rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 9h2M20 9h2M2 15h2M20 15h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Payroll Rate</span>
-      <span class="txn-collapse-chevron" id="settings-chevron-payroll-rate">▼</span>
-    </div>
-    <div id="settings-section-payroll-rate" style="display:none;padding:0 16px 14px;">
-      <div style="padding-top:10px;border-top:1px solid var(--border);">
-        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">The baseline hourly rate used to estimate pay for shifts marked ✅ confirmed in YTW Schedule, for any date before your first scheduled rate change below. Any single shift can still override this from its own edit screen.</div>
-        <div style="margin-bottom:14px;">
-          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Baseline hourly rate ($)</label>
-          <input id="payroll-rate-input" type="number" step="0.01" min="0" placeholder="e.g. 18.50" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-          <button class="settings-btn" onclick="window.savePayrollRate()">Save</button>
-          <span class="status-msg" id="payroll-rate-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
-        </div>
-
-        <!-- Rate history — added per Marcelo's request: a rate change should
-             only apply forward from a chosen date, never rewrite pay
-             already calculated for earlier dates. Stored as a flat map at
-             SchedUP+'/schedule-settings/hourlyRateHistory/{YYYY-MM-DD}' =
-             rate. Lookup (see _payrollRateForDate in the payroll JS) finds
-             the most recent history date on/before a given shift's date;
-             if none exists yet, it falls back to the baseline rate above,
-             so existing accounts with only a baseline rate keep behaving
-             exactly as before until a first history entry is added. -->
-        <div style="border-top:1px solid var(--border);padding-top:14px;">
-          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Schedule a rate change</label>
-          <div style="font-size:.7rem;color:var(--muted);margin-bottom:8px;line-height:1.4;">Only pay from this date forward will use the new rate — everything before stays at whatever rate was in effect at the time.</div>
-          <div style="display:flex;gap:8px;margin-bottom:8px;">
-            <input id="payroll-history-rate" type="number" step="0.01" min="0" placeholder="New rate ($)" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
-            <input id="payroll-history-date" type="date" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-            <button class="settings-btn" onclick="window.addPayrollRateHistoryEntry()">Add rate change</button>
-            <span class="status-msg" id="payroll-history-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
-          </div>
-          <div id="payroll-history-list" style="font-size:.76rem;"></div>
-        </div>
-
-        <!-- Filing status — added for the Payroll Report's Net (take-home)
-             estimate. Texas has no state income tax, so Net here is Gross
-             minus an estimated federal income tax withholding plus FICA
-             (Social Security 6.2% + Medicare 1.45%) only. This is a rough
-             single/MFJ/HoH bracket estimate for planning purposes, not a
-             substitute for a real paycheck or W-4. -->
-        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px;">
-          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Filing status (for Net pay estimate)</label>
-          <select id="payroll-filing-status" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);margin-bottom:10px;">
-            <option value="single">Single</option>
-            <option value="mfj">Married filing jointly</option>
-            <option value="hoh">Head of household</option>
-          </select>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button class="settings-btn" onclick="window.savePayrollFilingStatus()">Save</button>
-            <span class="status-msg" id="payroll-filing-save-msg" style="font-size:.72rem;color:var(--accent);"></span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  </div>
-
-  <div class="settings-tabpage" id="settings-tabpage-danger">
-  <!-- ── Group: Data Cleanup (renamed from "Danger Zone" 2026-07-31, at
-       Marcelo's request — same section/IDs/logic, just calmer, less-alarming
-       label text. IDs kept as "danger" throughout on purpose so nothing else
-       that references toggleSettingsSection('danger') etc. needs to change.
-       Hidden by default (added 2026-08-05) — irreversible bulk-delete
-       actions, so only shown for the site's admin account, same pattern
-       already used for demo-setup-card/clone-config-card below; see the
-       "Show admin-only cards" block in onAuthStateChanged.
-       2026-08-14: this whole tabpage is now surfaced under the tab bar's
-       "🛠️ Admin" button instead of "🧹 Cleanup" (Data Cleanup is the only
-       thing admins do here, so the tab itself is now framed as admin-only
-       rather than named after this one section) — tab button id/key both
-       still "danger" internally, see switchSettingsTab() comment above. -->
-  <div id="settings-group-danger" style="display:none;font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">🧹 Data Cleanup</div>
 
   <!-- Data Cleanup (formerly "Danger Zone") -->
   <div class="card" id="settings-card-danger" style="display:none;padding:0;overflow:hidden;">
@@ -7830,22 +7823,23 @@ window.removeRmMilestone = function(pi, mi) {
         </div>
       </div>
       <div id="plans-list" aria-live="polite"><div class="checklist-empty">Loading…</div></div>
+      <!-- Prev/Next + "+ New" combined into one row 2026-08-31, per Marcelo:
+           "+ New" used to sit in its own row below this one (in table view)
+           purely because #plans-pagination hides itself whenever there's
+           only one page — exactly the situation (a short list) where "+
+           New" matters most, so it couldn't just be nested inside as-is
+           without disappearing then. Fixed by keeping this row itself
+           always visible whenever there are any plans at all, and instead
+           hiding/disabling just the Prev/Next buttons individually when
+           there's only one page — see the pagination block in renderPlans()
+           below. Mirrors the same "+ New" folded into Prev/Next/Play"
+           treatment Card View's carousel got the same day (see
+           renderPlansCarouselCard). -->
       <div id="plans-pagination" style="display:none;align-items:center;justify-content:center;gap:12px;margin-top:10px;font-size:.76rem;color:var(--muted);">
         <button class="checklist-page-btn" id="plans-prev" onclick="setPlansPage(-1)">‹ Prev</button>
         <span id="plans-page-info"></span>
         <button class="checklist-page-btn" id="plans-next" onclick="setPlansPage(1)">Next ›</button>
-      </div>
-      <!-- "+ New" moved here from the filters row above (2026-08-06) — it's
-           tapped far less often than search/filter/view controls, so
-           sitting up there made it too easy to hit by accident. This bar
-           (#plans-add-btn-bar) is only actually shown in table view now —
-           2026-08-31, per Marcelo, its own "+ New" was folded directly into
-           the carousel's Prev/Next/Play row instead (see
-           renderPlansCarouselCard) to stop Card View from spending two
-           rows of vertical space on what's really one control cluster. See
-           renderPlans() below for the show/hide toggle between the two. -->
-      <div id="plans-add-btn-bar" style="display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button id="plans-add-btn-top" onclick="openAddPlanModal()" style="display:none;padding:6px 14px;background:transparent;color:var(--accent);border:1.5px dashed var(--border);border-radius:8px;font-size:.78rem;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;white-space:nowrap;">＋ New</button>
+        <button id="plans-add-btn-top" onclick="openAddPlanModal()" class="checklist-page-btn" style="display:none;color:var(--accent);">＋ New</button>
       </div>
       <div id="plans-hidden-link" class="checklist-hidden-link" onclick="toggleHiddenPlans()"></div>
       <!-- ── PLANS STATS ── -->
@@ -9875,17 +9869,18 @@ window.toggleSettingsSection = function(id) {
   if(chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
 };
 
-// Settings sub-tabs (2026-08-14, Misc/Admin split added same day) — see
-// .settings-tabbar/.settings-tabpage in <style>. Each of the 6 Settings
-// groups (Appearance, Content, Money, Sharing, Misc, Admin/Cleanup) is
-// wrapped in a #settings-tabpage-<key> div; this shows exactly one at a
-// time instead of the old single long scroll.
+// Settings sub-tabs (2026-08-14, Misc/Admin split added same day; 2026-08-31
+// Misc merged into Admin/moved to Appearance & new Calendar tab, per
+// Marcelo) — see .settings-tabbar/.settings-tabpage in <style>. Each of the
+// 6 Settings groups (Appearance, Calendar & Schedule, Content, Money,
+// Sharing, Admin/Cleanup) is wrapped in a #settings-tabpage-<key> div; this
+// shows exactly one at a time instead of the old single long scroll.
 // The Admin tab button keeps its pre-existing id/key (settings-jump-danger /
 // 'danger') so the admin-only visibility toggle elsewhere in this file
 // (which shows/hides that id directly) didn't need to change — only the
 // visible label text changed from "Cleanup" to "Admin".
 window.switchSettingsTab = function(key) {
-  ['appearance','content','money','sharing','misc','danger'].forEach(function(k) {
+  ['appearance','calendar','content','money','sharing','danger'].forEach(function(k) {
     var page = document.getElementById('settings-tabpage-' + k);
     if (page) page.classList.toggle('active', k === key);
     var btn = document.getElementById(k === 'danger' ? 'settings-jump-danger' : ('settings-tab-' + k));
@@ -12847,41 +12842,66 @@ let _schedData = {}; // My Schedule shift entries, keyed by Firebase push id
 
 // ── SCHEDULE FEED (ICS export) — added 2026-08-25 ──
 // Publishes SchedUP+'/schedule' as a read-only iCalendar feed an outside
-// calendar app can subscribe to. Token lives at SchedUP+'/schedule-feed-token'
-// (a long random string, NOT the Firebase auth token) so the serverless
-// function (netlify/functions/schedule-ics.js, uses the Admin SDK, bypasses
-// rules) can authenticate the request without the caller being signed in —
-// a calendar app polling a URL has no way to attach a Firebase ID token.
+// calendar app can subscribe to. Tokens live at
+// SchedUP+'/schedule-feed-tokens/{1,2,3}' (a long random string per slot,
+// NOT the Firebase auth token) so the serverless function
+// (netlify/functions/schedule-ics.js, uses the Admin SDK, bypasses rules)
+// can authenticate the request without the caller being signed in — a
+// calendar app polling a URL has no way to attach a Firebase ID token.
 // Firebase rules need a matching read/write entry alongside 'schedule''s
 // existing family-sharing rule (same $uid-scoped pattern) — see this
 // session's SKILL.md entry for the exact rule text; not applied here since
 // the rules file wasn't part of this session's uploads.
+//
+// 2026-08-31 fix, per Marcelo ("can I have 3 ics instead of only one...
+// combine it in single calendar, 2nd and 3rd would be additions if
+// needed"): was a single token at SchedUP+'/schedule-feed-token' (no slot
+// number) — every function below now takes a slot ('1'/'2'/'3') and reads/
+// writes SchedUP+'/schedule-feed-tokens/'+slot instead, so up to 3
+// independent subscription links can exist side by side, each revocable
+// without touching the other two. All 3 slots export the exact same
+// SchedUP+'/schedule' data — this is about having separate subscription
+// URLs (e.g. one per device/calendar app), not separate data.
+// IMPORTANT: netlify/functions/schedule-ics.js (not part of this session's
+// uploads) still validates against the OLD single 'schedule-feed-token'
+// path — it needs a matching update to check
+// 'schedule-feed-tokens/{1,2,3}' instead (accept the request if the token
+// param matches ANY of the three), or existing/new links from this UI
+// won't actually authenticate against the live feed endpoint.
 function _schedFeedUrl(token) {
   return window.location.origin + '/.netlify/functions/schedule-ics?up=' + encodeURIComponent(SchedUP) + '&token=' + encodeURIComponent(token);
 }
+function _schedFeedSlotHtml(slot, token) {
+  var label = slot === '1' ? 'Link 1' : (slot === '2' ? 'Link 2 (optional)' : 'Link 3 (optional)');
+  if (token) {
+    return '<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">' + label + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      + '<input id="schedfeed-url-input-' + slot + '" type="text" readonly value="' + _schedFeedUrl(token) + '" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.76rem;font-family:\'Quicksand\',sans-serif;background:var(--surface2);color:var(--text);">'
+      + '<button onclick="window.copyScheduleFeedLink(\'' + slot + '\')" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Copy</button>'
+      + '</div>'
+      + (slot === '1' ? '<div style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;"><strong>To add it in Google Calendar:</strong> on a computer, open Google Calendar → left sidebar "Other calendars" ＋ → "From URL" → paste the link above → Add calendar. Google checks subscribed feeds roughly every 12–24 hours (not something either of us can speed up). Google Calendar\'s mobile app can\'t add feeds directly — subscribe once on the web and it appears in the app too.</div>' : '')
+      + '<button onclick="window.revokeScheduleFeedLink(\'' + slot + '\')" style="margin-top:10px;background:none;border:none;color:#d94f4f;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.74rem;cursor:pointer;padding:0;">Revoke this link</button>';
+  }
+  return '<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">' + label + '</div>'
+    + '<button onclick="window.generateScheduleFeedLink(\'' + slot + '\')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;">Create feed link</button>';
+}
 window.renderScheduleFeedSection = function() {
-  var noLink = document.getElementById('schedfeed-nolink');
-  var hasLink = document.getElementById('schedfeed-haslink');
+  var slots = { '1': document.getElementById('schedfeed-slot-1'), '2': document.getElementById('schedfeed-slot-2'), '3': document.getElementById('schedfeed-slot-3') };
   var msg = document.getElementById('schedfeed-msg');
-  if (!noLink || !hasLink) return;
-  msg.textContent = 'Checking…';
-  get(ref(db, SchedUP + '/schedule-feed-token')).then(function(snap) {
-    var token = snap.val();
-    if (token) {
-      noLink.style.display = 'none';
-      hasLink.style.display = '';
-      var input = document.getElementById('schedfeed-url-input');
-      if (input) input.value = _schedFeedUrl(token);
-    } else {
-      noLink.style.display = '';
-      hasLink.style.display = 'none';
-    }
-    msg.textContent = '';
+  if (!slots['1']) return;
+  if (msg) msg.textContent = 'Checking…';
+  get(ref(db, SchedUP + '/schedule-feed-tokens')).then(function(snap) {
+    var tokens = snap.val() || {};
+    ['1', '2', '3'].forEach(function(slot) {
+      if (slots[slot]) slots[slot].innerHTML = _schedFeedSlotHtml(slot, tokens[slot]);
+    });
+    if (msg) msg.textContent = '';
   }).catch(function() {
-    msg.textContent = 'Could not check feed status, try again.';
+    if (msg) msg.textContent = 'Could not check feed status, try again.';
   });
 };
-window.generateScheduleFeedLink = function() {
+window.generateScheduleFeedLink = function(slot) {
+  slot = slot === '2' ? '2' : (slot === '3' ? '3' : '1');
   // 32 bytes of randomness, hex-encoded — long enough that guessing it is
   // infeasible, short enough to sit comfortably in a URL query param.
   var bytes = new Uint8Array(32);
@@ -12889,21 +12909,23 @@ window.generateScheduleFeedLink = function() {
   var token = Array.prototype.map.call(bytes, function(b) { return b.toString(16).padStart(2, '0'); }).join('');
   var msg = document.getElementById('schedfeed-msg');
   if (msg) msg.textContent = 'Creating…';
-  set(ref(db, SchedUP + '/schedule-feed-token'), token).then(function() {
+  set(ref(db, SchedUP + '/schedule-feed-tokens/' + slot), token).then(function() {
     if (msg) msg.textContent = '';
     window.renderScheduleFeedSection();
   }).catch(function() {
     if (msg) msg.textContent = 'Could not create the link, try again.';
   });
 };
-window.revokeScheduleFeedLink = function() {
-  if (!confirm('This turns off the current link — anyone already subscribed will stop getting updates. Create a new link right after?')) return;
-  set(ref(db, SchedUP + '/schedule-feed-token'), null).then(function() {
-    window.generateScheduleFeedLink();
+window.revokeScheduleFeedLink = function(slot) {
+  slot = slot === '2' ? '2' : (slot === '3' ? '3' : '1');
+  if (!confirm('This turns off this link — anyone already subscribed to it will stop getting updates. Continue?')) return;
+  set(ref(db, SchedUP + '/schedule-feed-tokens/' + slot), null).then(function() {
+    window.renderScheduleFeedSection();
   });
 };
-window.copyScheduleFeedLink = function() {
-  var input = document.getElementById('schedfeed-url-input');
+window.copyScheduleFeedLink = function(slot) {
+  slot = slot === '2' ? '2' : (slot === '3' ? '3' : '1');
+  var input = document.getElementById('schedfeed-url-input-' + slot);
   var msg = document.getElementById('schedfeed-msg');
   if (!input) return;
   input.select();
@@ -21253,11 +21275,11 @@ function renderPlansCarouselCard(items, canEdit, today2) {
       <!-- "+ New" folded into this same row 2026-08-31, per Marcelo: it was
            sitting in its own separate row below this one, using two rows'
            worth of vertical space for what's really one control cluster in
-           Card View. The standalone bar just below (#plans-add-btn-top) is
-           now hidden specifically while in carousel mode — see
-           window.setPlansViewMode — so this is the only "+ New" shown here,
-           not a duplicate. Table view is unaffected: that bar still shows
-           there exactly as before. -->
+           Card View. Table view's own "+ New" (inside #plans-pagination,
+           same day) is a separate element entirely — this one's only
+           rendered while Card View is active (this whole function is only
+           called from that branch of renderPlans()), so there's no
+           duplicate between the two. -->
       ${canEdit ? `<button class="checklist-page-btn" onclick="openAddPlanModal()" style="color:var(--accent);">＋ New</button>` : ''}
     </div>
     ${total >= 2 ? `<div style="display:flex;align-items:center;gap:6px;">
@@ -21273,12 +21295,6 @@ function renderPlansCarouselCard(items, canEdit, today2) {
 
 function renderPlans() {
 const el = document.getElementById('plans-list'); if(!el) return;
-// "+ New" bar only shows in table view — in Card View it's rendered inline
-// with Prev/Next/Play instead (see renderPlansCarouselCard). Synced here
-// (rather than only in setPlansViewMode) so it's also correct the first
-// time this pane renders after a page load that starts directly in
-// Card View (localStorage-persisted plans-view-mode).
-{const addBar = document.getElementById('plans-add-btn-bar'); if (addBar) addBar.style.display = _plansViewMode === 'carousel' ? 'none' : '';}
 try { window.renderWelcomeSnapshot && window.renderWelcomeSnapshot(); } catch(e) {}
 var _ps=document.getElementById('plans-sort-preset');if(_ps&&_ps.value!==_plansSortPreset)_ps.value=_plansSortPreset;
 const pppEl = document.getElementById('plans-per-page'); if(pppEl && pppEl.value != _plansPerPage) pppEl.value = _plansPerPage;
@@ -21369,7 +21385,16 @@ if(_plansPage>=totalPages) _plansPage=totalPages-1;
 const pageItems = _plansPerPage>=999 ? items : items.slice(_plansPage*_plansPerPage, (_plansPage+1)*_plansPerPage);
 if(!items.length){
 el.innerHTML='<div class="checklist-empty">No plans here yet. Tap ＋ Add to start!</div>';
-document.getElementById('plans-pagination').style.display='none';
+// 2026-08-31: this row now also carries "+ New" (see the HTML comment at
+// #plans-pagination), so it stays visible even with zero items — the
+// empty-state message above already covers Prev/Next being pointless here,
+// and hiding the whole row would take "+ New" down with it right when an
+// empty list needs it most. Prev/Next themselves are individually
+// hidden by the totalPages<=1 branch below on every real render.
+document.getElementById('plans-pagination').style.display = _canWrite ? 'flex' : 'none';
+document.getElementById('plans-prev').style.display = 'none';
+document.getElementById('plans-next').style.display = 'none';
+document.getElementById('plans-page-info').textContent = '';
 return;
 }
 const canEdit = _canWrite; // true for authenticated users and demo users (demo sets _canWrite=true)
@@ -21477,12 +21502,23 @@ ${_plansShowTag ? '<td style="text-align:center;font-size:.62rem;color:var(--mut
 // Pagination
 const pgEl = document.getElementById('plans-pagination');
 if(pgEl){
-if(totalPages>1){
 pgEl.style.display='flex';
+document.getElementById('plans-add-btn-top').style.display = canEdit ? '' : 'none';
+if(totalPages>1){
+document.getElementById('plans-prev').style.display='';
+document.getElementById('plans-next').style.display='';
 document.getElementById('plans-page-info').textContent=`${_plansPage+1}/${totalPages}`;
 document.getElementById('plans-prev').disabled=_plansPage===0;
 document.getElementById('plans-next').disabled=_plansPage>=totalPages-1;
-} else pgEl.style.display='none';
+} else {
+// 2026-08-31: used to hide this whole row when there's only one page —
+// now only Prev/Next/the page-count label hide, so "+ New" (added to
+// this same row that day) stays visible regardless of how many plans
+// there are. See the HTML comment at #plans-pagination.
+document.getElementById('plans-prev').style.display='none';
+document.getElementById('plans-next').style.display='none';
+document.getElementById('plans-page-info').textContent='';
+}
 }
 // Wire resize handle
 const resizeHandle = el.querySelector('.plan-col-resize');
