@@ -33,8 +33,29 @@ const DEFAULTS = {
   'admin-panel':            'admin',
   'money-planner-easy':     'public',
   'agenda-schedule':        'auth',
-  'my-daily-tools':         'auth',
+  // 2026-08-31 fix, per Marcelo ("demo is no longer working, it keeps
+  // asking to login instead"): this page has its own guest/signed-out
+  // flow built in (see the "Guest / signed-out: show welcome screen
+  // first" branch and window._startDemo in my-daily-tools.html) -- an
+  // anonymous visitor is meant to land here and choose Sign In or Try
+  // Demo. Gating this page at 'auth' meant auth-guard.js redirected every
+  // guest to /login.html before the page's own JS (containing that whole
+  // flow) ever got a chance to run, so demo mode was only ever reachable
+  // if a Firebase page-access/my-daily-tools override happened to say
+  // 'public' -- if that override was ever cleared or never set, this
+  // DEFAULTS value took over and silently broke it. Set to 'public' here
+  // so it no longer depends on that override existing at all: the page's
+  // own JS already correctly keeps real account data behind sign-in
+  // (window._authUser), a guest just sees the welcome/demo choice instead.
+  'my-daily-tools':         'public',
   'habits':                 'auth',
+  // Added 2026-08-31: missing entirely before, which is what caused Calm
+  // Corner to hard-404 (see accessDenied() below) for anyone once ANY
+  // usergroup existed for this tenant and no group had an explicit 'r'
+  // row for 'calm-corner' -- it fell through to the final `else {
+  // accessDenied(); }` branch in the onAuthStateChanged handler further
+  // down, same as any other page missing from this list would.
+  'calm-corner':            'auth',
 };
 
 // Every page's visibility is governed by the R/W/X usergroup permission system
@@ -71,7 +92,16 @@ function redirectToLogin() {
 }
 
 function accessDenied() {
-  window.location.replace('/index.html?denied=1');
+  // 2026-08-31 fix: this was hardcoded to '/index.html?denied=1' -- correct
+  // for the Engine fork, where index.html really is the public homepage,
+  // but wrong here: this Tools deployment's actual public landing page is
+  // daily-tools-landing.html, and index.html doesn't exist on this site at
+  // all. Any page hitting this branch (e.g. Calm Corner's missing DEFAULTS
+  // entry above, now fixed, or any future page in the same situation) was
+  // getting Netlify's raw 404 instead of a real "access denied" screen.
+  // CLIENT.publicHome lets each fork point this at its own real landing
+  // page instead of hardcoding Engine's.
+  window.location.replace((CLIENT.publicHome || '/index.html') + '?denied=1');
 }
 
 // Explicit opt-OUT list — accounts here are blocked from every private page,

@@ -5716,31 +5716,61 @@
       <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Check things off as you go</div>
     </div>
 
-    <!-- New list button — caregiver-only, shown/hidden by
-         window.tlSyncCaregiverOnlyUi() (called from renderTaskListsTab),
-         same as Import just below. Added 2026-08-31: this wrap previously
-         had no id and was never actually wired into tlSyncCaregiverOnlyUi()
-         despite openTaskListDialog()'s own comment claiming it already was
-         -- the function-level guard there was working, but nothing hid the
-         button itself, so a supported individual could open (and get
-         bounced from) the New List dialog. -->
-    <div id="tasklists-newlist-wrap" style="margin-bottom:8px;">
-      <button onclick="window.openTaskListDialog()" style="width:100%;padding:11px;background:none;color:var(--accent);border:1.5px dashed var(--accent);border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;">＋ New list</button>
+    <!-- New list + "⋮" more menu (Import), same row to save space —
+         2026-08-31, per Marcelo ("import button should be more discreet,
+         maybe under a hamburger menu"). New List stays a full-width
+         primary action (still the thing most caregivers reach for first);
+         Import moved into the menu since it's a rare, one-off action, same
+         reasoning as Plans' own "⋮" menu (window.togglePlansMoreMenu). -->
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <!-- New list button — caregiver-only, shown/hidden by
+           window.tlSyncCaregiverOnlyUi() (called from renderTaskListsTab).
+           Added 2026-08-31: this wrap previously had no id and was never
+           actually wired into tlSyncCaregiverOnlyUi() despite
+           openTaskListDialog()'s own comment claiming it already was --
+           the function-level guard there was working, but nothing hid the
+           button itself, so a supported individual could open (and get
+           bounced from) the New List dialog. -->
+      <div id="tasklists-newlist-wrap" style="flex:1;">
+        <button onclick="window.openTaskListDialog()" style="width:100%;padding:11px;background:none;color:var(--accent);border:1.5px dashed var(--accent);border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;">＋ New list</button>
+      </div>
+      <!-- Import a list, added 2026-08-30 per Marcelo ("task list can be
+           imported and exported by caregivers if they want to add more
+           tasklist for their selection"). Caregiver-only, shown/hidden by
+           window.tlSyncCaregiverOnlyUi(). The matching Export control lives
+           in the Edit List dialog, next to Delete, since export acts on
+           one existing list. -->
+      <div id="tasklists-import-wrap" style="display:none;position:relative;flex-shrink:0;">
+        <button id="tasklists-more-menu-btn" onclick="window.toggleTaskListsMoreMenu()" title="More: import a list" style="width:44px;height:44px;padding:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">⋮</button>
+        <div id="tasklists-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.15);min-width:170px;z-index:35;overflow:hidden;">
+          <input id="tasklists-import-file-input" type="file" accept="application/json,.json" style="display:none;" onchange="window.importTaskListFile(this)">
+          <button onclick="window.closeTaskListsMoreMenu();document.getElementById('tasklists-import-file-input').click()" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--text);cursor:pointer;">⬇️ Import a list</button>
+        </div>
+      </div>
     </div>
 
-    <!-- Import a list, added 2026-08-30 per Marcelo ("task list can be
-         imported and exported by caregivers if they want to add more
-         tasklist for their selection"). Caregiver-only, shown/hidden by
-         window.tlSyncCaregiverOnlyUi() (called from renderTaskListsTab).
-         The matching Export control lives in the Edit List dialog, next to
-         Delete, since export acts on one existing list. -->
-    <div id="tasklists-import-wrap" style="display:none;margin-bottom:12px;">
-      <input id="tasklists-import-file-input" type="file" accept="application/json,.json" style="display:none;" onchange="window.importTaskListFile(this)">
-      <button onclick="document.getElementById('tasklists-import-file-input').click()" style="width:100%;padding:9px;background:none;color:var(--muted);border:1.5px dashed var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;">⬇️ Import a list</button>
+    <!-- Search — added 2026-08-31, per Marcelo ("many lists get created and
+         can become very big"). Only shown once there's actually enough on
+         the board to be worth searching (see renderTaskListsTab's
+         tasklists-search-wrap toggle) so it doesn't clutter a short board.
+         Matches against list title/subtitle AND item description/
+         instructions/Quick Check question text (see
+         _tlListMatchesSearch) — a list surfaces even for a match buried
+         inside a collapsed item, not just its own name. -->
+    <div id="tasklists-search-wrap" style="display:none;margin-bottom:10px;">
+      <input id="tasklists-search-input" type="search" placeholder="🔎 Search lists and tasks…" oninput="window.setTaskListsSearch(this.value)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:.82rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
     </div>
 
     <!-- Lists -->
     <div id="tasklists-list"></div>
+
+    <!-- Lists pagination — added 2026-08-31, see TL_LISTS_PER_PAGE. Same
+         Prev/page-count/Next pattern as Plans' own #plans-pagination. -->
+    <div id="tasklists-pagination" style="display:none;align-items:center;justify-content:center;gap:12px;margin-top:6px;margin-bottom:10px;font-size:.76rem;color:var(--muted);">
+      <button class="checklist-page-btn" id="tasklists-prev" onclick="window.setTaskListsPage(-1)">‹ Prev</button>
+      <span id="tasklists-page-info"></span>
+      <button class="checklist-page-btn" id="tasklists-next" onclick="window.setTaskListsPage(1)">Next ›</button>
+    </div>
 
     <!-- Empty state -->
     <div id="tasklists-empty" style="display:none;text-align:center;padding:30px 16px;color:var(--muted);font-size:.84rem;">
@@ -7178,16 +7208,39 @@ window.removeRmMilestone = function(pi, mi) {
   <!-- Calendar link (added 2026-07-31 — was hardcoded to Marcelo's own
        Google Calendar cid; now configurable per account, synced cross-device
        via SYNCED_SETTINGS_KEYS same as the other preferences here). -->
+  <!-- Calendar Link — upgraded 2026-08-31 per Marcelo: up to 3 outside
+       Google Calendar links, all displayed together in the 📅 Calendar
+       tab. (This is where "can I have 3 ics instead of only one... I
+       combine it in a single calendar" actually belonged — it first landed
+       on Publish My Schedule below by mistake, since that one also
+       involves "3 ics/links"; reverted that one back to a single link.) -->
   <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
-    <div class="txn-collapse-header" onclick="toggleSettingsSection('calendar')" style="padding:14px 16px;">
+    <div class="txn-collapse-header" onclick="toggleSettingsSection('calendar'); window.renderCalendarUrlSection && window.renderCalendarUrlSection();" style="padding:14px 16px;">
       <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">📅 Calendar Link</span>
       <span class="txn-collapse-chevron" id="settings-chevron-calendar">▼</span>
     </div>
     <div id="settings-section-calendar" style="display:none;padding:0 16px 14px;">
-      <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">The calendar the 📅 Calendar tab uses. A normal calendar link opens in a new tab/app. To show the calendar right inside the tab instead, use a Google Calendar "Embed code" link. Open that calendar's Settings → "Integrate calendar" → "Embed code" (the calendar needs to be shared publicly for embedding to work).</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <input id="calendar-url-input" type="url" placeholder="https://calendar.google.com/calendar/…" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
-        <button onclick="setCalendarUrl(document.getElementById('calendar-url-input').value)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Save</button>
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">The calendar(s) the 📅 Calendar tab shows. A normal calendar link opens in a new tab/app. To show it right inside the tab instead, use a Google Calendar "Embed code" link — that calendar's Settings → "Integrate calendar" → "Embed code" (needs to be shared publicly for embedding to work). Up to 3 — set 2 and 3 only if you actually want more than one calendar showing at once; they display stacked, one under the other.</div>
+      <div id="calurl-slot-1">
+        <div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">Calendar 1</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="calendar-url-input-1" type="url" placeholder="https://calendar.google.com/calendar/…" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
+          <button onclick="window.setCalendarUrl('1', document.getElementById('calendar-url-input-1').value)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Save</button>
+        </div>
+      </div>
+      <div id="calurl-slot-2" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">Calendar 2 (optional)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="calendar-url-input-2" type="url" placeholder="https://calendar.google.com/calendar/…" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
+          <button onclick="window.setCalendarUrl('2', document.getElementById('calendar-url-input-2').value)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Save</button>
+        </div>
+      </div>
+      <div id="calurl-slot-3" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">Calendar 3 (optional)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="calendar-url-input-3" type="url" placeholder="https://calendar.google.com/calendar/…" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
+          <button onclick="window.setCalendarUrl('3', document.getElementById('calendar-url-input-3').value)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Save</button>
+        </div>
       </div>
       <div id="calendar-url-msg" style="font-size:.72rem;margin-top:8px;color:var(--muted);"></div>
     </div>
@@ -7199,28 +7252,42 @@ window.removeRmMilestone = function(pi, mi) {
        IN (displays an outside calendar inside this app); this card is the
        other direction, a private read-only feed this app publishes so an
        outside calendar can pull "My Schedule" shifts in. No Google OAuth
-       involved — see netlify/functions/schedule-ics.js. -->
+       involved — see netlify/functions/schedule-ics.js. Back to a single
+       link (2026-08-31) — see this card's own JS comment above
+       (window.renderScheduleFeedSection) for why it briefly had 3. -->
   <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
     <div class="txn-collapse-header" onclick="toggleSettingsSection('schedfeed'); window.renderScheduleFeedSection && window.renderScheduleFeedSection();" style="padding:14px 16px;">
       <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">🔗 Publish My Schedule</span>
       <span class="txn-collapse-chevron" id="settings-chevron-schedfeed">▼</span>
     </div>
     <div id="settings-section-schedfeed" style="display:none;padding:0 16px 14px;">
-      <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">Share your 🗓️ YTW Schedule shifts as a read-only feed that Google Calendar, Apple Calendar, or Outlook can subscribe to. This is separate from the Calendar Link above — that one shows an outside calendar in this app; this one sends your shifts out. Up to 3 independent links (2026-08-31, per Marcelo) — each one exports the exact same schedule, so this is for subscribing from more than one place (a second device, a spouse's calendar, etc.) without them sharing one revoke button. Only set up the ones you actually need; 2 and 3 are optional.</div>
-      <div id="schedfeed-slot-1"></div>
-      <div id="schedfeed-slot-2" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
-      <div id="schedfeed-slot-3" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">Share your 🗓️ YTW Schedule shifts as a read-only feed that Google Calendar, Apple Calendar, or Outlook can subscribe to. This is separate from the Calendar Link above — that one shows an outside calendar in this app; this one sends your shifts out.</div>
+      <div id="schedfeed-nolink" style="display:none;">
+        <button onclick="window.generateScheduleFeedLink()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;">Create feed link</button>
+      </div>
+      <div id="schedfeed-haslink" style="display:none;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="schedfeed-url-input" type="text" readonly style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.76rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
+          <button onclick="window.copyScheduleFeedLink()" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Copy</button>
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;"><strong>To add it in Google Calendar:</strong> on a computer, open Google Calendar → left sidebar "Other calendars" ＋ → "From URL" → paste the link above → Add calendar. Google checks subscribed feeds roughly every 12–24 hours (not something either of us can speed up). Google Calendar's mobile app can't add feeds directly — subscribe once on the web and it appears in the app too.</div>
+        <button onclick="window.revokeScheduleFeedLink()" style="margin-top:10px;background:none;border:none;color:#d94f4f;font-family:'Nunito',sans-serif;font-weight:700;font-size:.74rem;cursor:pointer;padding:0;">Revoke &amp; create a new link</button>
+      </div>
       <div id="schedfeed-msg" style="font-size:.72rem;margin-top:8px;color:var(--muted);"></div>
     </div>
   </div>
 
   <!-- Schedule Preferences (2026-08-24, per Marcelo: "first hour of the
        weekly menu should be configurable, right now is at 6am, as well as
-       which day should be considered the first day of the week") — two
-       account-level preferences for the YTW Schedule week/month/year grids.
-       Synced cross-device (SYNCED_SETTINGS_KEYS, see window.saveSchedPrefs)
-       since these are real preferences about how the schedule should look,
-       not per-device UI state like which sub-view was last open. -->
+       which day should be considered the first day of the week") — shared,
+       family-wide preferences for the YTW Schedule week/month/year grids
+       (see SchedUP+'/schedule-settings/' and window._schedSyncSharedPrefs
+       -- moved off the old per-account SYNCED_SETTINGS_KEYS mechanism
+       2026-08-31 since that only synced across one person's own devices,
+       not across a shared family plan). Time zone added 2026-08-31, per
+       Marcelo ("some people may live in other timezone") — feeds directly
+       into netlify/functions/schedule-ics.js's DTSTART/DTEND TZID, which
+       otherwise silently defaulted to America/Chicago for everyone. -->
   <div class="card" style="padding:0;overflow:hidden;">
     <div class="txn-collapse-header" onclick="toggleSettingsSection('sched-prefs')" style="padding:14px 16px;">
       <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;color:var(--text);">🕐 Schedule Preferences</span>
@@ -7228,7 +7295,7 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
     <div id="settings-section-sched-prefs" style="display:none;padding:0 16px 14px;">
       <div style="padding-top:10px;border-top:1px solid var(--border);">
-        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Controls how the Week/Month/Year grids on Tools → Calendar → YTW Schedule look.</div>
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Controls how the Week/Month/Year grids on Tools → Calendar → YTW Schedule look, and the time zone used when Publish My Schedule exports your shifts.</div>
         <div style="margin-bottom:12px;">
           <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">First day of the week</label>
           <select id="sched-pref-week-start" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);">
@@ -7236,9 +7303,14 @@ window.removeRmMilestone = function(pi, mi) {
             <option value="sun">Sunday</option>
           </select>
         </div>
-        <div style="margin-bottom:14px;">
+        <div style="margin-bottom:12px;">
           <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">First hour shown on the Week grid</label>
           <select id="sched-pref-start-hour" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);"></select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:5px;">Time zone</label>
+          <select id="sched-pref-timezone" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);color:var(--text);"></select>
+          <div style="font-size:.68rem;color:var(--muted);margin-top:4px;">Used for shifts sent to an outside calendar via Publish My Schedule. Defaults to America/Chicago if never set.</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <button class="settings-btn" onclick="window.saveSchedPrefs()">Save</button>
@@ -8545,6 +8617,30 @@ window.removeRmMilestone = function(pi, mi) {
 
 
 <!-- ══ MONEY MODAL ══ -->
+<!-- Money Modal — made more compact 2026-08-31, per Marcelo: "try to make
+     it a bit more compact instead of so big and occupying the entire
+     screen." Scoped to #money-modal only (other modals sharing
+     .modal-sheet, like Add Shift, are unaffected). Doesn't touch
+     position/transform, so whatever open/close slide animation theme.css
+     defines for .modal-sheet still works unchanged — this just caps how
+     tall/wide the sheet can grow and tightens the spacing between fields,
+     so the same content fits in noticeably less vertical space instead of
+     stretching to fill the viewport. -->
+<style>
+#money-modal .modal-sheet {
+  max-width: 420px;
+  height: auto !important;
+  max-height: 88vh !important;
+  margin-left: auto;
+  margin-right: auto;
+  overflow-y: auto;
+  border-radius: 22px;
+}
+#money-modal .modal-label { margin-top: 8px; margin-bottom: 4px; }
+#money-modal .type-tabs { margin-bottom: 10px; }
+#money-modal .money-amt-wrap { margin-bottom: 6px; }
+#money-modal .modal-cta, #money-modal .modal-cancel { margin-top: 8px; }
+</style>
 <div id="money-modal" class="modal-overlay">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -9405,8 +9501,9 @@ window.removeRmMilestone = function(pi, mi) {
 /* ── GOOGLE CALENDAR: open native app on mobile, web on desktop ──
    2026-07-31: the calendar URL used to be hardcoded to Marcelo's own
    Google Calendar cid — every account (real subscribers included) landed on
-   HIS calendar. Now reads Settings → Content → Calendar Link
-   (localStorage 'calendar-url', synced cross-device via SYNCED_SETTINGS_KEYS
+   HIS calendar. Now reads Settings → Calendar & Schedule → Calendar Link
+   (localStorage 'calendar-url-1/2/3', up to 3 slots as of 2026-08-31 —
+   shared across a family plan via SchedUP, see window._schedSyncSharedPrefs
    in the module script below), falling back to the original default so
    existing setups aren't disrupted by this change.
    2026-08-08: DEFAULT_CAL_URL itself was still Marcelo's personal calendar
@@ -9426,10 +9523,25 @@ window.removeRmMilestone = function(pi, mi) {
    wants a different calendar still overrides it per-account exactly as
    before. */
 var DEFAULT_CAL_URL = 'https://calendar.google.com/calendar/embed?src=f590c5dcef18013ae278b137790995778f796d4b3e08d620a7aefcb1a64bdd84%40group.calendar.google.com&ctz=America%2FChicago';
-function _getCalendarUrl() {
-  try { return localStorage.getItem('calendar-url') || DEFAULT_CAL_URL; } catch(e) { return DEFAULT_CAL_URL; }
+// 2026-08-31: Calendar Link upgraded from a single URL to up to 3, per
+// Marcelo ("can I have 3 ics instead of only one? I combine it in single
+// calendar" — this is the feature that request actually meant; see
+// window.renderScheduleFeedSection's comment for the other card it first
+// landed on by mistake). Slot 1 keeps the original fallback-to-
+// DEFAULT_CAL_URL behavior so an account that's never touched this setting
+// is unaffected; slots 2/3 are opt-in extras with no default — an unset
+// slot 2/3 just isn't shown in the Calendar tab at all.
+function _getStoredCalendarUrl(slot) {
+  try { return localStorage.getItem('calendar-url-' + slot) || ''; } catch(e) { return ''; }
 }
-window.setCalendarUrl = function(url) {
+function _getCalendarUrl(slot) {
+  slot = slot || '1';
+  var v = _getStoredCalendarUrl(slot);
+  if (v) return v;
+  return slot === '1' ? DEFAULT_CAL_URL : '';
+}
+window.setCalendarUrl = function(slot, url) {
+  slot = (slot === '2' || slot === '3') ? slot : '1';
   url = (url || '').trim();
   var msg = document.getElementById('calendar-url-msg');
   if (url && !/^https?:\/\//i.test(url)) {
@@ -9437,26 +9549,30 @@ window.setCalendarUrl = function(url) {
     return;
   }
   try {
-    if (url) localStorage.setItem('calendar-url', url);
-    else localStorage.removeItem('calendar-url'); // empty = fall back to the default calendar
+    if (url) localStorage.setItem('calendar-url-' + slot, url);
+    else localStorage.removeItem('calendar-url-' + slot); // empty = slot 1 falls back to the default calendar, slots 2/3 just stop showing
   } catch(e) {}
-  var input = document.getElementById('calendar-url-input');
+  var input = document.getElementById('calendar-url-input-' + slot);
   if (input) input.value = url;
-  if (msg) { msg.textContent = url ? 'Saved ✓' : 'Cleared. Calendar will use the default link.'; msg.style.color = 'var(--accent)'; setTimeout(function(){ if(msg) msg.textContent=''; }, 2500); }
+  if (msg) { msg.textContent = url ? 'Saved ✓' : (slot === '1' ? 'Cleared. Calendar will use the default link.' : 'Cleared.'); msg.style.color = 'var(--accent)'; setTimeout(function(){ if(msg) msg.textContent=''; }, 2500); }
   try { window.renderCalendarPane && window.renderCalendarPane(); } catch(e) {}
 };
-// Populate the Settings field with whatever's currently saved, as soon as this script runs.
+// Populates the 3 Settings slots with whatever's currently saved.
+window.renderCalendarUrlSection = function() {
+  ['1','2','3'].forEach(function(slot) {
+    var input = document.getElementById('calendar-url-input-' + slot);
+    if (input) input.value = _getStoredCalendarUrl(slot);
+  });
+};
+// Populate the Settings fields with whatever's currently saved, as soon as this script runs.
 (function() {
-  try {
-    var saved = localStorage.getItem('calendar-url');
-    document.addEventListener('DOMContentLoaded', function() {
-      var input = document.getElementById('calendar-url-input');
-      if (input && saved) input.value = saved;
-    });
-  } catch(e) {}
+  document.addEventListener('DOMContentLoaded', function() {
+    try { window.renderCalendarUrlSection(); } catch(e) {}
+  });
 })();
-function openGoogleCalendar() {
-  var CAL_URL = _getCalendarUrl();
+function openGoogleCalendar(slot) {
+  var CAL_URL = _getCalendarUrl(slot || '1');
+  if (!CAL_URL) return;
   var ua = navigator.userAgent || '';
   var isAndroid = /Android/i.test(ua);
   var isIOS = /iPhone|iPad|iPod/i.test(ua);
@@ -9550,23 +9666,45 @@ window.renderCalendarPane = function() {
     _renderCalendarGoogleView();
   }
 };
+// Renders up to 3 calendars stacked, one under the other — 2026-08-31,
+// see the "Calendar Link upgraded" comment above _getStoredCalendarUrl.
+// Slot 1 keeps the exact original behavior (falls back to DEFAULT_CAL_URL,
+// shown as an embed OR an "open" fallback card); slots 2/3 only render at
+// all if a URL is actually set for them, and use a smaller inline "open"
+// link rather than a second full-size fallback card, since stacking 3
+// large "open my calendar" cards side by side would be a lot of vertical
+// space for calendars that mostly aren't embed-capable anyway.
 function _renderCalendarGoogleView() {
   var subEl = document.getElementById('calendar-pane-sub');
   var bodyEl = document.getElementById('calendar-pane-body');
   if (!bodyEl) return;
-  var url = _getCalendarUrl();
-  if (_isCalendarEmbedUrl(url)) {
-    if (subEl) subEl.textContent = 'Your calendar, right here.';
-    bodyEl.innerHTML = '<iframe src="' + url.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;" loading="lazy"></iframe>'
-      + '<div style="text-align:center;margin-top:10px;"><a href="javascript:void(0)" onclick="openGoogleCalendar()" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
+  var url1 = _getCalendarUrl('1');
+  var html = '';
+  var anyEmbed = false;
+  if (_isCalendarEmbedUrl(url1)) {
+    anyEmbed = true;
+    html += '<iframe src="' + url1.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;" loading="lazy"></iframe>'
+      + '<div style="text-align:center;margin-top:10px;margin-bottom:14px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'1\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
   } else {
-    if (subEl) subEl.textContent = 'Opens in a new tab or your calendar app.';
-    bodyEl.innerHTML = '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;text-align:center;">'
+    html += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;text-align:center;margin-bottom:14px;">'
       + '<div style="font-size:2rem;margin-bottom:8px;">📅</div>'
-      + '<button onclick="openGoogleCalendar()" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 22px;font-family:\'Nunito\',sans-serif;font-weight:800;font-size:.88rem;cursor:pointer;">Open my calendar</button>'
+      + '<button onclick="openGoogleCalendar(\'1\')" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 22px;font-family:\'Nunito\',sans-serif;font-weight:800;font-size:.88rem;cursor:pointer;">Open my calendar</button>'
       + '<div style="font-size:.72rem;color:var(--muted);margin-top:12px;line-height:1.5;">Want the calendar to show right here instead? In Settings → Calendar Link, use a Google Calendar "Embed code" link (from that calendar\'s Integrate calendar settings). It needs to be shared publicly for embedding to work.</div>'
       + '</div>';
   }
+  ['2', '3'].forEach(function(slot) {
+    var url = _getStoredCalendarUrl(slot); // slots 2/3 have no default — only show if actually set
+    if (!url) return;
+    if (_isCalendarEmbedUrl(url)) {
+      anyEmbed = true;
+      html += '<iframe src="' + url.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;margin-top:14px;" loading="lazy"></iframe>'
+        + '<div style="text-align:center;margin-top:10px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'' + slot + '\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
+    } else {
+      html += '<div style="text-align:center;margin-top:14px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'' + slot + '\')" style="font-size:.82rem;color:var(--accent);font-weight:700;">📅 Open Calendar ' + slot + ' ↗</a></div>';
+    }
+  });
+  if (subEl) subEl.textContent = anyEmbed ? 'Your calendar, right here.' : 'Opens in a new tab or your calendar app.';
+  bodyEl.innerHTML = html;
 }
 
 
@@ -12953,66 +13091,48 @@ let _schedData = {}; // My Schedule shift entries, keyed by Firebase push id
 
 // ── SCHEDULE FEED (ICS export) — added 2026-08-25 ──
 // Publishes SchedUP+'/schedule' as a read-only iCalendar feed an outside
-// calendar app can subscribe to. Tokens live at
-// SchedUP+'/schedule-feed-tokens/{1,2,3}' (a long random string per slot,
-// NOT the Firebase auth token) so the serverless function
-// (netlify/functions/schedule-ics.js, uses the Admin SDK, bypasses rules)
-// can authenticate the request without the caller being signed in — a
-// calendar app polling a URL has no way to attach a Firebase ID token.
+// calendar app can subscribe to. Token lives at SchedUP+'/schedule-feed-token'
+// (a long random string, NOT the Firebase auth token) so the serverless
+// function (netlify/functions/schedule-ics.js, uses the Admin SDK, bypasses
+// rules) can authenticate the request without the caller being signed in —
+// a calendar app polling a URL has no way to attach a Firebase ID token.
 // Firebase rules need a matching read/write entry alongside 'schedule''s
 // existing family-sharing rule (same $uid-scoped pattern) — see this
 // session's SKILL.md entry for the exact rule text; not applied here since
 // the rules file wasn't part of this session's uploads.
 //
-// 2026-08-31 fix, per Marcelo ("can I have 3 ics instead of only one...
-// combine it in single calendar, 2nd and 3rd would be additions if
-// needed"): was a single token at SchedUP+'/schedule-feed-token' (no slot
-// number) — every function below now takes a slot ('1'/'2'/'3') and reads/
-// writes SchedUP+'/schedule-feed-tokens/'+slot instead, so up to 3
-// independent subscription links can exist side by side, each revocable
-// without touching the other two. All 3 slots export the exact same
-// SchedUP+'/schedule' data — this is about having separate subscription
-// URLs (e.g. one per device/calendar app), not separate data.
-// IMPORTANT: netlify/functions/schedule-ics.js (not part of this session's
-// uploads) still validates against the OLD single 'schedule-feed-token'
-// path — it needs a matching update to check
-// 'schedule-feed-tokens/{1,2,3}' instead (accept the request if the token
-// param matches ANY of the three), or existing/new links from this UI
-// won't actually authenticate against the live feed endpoint.
+// 2026-08-31: briefly turned into 3 independent slots based on a
+// misreading of "can I have 3 ics instead of only one" — that request was
+// actually about the Calendar Link card above (displaying 3 outside
+// Google Calendars at once), not this export feed. Reverted back to the
+// original single-link behavior; see Calendar Link's own comment for
+// where the real 3-link feature landed instead.
 function _schedFeedUrl(token) {
   return window.location.origin + '/.netlify/functions/schedule-ics?up=' + encodeURIComponent(SchedUP) + '&token=' + encodeURIComponent(token);
 }
-function _schedFeedSlotHtml(slot, token) {
-  var label = slot === '1' ? 'Link 1' : (slot === '2' ? 'Link 2 (optional)' : 'Link 3 (optional)');
-  if (token) {
-    return '<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">' + label + '</div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-      + '<input id="schedfeed-url-input-' + slot + '" type="text" readonly value="' + _schedFeedUrl(token) + '" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.76rem;font-family:\'Quicksand\',sans-serif;background:var(--surface2);color:var(--text);">'
-      + '<button onclick="window.copyScheduleFeedLink(\'' + slot + '\')" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap;">Copy</button>'
-      + '</div>'
-      + (slot === '1' ? '<div style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;"><strong>To add it in Google Calendar:</strong> on a computer, open Google Calendar → left sidebar "Other calendars" ＋ → "From URL" → paste the link above → Add calendar. Google checks subscribed feeds roughly every 12–24 hours (not something either of us can speed up). Google Calendar\'s mobile app can\'t add feeds directly — subscribe once on the web and it appears in the app too.</div>' : '')
-      + '<button onclick="window.revokeScheduleFeedLink(\'' + slot + '\')" style="margin-top:10px;background:none;border:none;color:#d94f4f;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.74rem;cursor:pointer;padding:0;">Revoke this link</button>';
-  }
-  return '<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;">' + label + '</div>'
-    + '<button onclick="window.generateScheduleFeedLink(\'' + slot + '\')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;">Create feed link</button>';
-}
 window.renderScheduleFeedSection = function() {
-  var slots = { '1': document.getElementById('schedfeed-slot-1'), '2': document.getElementById('schedfeed-slot-2'), '3': document.getElementById('schedfeed-slot-3') };
+  var noLink = document.getElementById('schedfeed-nolink');
+  var hasLink = document.getElementById('schedfeed-haslink');
   var msg = document.getElementById('schedfeed-msg');
-  if (!slots['1']) return;
-  if (msg) msg.textContent = 'Checking…';
-  get(ref(db, SchedUP + '/schedule-feed-tokens')).then(function(snap) {
-    var tokens = snap.val() || {};
-    ['1', '2', '3'].forEach(function(slot) {
-      if (slots[slot]) slots[slot].innerHTML = _schedFeedSlotHtml(slot, tokens[slot]);
-    });
-    if (msg) msg.textContent = '';
+  if (!noLink || !hasLink) return;
+  msg.textContent = 'Checking…';
+  get(ref(db, SchedUP + '/schedule-feed-token')).then(function(snap) {
+    var token = snap.val();
+    if (token) {
+      noLink.style.display = 'none';
+      hasLink.style.display = '';
+      var input = document.getElementById('schedfeed-url-input');
+      if (input) input.value = _schedFeedUrl(token);
+    } else {
+      noLink.style.display = '';
+      hasLink.style.display = 'none';
+    }
+    msg.textContent = '';
   }).catch(function() {
-    if (msg) msg.textContent = 'Could not check feed status, try again.';
+    msg.textContent = 'Could not check feed status, try again.';
   });
 };
-window.generateScheduleFeedLink = function(slot) {
-  slot = slot === '2' ? '2' : (slot === '3' ? '3' : '1');
+window.generateScheduleFeedLink = function() {
   // 32 bytes of randomness, hex-encoded — long enough that guessing it is
   // infeasible, short enough to sit comfortably in a URL query param.
   var bytes = new Uint8Array(32);
@@ -13020,23 +13140,21 @@ window.generateScheduleFeedLink = function(slot) {
   var token = Array.prototype.map.call(bytes, function(b) { return b.toString(16).padStart(2, '0'); }).join('');
   var msg = document.getElementById('schedfeed-msg');
   if (msg) msg.textContent = 'Creating…';
-  set(ref(db, SchedUP + '/schedule-feed-tokens/' + slot), token).then(function() {
+  set(ref(db, SchedUP + '/schedule-feed-token'), token).then(function() {
     if (msg) msg.textContent = '';
     window.renderScheduleFeedSection();
   }).catch(function() {
     if (msg) msg.textContent = 'Could not create the link, try again.';
   });
 };
-window.revokeScheduleFeedLink = function(slot) {
-  slot = slot === '2' ? '2' : (slot === '3' ? '3' : '1');
-  if (!confirm('This turns off this link — anyone already subscribed to it will stop getting updates. Continue?')) return;
-  set(ref(db, SchedUP + '/schedule-feed-tokens/' + slot), null).then(function() {
-    window.renderScheduleFeedSection();
+window.revokeScheduleFeedLink = function() {
+  if (!confirm('This turns off the current link — anyone already subscribed will stop getting updates. Create a new link right after?')) return;
+  set(ref(db, SchedUP + '/schedule-feed-token'), null).then(function() {
+    window.generateScheduleFeedLink();
   });
 };
-window.copyScheduleFeedLink = function(slot) {
-  slot = slot === '2' ? '2' : (slot === '3' ? '3' : '1');
-  var input = document.getElementById('schedfeed-url-input-' + slot);
+window.copyScheduleFeedLink = function() {
+  var input = document.getElementById('schedfeed-url-input');
   var msg = document.getElementById('schedfeed-msg');
   if (!input) return;
   input.select();
@@ -13257,6 +13375,18 @@ function _getSchedWeekStartsOn() {
   try { return localStorage.getItem('sched-week-start') === 'sun' ? 'sun' : 'mon'; } catch(e) { return 'mon'; }
 }
 window._getSchedWeekStartsOn = _getSchedWeekStartsOn;
+// Time zone, added 2026-08-31 per Marcelo ("some people may live in other
+// timezone") -- used only by netlify/functions/schedule-ics.js's DTSTART/
+// DTEND TZID (see that file's own 2026-08-31 fix); nothing inside this app
+// itself is timezone-aware, since shifts are stored as plain wall-clock
+// date/time strings with no zone attached. Empty/unset is a valid state
+// meaning "use the default" (America/Chicago, matching schedule-ics.js's
+// own fallback when settings.timezone is missing) -- same "empty means
+// default" convention as _getStoredCalendarUrl.
+function _getSchedTimezone() {
+  try { return localStorage.getItem('sched-timezone') || ''; } catch(e) { return ''; }
+}
+window._getSchedTimezone = _getSchedTimezone;
 // Pulls the real shared value from SchedUP+'/schedule-settings/' and
 // reconciles the local cache + any already-rendered grid. Safe to call any
 // number of times (e.g. on every account switch); a get() that finds
@@ -13268,9 +13398,10 @@ window._schedSyncSharedPrefs = function() {
   Promise.all([
     get(ref(db, SchedUP + '/schedule-settings/startHour')).then(function(snap) { return snap.val(); }).catch(function() { return null; }),
     get(ref(db, SchedUP + '/schedule-settings/weekStartsOn')).then(function(snap) { return snap.val(); }).catch(function() { return null; }),
-    get(ref(db, SchedUP + '/schedule-settings/calendarUrl')).then(function(snap) { return snap.val(); }).catch(function() { return null; })
+    get(ref(db, SchedUP + '/schedule-settings/calendarUrls')).then(function(snap) { return snap.val(); }).catch(function() { return null; }),
+    get(ref(db, SchedUP + '/schedule-settings/timezone')).then(function(snap) { return snap.val(); }).catch(function() { return null; })
   ]).then(function(vals) {
-    var sharedStart = vals[0], sharedWeekStart = vals[1], sharedCalUrl = vals[2];
+    var sharedStart = vals[0], sharedWeekStart = vals[1], sharedCalUrls = vals[2] || {}, sharedTz = vals[3];
     var changed = false, calChanged = false;
     if (sharedStart != null && sharedStart !== _getSchedStartHour()) {
       try { localStorage.setItem('sched-start-hour', String(sharedStart)); } catch(e) {}
@@ -13281,24 +13412,40 @@ window._schedSyncSharedPrefs = function() {
       try { localStorage.setItem('sched-week-start', sharedWeekStart); } catch(e) {}
       changed = true;
     }
-    // 2026-08-31 fix: the Google Calendar embed link had the exact same bug
-    // as the two settings above -- it was syncing via the generic
+    // Time zone, added 2026-08-31 alongside the other two above -- same
+    // "empty is a valid explicit state" handling as calendarUrls, since an
+    // empty string here just means "use schedule-ics.js's own
+    // America/Chicago default", not "not synced yet".
+    if (typeof sharedTz === 'string' && sharedTz !== _getSchedTimezone()) {
+      try {
+        if (sharedTz) localStorage.setItem('sched-timezone', sharedTz);
+        else localStorage.removeItem('sched-timezone');
+      } catch(e) {}
+      var tzSel = document.getElementById('sched-pref-timezone');
+      if (tzSel) tzSel.value = sharedTz || 'America/Chicago';
+    }
+    // 2026-08-31 fix: the Google Calendar embed link(s) had the exact same
+    // bug as the two settings above -- syncing via the generic
     // SYNCED_SETTINGS_KEYS/P mechanism (own account only), so a caregiver
-    // viewing a shared family plan saw their OWN saved calendar link (or
+    // viewing a shared family plan saw their OWN saved calendar link(s) (or
     // the hardcoded DEFAULT_CAL_URL) instead of whichever calendar the
     // family's caregiver actually set up. Reported: "if I'm accessing a
     // share of someone I should have his Google calendar link that is set
     // by the caregiver." Moved onto the same shared bucket as the two
-    // settings above; empty string is a valid "explicitly cleared, use the
-    // default" state, so it's compared/stored as '' rather than skipped
-    // like the null-meaning-not-set case is for the other two keys.
-    if (typeof sharedCalUrl === 'string' && sharedCalUrl !== (localStorage.getItem('calendar-url') || '')) {
-      try {
-        if (sharedCalUrl) localStorage.setItem('calendar-url', sharedCalUrl);
-        else localStorage.removeItem('calendar-url');
-      } catch(e) {}
-      calChanged = true;
-    }
+    // settings above (now 3 slots — see window.setCalendarUrl); empty
+    // string is a valid "explicitly cleared" state for any slot, so it's
+    // compared/stored as '' rather than skipped like the null-meaning-
+    // not-set case is for startHour/weekStartsOn.
+    ['1', '2', '3'].forEach(function(slot) {
+      var shared = sharedCalUrls[slot];
+      if (typeof shared === 'string' && shared !== _getStoredCalendarUrl(slot)) {
+        try {
+          if (shared) localStorage.setItem('calendar-url-' + slot, shared);
+          else localStorage.removeItem('calendar-url-' + slot);
+        } catch(e) {}
+        calChanged = true;
+      }
+    });
     if (changed) {
       _schedWeekStart = _schedMonday(_schedWeekStart);
       window.renderScheduleNative && window.renderScheduleNative();
@@ -13307,8 +13454,7 @@ window._schedSyncSharedPrefs = function() {
     }
     if (changed || calChanged) {
       window.renderCalendarPane && window.renderCalendarPane();
-      var calInput = document.getElementById('calendar-url-input');
-      if (calInput) calInput.value = localStorage.getItem('calendar-url') || '';
+      window.renderCalendarUrlSection && window.renderCalendarUrlSection();
     }
   });
 };
@@ -13319,8 +13465,9 @@ window._schedSyncSharedPrefs = function() {
 // before. Keeps the same validation/messaging UX, just also writes through
 // to SchedUP so the rest of the family picks it up via
 // window._schedSyncSharedPrefs() above.
-window.setCalendarUrl = function(url) {
+window.setCalendarUrl = function(slot, url) {
   if (!guardWrite()) return;
+  slot = (slot === '2' || slot === '3') ? slot : '1';
   url = (url || '').trim();
   var msg = document.getElementById('calendar-url-msg');
   if (url && !/^https?:\/\//i.test(url)) {
@@ -13328,13 +13475,13 @@ window.setCalendarUrl = function(url) {
     return;
   }
   try {
-    if (url) localStorage.setItem('calendar-url', url);
-    else localStorage.removeItem('calendar-url');
+    if (url) localStorage.setItem('calendar-url-' + slot, url);
+    else localStorage.removeItem('calendar-url-' + slot);
   } catch(e) {}
-  set(ref(db, SchedUP + '/schedule-settings/calendarUrl'), url).catch(function() {});
-  var input = document.getElementById('calendar-url-input');
+  set(ref(db, SchedUP + '/schedule-settings/calendarUrls/' + slot), url).catch(function() {});
+  var input = document.getElementById('calendar-url-input-' + slot);
   if (input) input.value = url;
-  if (msg) { msg.textContent = url ? 'Saved ✓' : 'Cleared. Calendar will use the default link.'; msg.style.color = 'var(--accent)'; setTimeout(function(){ if(msg) msg.textContent=''; }, 2500); }
+  if (msg) { msg.textContent = url ? 'Saved ✓' : (slot === '1' ? 'Cleared. Calendar will use the default link.' : 'Cleared.'); msg.style.color = 'var(--accent)'; setTimeout(function(){ if(msg) msg.textContent=''; }, 2500); }
   try { window.renderCalendarPane && window.renderCalendarPane(); } catch(e) {}
 };
 // Mon/Tue/... or Sun/Mon/... — short form for the Month/Year grid headers,
@@ -13420,9 +13567,23 @@ function _schedMaybeShowTapHint() {
 // #settings-tabpage-danger). Populates the two <select>s with the currently
 // saved values every time the Settings tab is opened (see the 'settings'
 // branch of switchTab below), and saves both back on Save.
+// Curated fallback for browsers without Intl.supportedValuesOf('timeZone')
+// (Safari <15.4 among others) -- covers every US zone plus a broad spread
+// for other countries, since this product now supports pt as well as en.
+// Where Intl.supportedValuesOf IS available, that full ~400-zone list is
+// used instead (see window.renderSchedPrefsSettings below), so this list
+// only matters as a fallback.
+var SCHED_TZ_FALLBACK = [
+  'America/New_York','America/Chicago','America/Denver','America/Phoenix','America/Los_Angeles','America/Anchorage','Pacific/Honolulu',
+  'America/Sao_Paulo','America/Mexico_City','America/Bogota','America/Argentina/Buenos_Aires',
+  'Europe/London','Europe/Lisbon','Europe/Madrid','Europe/Paris','Europe/Berlin',
+  'Africa/Lagos','Africa/Johannesburg',
+  'Asia/Dubai','Asia/Kolkata','Asia/Shanghai','Asia/Tokyo','Australia/Sydney',
+];
 window.renderSchedPrefsSettings = function() {
   var hourSel = document.getElementById('sched-pref-start-hour');
   var wkSel = document.getElementById('sched-pref-week-start');
+  var tzSel = document.getElementById('sched-pref-timezone');
   if (!hourSel || !wkSel) return; // Settings pane not built yet
   if (!hourSel.options.length) {
     var opts = '';
@@ -13432,8 +13593,13 @@ window.renderSchedPrefsSettings = function() {
     }
     hourSel.innerHTML = opts;
   }
+  if (tzSel && !tzSel.options.length) {
+    var zones = (typeof Intl.supportedValuesOf === 'function') ? Intl.supportedValuesOf('timeZone') : SCHED_TZ_FALLBACK;
+    tzSel.innerHTML = zones.map(function(z) { return '<option value="' + z + '">' + z.replace(/_/g, ' ') + '</option>'; }).join('');
+  }
   hourSel.value = String(_getSchedStartHour());
   wkSel.value = _getSchedWeekStartsOn();
+  if (tzSel) tzSel.value = _getSchedTimezone() || 'America/Chicago';
   // Fetch fresh from the shared SchedUP path on top of the cached values
   // above, same lazy-fetch-on-open pattern as the Payroll Rate card just
   // below (there's no realtime listener on schedule-settings, so another
@@ -13443,23 +13609,27 @@ window.renderSchedPrefsSettings = function() {
   setTimeout(function() {
     hourSel.value = String(_getSchedStartHour());
     wkSel.value = _getSchedWeekStartsOn();
+    if (tzSel) tzSel.value = _getSchedTimezone() || 'America/Chicago';
   }, 400);
 };
 window.saveSchedPrefs = function() {
   if (!guardWrite()) return;
   var hourSel = document.getElementById('sched-pref-start-hour');
   var wkSel = document.getElementById('sched-pref-week-start');
+  var tzSel = document.getElementById('sched-pref-timezone');
   if (!hourSel || !wkSel) return;
   var h = parseInt(hourSel.value, 10);
   if (isNaN(h) || h < 0 || h > 22) h = 6;
   var wk = wkSel.value === 'sun' ? 'sun' : 'mon';
+  var tz = tzSel ? tzSel.value : 'America/Chicago';
   try {
     localStorage.setItem('sched-start-hour', String(h));
     localStorage.setItem('sched-week-start', wk);
+    localStorage.setItem('sched-timezone', tz);
   } catch(e) {}
   SCHED_DAY_START = h;
-  // 2026-08-31 fix: these two are shared, family-wide schedule settings
-  // (see the long comment above _getSchedStartHour), not a per-device
+  // 2026-08-31 fix: these are shared, family-wide schedule settings (see
+  // the long comment above _getSchedStartHour), not a per-device
   // preference — write through to the same SchedUP+'/schedule-settings/'
   // bucket the Payroll Rate card just below uses, so anyone else viewing
   // this same shared schedule picks it up too (via
@@ -13467,6 +13637,12 @@ window.saveSchedPrefs = function() {
   // not just this device.
   set(ref(db, SchedUP + '/schedule-settings/startHour'), h).catch(function() {});
   set(ref(db, SchedUP + '/schedule-settings/weekStartsOn'), wk).catch(function() {});
+  // Time zone, added 2026-08-31 -- only actually consumed server-side by
+  // netlify/functions/schedule-ics.js (see that file's own 2026-08-31 fix
+  // for the DTSTART/DTEND TZID bug this setting closes). Nothing inside
+  // this app itself reads it, since shifts are stored as plain wall-clock
+  // strings with no timezone concept attached.
+  set(ref(db, SchedUP + '/schedule-settings/timezone'), tz).catch(function() {});
   // Re-anchor the currently-viewed week to the same calendar week under the
   // (possibly new) first-day-of-week convention, rather than jumping back
   // to today.
@@ -16353,6 +16529,37 @@ window.deleteCatalogItemDialog = async function() {
 // this needs zero new Firebase rules.
 let _taskListsData = {};
 let _tlExpanded = {}; // { [listId]: true } -- which list cards are open, not persisted
+// Search + pagination — added 2026-08-31, per Marcelo: lists can get
+// numerous and individual lists' item counts can get long, so both need a
+// way to narrow down instead of one long scroll. Neither persisted across
+// sessions (like _tlExpanded above) -- these are "where am I right now"
+// state, not a durable preference.
+let _tlSearchQuery = '';
+let _tlListsPage = 0;
+let _tlItemsPage = {}; // { [listId]: pageNum } -- independent per list
+const TL_LISTS_PER_PAGE = 10;
+const TL_ITEMS_PER_PAGE = 15;
+window.setTaskListsSearch = function(q) {
+  _tlSearchQuery = (q || '').trim().toLowerCase();
+  _tlListsPage = 0; // a new search always starts back at page 1
+  renderTaskListsTab();
+};
+// A list matches if its own title/subtitle matches, OR any of its items'
+// description/instructions/questions do -- per Marcelo, "easy to find a
+// list and/or a questionnaire" -- so searching a Quick Check question's
+// text surfaces the (possibly collapsed) list it lives on, not just list
+// names.
+function _tlListMatchesSearch(list, items) {
+  if (!_tlSearchQuery) return true;
+  const q = _tlSearchQuery;
+  if ((list.title || '').toLowerCase().includes(q)) return true;
+  if ((list.subtitle || '').toLowerCase().includes(q)) return true;
+  return items.some(function(item) {
+    if ((item.description || '').toLowerCase().includes(q)) return true;
+    if ((item.instructions || '').toLowerCase().includes(q)) return true;
+    return (item.questions || []).some(function(qq) { return (qq.text || '').toLowerCase().includes(q); });
+  });
+}
 // 2026-08-30, per Marcelo ("this new memo [instructions] should not be
 // expanded to the neurodivergent unless clicked, in this way screen is
 // clean and reading is optional"): instructions default to collapsed —
@@ -16510,8 +16717,15 @@ function renderTaskListsTab() {
   var empty = document.getElementById('tasklists-empty');
   if (!wrap) return; // pane not in DOM yet (tab never opened this session)
   window.tlSyncCaregiverOnlyUi();
-  var lists = getTaskListsArray();
-  if (!lists.length) {
+  var allLists = getTaskListsArray();
+  // Precompute items for every list up front — search needs to look inside
+  // items (see _tlListMatchesSearch), not just at title/subtitle, so this
+  // can't be deferred to only the currently-open list the way it used to be.
+  var withItems = allLists.map(function(list) { return { list: list, items: getTaskListItemsArray(list) }; });
+  var lists = withItems.filter(function(x) { return _tlListMatchesSearch(x.list, x.items); });
+  var searchBar = document.getElementById('tasklists-search-wrap');
+  if (searchBar) searchBar.style.display = allLists.length > 3 ? '' : 'none'; // not worth showing search for a short board
+  if (!allLists.length) {
     if (empty) {
       empty.style.display = '';
       // 2026-08-30 fix, per Marcelo (a family member reported not seeing
@@ -16536,11 +16750,23 @@ function renderTaskListsTab() {
         : 'Nothing here yet. Tap "\uFF0B New list" to start one.';
     }
     wrap.innerHTML = '';
+    _tlSyncListsPagination(0, 0);
     return;
   }
   if (empty) empty.style.display = 'none';
-  wrap.innerHTML = lists.map(function(list) {
-    var items = getTaskListItemsArray(list);
+  if (!lists.length) {
+    wrap.innerHTML = '<div style="padding:20px 4px;color:var(--muted);font-size:.82rem;text-align:center;">No lists or items match "' + _tlSearchQuery + '".</div>';
+    _tlSyncListsPagination(0, 0);
+    return;
+  }
+  var totalPages = Math.max(1, Math.ceil(lists.length / TL_LISTS_PER_PAGE));
+  if (_tlListsPage >= totalPages) _tlListsPage = totalPages - 1;
+  var pageStart = _tlListsPage * TL_LISTS_PER_PAGE;
+  var pageLists = lists.slice(pageStart, pageStart + TL_LISTS_PER_PAGE);
+  _tlSyncListsPagination(_tlListsPage, totalPages);
+  wrap.innerHTML = pageLists.map(function(entry) {
+    var list = entry.list;
+    var items = entry.items;
     var done = items.filter(function(i) { return !!i.completed; }).length;
     var pct = items.length ? Math.round((done / items.length) * 100) : 0;
     var pendingReviewCount = items.filter(function(i) { return i.completed && i.pendingReview; }).length;
@@ -16556,7 +16782,18 @@ function renderTaskListsTab() {
     var isCaregiver = _rewardsIsCaregiver();
     var body = '';
     if (isOpen) {
-      var rows = items.map(function(item, itemIdx) {
+      // Pagination for items within THIS list, added 2026-08-31 per
+      // Marcelo ("some pagination might need to be foreseen for... tasks
+      // within the list") -- independent per list (_tlItemsPage keyed by
+      // list.id), only shown at all once a list actually has more than one
+      // page's worth of items.
+      var itemsTotalPages = Math.max(1, Math.ceil(items.length / TL_ITEMS_PER_PAGE));
+      var itemsPage = _tlItemsPage[list.id] || 0;
+      if (itemsPage >= itemsTotalPages) itemsPage = itemsTotalPages - 1;
+      var itemsPageStart = itemsPage * TL_ITEMS_PER_PAGE;
+      var pageItems = items.slice(itemsPageStart, itemsPageStart + TL_ITEMS_PER_PAGE);
+      var rows = pageItems.map(function(item, itemIdxOnPage) {
+        var itemIdx = itemsPageStart + itemIdxOnPage; // real index within the full (unpaginated) items array, for move-up/down bounds checks below
         // Caregiver-only reorder arrows, added 2026-08-30 per Marcelo
         // ("let the caregiver reposition the order of the tasks") --
         // matches the up/down-arrow pattern Settings already uses for
@@ -16638,8 +16875,16 @@ function renderTaskListsTab() {
       var addItemBtn = isCaregiver
         ? '<button onclick="window.openTaskItemDialog(\'' + list.id + '\')" style="width:100%;margin-top:8px;padding:9px;background:none;color:var(--accent);border:1.5px dashed var(--accent);border-radius:10px;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;">＋ Add item</button>'
         : '';
+      var itemsPager = itemsTotalPages > 1
+        ? ('<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:8px;font-size:.72rem;color:var(--muted);">'
+          + '<button class="checklist-page-btn" onclick="event.stopPropagation();window.setTaskListItemsPage(\'' + list.id + '\',-1)" ' + (itemsPage === 0 ? 'disabled' : '') + '>‹ Prev</button>'
+          + '<span>' + (itemsPage + 1) + '/' + itemsTotalPages + '</span>'
+          + '<button class="checklist-page-btn" onclick="event.stopPropagation();window.setTaskListItemsPage(\'' + list.id + '\',1)" ' + (itemsPage >= itemsTotalPages - 1 ? 'disabled' : '') + '>Next ›</button>'
+          + '</div>')
+        : '';
       body = '<div style="padding:2px 12px 10px;">'
         + emptyItems + rows
+        + itemsPager
         + addItemBtn
         + '</div>';
     }
@@ -16662,6 +16907,27 @@ function renderTaskListsTab() {
   }).join('');
 }
 window.renderTaskListsTab = renderTaskListsTab;
+
+// Lists pagination (across the whole board) — see TL_LISTS_PER_PAGE above.
+function _tlSyncListsPagination(page, totalPages) {
+  var pg = document.getElementById('tasklists-pagination');
+  if (!pg) return;
+  if (totalPages <= 1) { pg.style.display = 'none'; return; }
+  pg.style.display = 'flex';
+  document.getElementById('tasklists-page-info').textContent = (page + 1) + '/' + totalPages;
+  document.getElementById('tasklists-prev').disabled = page === 0;
+  document.getElementById('tasklists-next').disabled = page >= totalPages - 1;
+}
+window.setTaskListsPage = function(delta) {
+  _tlListsPage = Math.max(0, _tlListsPage + delta);
+  renderTaskListsTab();
+};
+// Items-within-a-list pagination — independent per list, see
+// TL_ITEMS_PER_PAGE above.
+window.setTaskListItemsPage = function(listId, delta) {
+  _tlItemsPage[listId] = Math.max(0, (_tlItemsPage[listId] || 0) + delta);
+  renderTaskListsTab();
+};
 
 window.toggleTaskListExpanded = function(listId) {
   _tlExpanded[listId] = !_tlExpanded[listId];
@@ -16768,6 +17034,24 @@ window.tlSyncCaregiverOnlyUi = function() {
   var importWrap = document.getElementById('tasklists-import-wrap');
   if (importWrap) importWrap.style.display = isCg ? '' : 'none';
 };
+// "⋮" More menu for Import — same open/close/outside-click pattern as
+// Plans' own menu (window.togglePlansMoreMenu / _plansMoreMenuOutside).
+window.toggleTaskListsMoreMenu = function() {
+  var m = document.getElementById('tasklists-more-menu');
+  if (!m) return;
+  var open = m.style.display !== 'none';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) setTimeout(function() { document.addEventListener('pointerdown', _tlMoreMenuOutside, true); }, 30);
+};
+window.closeTaskListsMoreMenu = function() {
+  var m = document.getElementById('tasklists-more-menu');
+  if (m) m.style.display = 'none';
+  document.removeEventListener('pointerdown', _tlMoreMenuOutside, true);
+};
+function _tlMoreMenuOutside(e) {
+  var m = document.getElementById('tasklists-more-menu'), btn = document.getElementById('tasklists-more-menu-btn');
+  if (m && !m.contains(e.target) && e.target !== btn) window.closeTaskListsMoreMenu();
+}
 window.exportTaskList = function() {
   if (!_rewardsIsCaregiver()) { window.showToast && window.showToast('Only a caregiver can export a list'); return; }
   if (!_editingTaskListId) return;
@@ -18620,14 +18904,14 @@ window.saveAccount = async function() {
 };
 
 window.deleteAccount = async function(id) {
-  if(!confirm('Delete this account?')) return;
+  if (!(await window.appConfirm('Delete this account?', { detail: 'This can\'t be undone.', confirmLabel: 'Yes, delete' }))) return;
   const accts = getAccounts().filter(a=>a.id!==id);
   await saveAccounts(accts);
   renderAll();
 };
 
 window.resetAllBalances = async function() {
-  if(!confirm('Reset ALL account balances to $0.00?')) return;
+  if (!(await window.appConfirm('Reset ALL account balances to $0.00?', { detail: 'This can\'t be undone.', confirmLabel: 'Yes, reset' }))) return;
   const accts = getAccounts().map(a=>({...a, balance:0}));
   await saveAccounts(accts);
   renderAll();
@@ -18663,14 +18947,14 @@ window.saveCat = async function() {
 };
 
 window.deleteCat = async function(type, id) {
-  if(!confirm('Delete this category?')) return;
+  if (!(await window.appConfirm('Delete this category?', { confirmLabel: 'Yes, delete' }))) return;
   const cats = (type==='income'?getIncomeCats():getExpenseCats()).filter(c=>c.id!==id);
   await saveCats(type, cats);
   renderSettings();
 };
 
 window.resetCats = async function(type) {
-  if(!confirm(`Reset ${type} categories to defaults?`)) return;
+  if (!(await window.appConfirm(`Reset ${type} categories to defaults?`, { confirmLabel: 'Yes, reset' }))) return;
   await saveCats(type, type==='income'?DEFAULT_INCOME_CATS:DEFAULT_EXPENSE_CATS);
   renderSettings();
   window.showToast('Reset to defaults!');
@@ -18775,14 +19059,18 @@ window.submitTransaction = async function() {
 };
 
 window.deleteTxn = async function(id) {
-  if(!confirm('Delete this transaction?')) return;
+  // Styled confirm (2026-08-31, per Marcelo: "there are places where delete
+  // dialog does not have a style, please apply at transactions") — was the
+  // browser's raw unstyled confirm(), unlike deleteShiftModal and other
+  // delete actions elsewhere in the app that already use window.appConfirm.
+  if (!(await window.appConfirm('Delete this transaction?', { detail: 'This can\'t be undone.', confirmLabel: 'Yes, delete' }))) return;
   delete _transactions[id];
   await remove(ref(db,MP+'/transactions/'+id));
   renderTransactions();
 };
 
 window.clearAllTransactions = async function() {
-  if(!confirm('Clear ALL transactions? This cannot be undone.')) return;
+  if (!(await window.appConfirm('Clear ALL transactions?', { detail: 'This can\'t be undone.', confirmLabel: 'Yes, clear all' }))) return;
   _transactions = {};
   await set(ref(db,MP+'/transactions'), null);
   renderTransactions();
@@ -18811,7 +19099,7 @@ window.markGoalComplete = async function() {
   if(!_activeGoalId) return;
   const goal = _goalBasket[_activeGoalId];
   if(!goal){ closeGoalDetail(); return; }
-  if(!confirm(`Mark "${goal.name}" as achieved? This will withdraw $${window.fmtMoney(goal.saved||0)} from your savings account.`)) return;
+  if (!(await window.appConfirm(`Mark "${goal.name}" as achieved?`, { detail: `This will withdraw $${window.fmtMoney(goal.saved||0)} from your savings account.`, confirmLabel: 'Yes, mark achieved' }))) return;
   // Perform real withdrawal from the linked savings account
   const accts = getAccounts();
   const acct = accts.find(a=>a.id===goal.accountId);
@@ -18935,7 +19223,7 @@ window.editGoalTxn = async function(goalId, txnKey) {
 window.deleteGoalTxn = async function(goalId, txnKey) {
   const goal = _goalBasket[goalId];
   if(!goal || !goal.transactions || !goal.transactions[txnKey]) return;
-  if(!confirm('Delete this entry?')) return;
+  if (!(await window.appConfirm('Delete this entry?', { confirmLabel: 'Yes, delete' }))) return;
   delete goal.transactions[txnKey];
   // Recalculate saved from remaining transactions
   goal.saved = Object.values(goal.transactions).reduce((sum,t)=>sum+(Number(t.amount)||0), 0);
@@ -18945,7 +19233,7 @@ window.deleteGoalTxn = async function(goalId, txnKey) {
 };
 
 window.clearAllGoals = async function() {
-  if(!confirm('Clear ALL goals? This cannot be undone.')) return;
+  if (!(await window.appConfirm('Clear ALL goals?', { detail: 'This can\'t be undone.', confirmLabel: 'Yes, clear all' }))) return;
   _goalBasket = {};
   await set(ref(db,MP+'/goal-basket'), null);
   renderGoals();
