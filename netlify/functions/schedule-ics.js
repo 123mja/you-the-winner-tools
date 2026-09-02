@@ -73,6 +73,8 @@ function foldLine(line) {
 // wall-clock dates/times with no timezone concept attached, so a shift
 // shows at the same clock time in whatever timezone the subscribing
 // calendar app itself is set to, matching how it was actually entered.
+// No longer used for DTSTART/DTEND (see wallClockToUTC below) — kept here
+// since it's still handy for anything wanting the raw wall-clock string.
 function toICSDateTime(dateStr, timeStr) {
   var parts = String(dateStr).split('-');
   var y = parts[0], mo = parts[1], d = parts[2];
@@ -80,6 +82,50 @@ function toICSDateTime(dateStr, timeStr) {
   var hh = (t[0] || '00').padStart(2, '0');
   var mm = (t[1] || '00').padStart(2, '0');
   return y + mo + d + 'T' + hh + mm + '00';
+}
+
+// Converts a wall-clock date/time meant to represent local time in
+// `timeZone` into the true UTC instant, DST-aware, using only the
+// platform's built-in Intl support (no external tz-database dependency
+// needed in a Netlify function). Standard "double conversion" trick:
+//   1. Read the wall-clock numbers as if they were already UTC (a
+//      throwaway reference instant, asUTC).
+//   2. Ask what time `timeZone`'s clock would show AT that instant — the
+//      gap between that reading and asUTC IS timeZone's real UTC offset
+//      at (approximately) the target moment.
+//   3. Subtract that offset back off asUTC to land on the true instant at
+//      which timeZone's clock actually reads the original wall-clock time.
+// 2026-08-31 fix: replaces the previous DTSTART/DTEND;TZID=... approach.
+// RFC 5545 requires a VTIMEZONE component be defined whenever a TZID is
+// used unless it's one of a small set of well-known names every consuming
+// app is guaranteed to already understand — Google Calendar in particular
+// has a history of being inconsistent about this without one, which is
+// almost certainly why "YTW Schedule and Google Calendar don't share the
+// same timezone" was reported: the bare TZID could be silently
+// mis-happens across the two. Emitting a plain UTC (Z-suffixed) instant
+// instead sidesteps the whole VTIMEZONE question — there's no ambiguity
+// left for any calendar app to get wrong, since every app already knows
+// how to localize a UTC instant into whatever timezone IT is set to.
+function wallClockToUTC(dateStr, timeStr, timeZone) {
+  var parts = String(dateStr).split('-');
+  var y = +parts[0], mo = +parts[1], d = +parts[2];
+  var t = String(timeStr || '00:00').split(':');
+  var hh = +(t[0] || 0), mm = +(t[1] || 0);
+  var asUTC = Date.UTC(y, mo - 1, d, hh, mm, 0);
+  var dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: timeZone, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  var map = {};
+  dtf.formatToParts(new Date(asUTC)).forEach(function(p) { map[p.type] = p.value; });
+  var asIfTZ = Date.UTC(+map.year, +map.month - 1, +map.day, +map.hour, +map.minute, +map.second);
+  var offset = asIfTZ - asUTC; // timeZone's real UTC offset at this instant, DST-correctly
+  return new Date(asUTC - offset);
+}
+function toICSDateTimeUTC(dateStr, timeStr, timeZone) {
+  var d = wallClockToUTC(dateStr, timeStr, timeZone);
+  return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 }
 
 function nowUTCStamp() {
@@ -130,7 +176,6 @@ exports.handler = async function(event) {
     lines.push('X-WR-CALNAME:My Schedule');
 	
 	lines.push('X-WR-TIMEZONE:' + timeZone);
-	// lines.push('X-WR-TIMEZONE:America/Chicago'); // added mja
 	
     // A hint some calendar apps honor for their own poll interval; Google
     // in practice uses its own ~12-24h cadence regardless.
@@ -142,11 +187,16 @@ exports.handler = async function(event) {
       lines.push('BEGIN:VEVENT');
       lines.push(foldLine('UID:' + id + '@you-the-winner.com'));
       lines.push('DTSTAMP:' + nowUTCStamp());
-      // lines.push('DTSTART:' + toICSDateTime(s.date, s.start));
-      // lines.push('DTEND:' + toICSDateTime(s.date, s.end));
-	  
-	  lines.push('DTSTART;TZID=America/Chicago:' + toICSDateTime(s.date, s.start));
-      lines.push('DTEND;TZID=America/Chicago:' + toICSDateTime(s.date, s.end));
+      // 2026-08-31 fix: see wallClockToUTC's comment above — replaced the
+      // TZID-based lines (kept below, commented out, for reference) with
+      // plain UTC (Z-suffixed) instants computed from the wall-clock time
+      // + the account's configured timeZone. This is what actually
+      // resolves "YTW Schedule and Google Calendar don't share the same
+      // timezone".
+      // lines.push('DTSTART;TZID=' + timeZone + ':' + toICSDateTime(s.date, s.start));
+      // lines.push('DTEND;TZID=' + timeZone + ':' + toICSDateTime(s.date, s.end));
+      lines.push('DTSTART:' + toICSDateTimeUTC(s.date, s.start, timeZone));
+      lines.push('DTEND:' + toICSDateTimeUTC(s.date, s.end, timeZone));
 	  
       lines.push(foldLine('SUMMARY:' + icsEscape(s.label || 'Shift')));
       if (s.notes) lines.push(foldLine('DESCRIPTION:' + icsEscape(s.notes)));

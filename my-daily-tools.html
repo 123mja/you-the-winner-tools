@@ -5232,9 +5232,26 @@
   </div>
 
   <div class="card" style="padding:14px 18px;">
-    <div class="txn-collapse-header" onclick="toggleTxnPanel()">
+    <div class="txn-collapse-header" onclick="toggleTxnPanel()" style="display:flex;align-items:center;justify-content:space-between;">
       <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.88rem;">Transactions <span id="txn-count" style="font-size:.72rem;color:var(--muted);font-weight:600;"></span></span>
-      <span class="txn-collapse-chevron" id="txn-collapse-chevron">▼</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <!-- "⋮" More menu — added 2026-08-31, per Marcelo: import/export
+             plus a new spending report, same compact-menu pattern as
+             Plans/Level Up Board's own "⋮" menus (window.togglePlansMoreMenu
+             / window.toggleTaskListsMoreMenu). stopPropagation so tapping
+             this doesn't also fire the collapse-header's own
+             toggleTxnPanel() underneath it. -->
+        <div style="position:relative;" onclick="event.stopPropagation();">
+          <button id="txn-more-menu-btn" onclick="window.toggleTxnMoreMenu()" title="More: report, import, export" style="width:30px;height:30px;padding:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);">⋮</button>
+          <div id="txn-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.15);min-width:190px;z-index:35;overflow:hidden;">
+            <button onclick="window.closeTxnMoreMenu();window.openSpendingReport()" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--text);cursor:pointer;">📊 Spending report</button>
+            <button onclick="window.closeTxnMoreMenu();document.getElementById('txn-import-file-input').click()" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-top:1px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--text);cursor:pointer;">⬆️ Import transactions</button>
+            <button onclick="window.closeTxnMoreMenu();window.exportTransactionsCSV()" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-top:1px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--text);cursor:pointer;">⬇️ Export transactions</button>
+          </div>
+          <input id="txn-import-file-input" type="file" accept=".csv,text/csv" style="display:none;" onchange="window.importTransactionsCSV(this)">
+        </div>
+        <span class="txn-collapse-chevron" id="txn-collapse-chevron">▼</span>
+      </div>
     </div>
     <div id="txn-panel" style="display:none;margin-top:6px;">
       <div id="txn-list"><div class="checklist-empty"><div class="es-icon">📋</div>No transactions yet.</div></div>
@@ -8695,6 +8712,53 @@ window.removeRmMilestone = function(pi, mi) {
   </div>
 </div>
 
+<!-- ══ SPENDING REPORT ══ — added 2026-08-31, per Marcelo: "allows to see
+     report for insight summary including overview spending by categories
+     ... similar as banks provides". Reuses the same modal-overlay/
+     modal-sheet shell as the Money Modal just above (including its
+     2026-08-31 compact-sizing override, since #money-modal's <style>
+     targets that id specifically — this one gets its own equivalent). -->
+<style>
+#spending-report-modal .modal-sheet {
+  max-width: 460px;
+  height: auto !important;
+  max-height: 88vh !important;
+  margin-left: auto;
+  margin-right: auto;
+  overflow-y: auto;
+  border-radius: 22px;
+}
+</style>
+<div id="spending-report-modal" class="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📊 Spending Report</div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <button class="checklist-page-btn" id="sr-period-month" onclick="window.setSpendingReportPeriod('month')" style="flex:1;">This month</button>
+      <button class="checklist-page-btn" id="sr-period-lastmonth" onclick="window.setSpendingReportPeriod('lastmonth')" style="flex:1;">Last month</button>
+      <button class="checklist-page-btn" id="sr-period-all" onclick="window.setSpendingReportPeriod('all')" style="flex:1;">All time</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1;background:var(--surface2);border-radius:12px;padding:10px;text-align:center;">
+        <div style="font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Income</div>
+        <div id="sr-income" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:#2f9e58;margin-top:2px;">$0</div>
+      </div>
+      <div style="flex:1;background:var(--surface2);border-radius:12px;padding:10px;text-align:center;">
+        <div style="font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Spent</div>
+        <div id="sr-expense" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:#c0473a;margin-top:2px;">$0</div>
+      </div>
+      <div style="flex:1;background:var(--surface2);border-radius:12px;padding:10px;text-align:center;">
+        <div style="font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Net</div>
+        <div id="sr-net" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:var(--text);margin-top:2px;">$0</div>
+      </div>
+    </div>
+    <div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:8px;">Spending by category</div>
+    <div id="sr-categories" style="max-height:38vh;overflow-y:auto;"></div>
+    <div id="sr-empty" style="display:none;text-align:center;padding:20px 0;color:var(--muted);font-size:.8rem;">No expenses in this period.</div>
+    <button class="modal-cancel" onclick="window.closeSpendingReport()" style="margin-top:14px;">Close</button>
+  </div>
+</div>
+
 <!-- ══ GOAL DETAIL MODAL ══ -->
 <div id="goal-detail-modal" class="gsheet-overlay" onclick="if(event.target===this)closeGoalDetail()">
   <div class="gsheet">
@@ -9619,7 +9683,15 @@ function openGoogleCalendar(slot) {
 // original open-in-new-tab/app behavior via openGoogleCalendar(), just
 // presented as a card inside the pane instead of firing immediately.
 function _isCalendarEmbedUrl(url) {
-  return /calendar\.google\.com\/calendar\/(u\/\d+\/)?embed/i.test(url || '');
+  // 2026-08-31 fix, per Marcelo ("calendar 2 and 3 don't show"): widened
+  // from requiring the literal "/embed" path segment to also accept any
+  // calendar.google.com URL carrying a src= param -- Google's "Embed code"
+  // box and its "Public URL to this calendar" share link both point at
+  // calendar.google.com but aren't always identical in shape, and slot 1
+  // may have happened to use the exact form this regex originally expected
+  // while slots 2/3 used a slightly different (but equally embeddable) one.
+  var u = url || '';
+  return /calendar\.google\.com\/calendar\/(u\/\d+\/)?embed/i.test(u) || /calendar\.google\.com\/calendar\/.*[?&]src=/i.test(u);
 }
 // 2026-08-24: renderCalendarPane() now branches on the native/Google toggle
 // (see window.setCalendarViewMode below) — the original embed-or-open logic
@@ -9700,7 +9772,17 @@ function _renderCalendarGoogleView() {
       html += '<iframe src="' + url.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;margin-top:14px;" loading="lazy"></iframe>'
         + '<div style="text-align:center;margin-top:10px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'' + slot + '\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
     } else {
-      html += '<div style="text-align:center;margin-top:14px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'' + slot + '\')" style="font-size:.82rem;color:var(--accent);font-weight:700;">📅 Open Calendar ' + slot + ' ↗</a></div>';
+      // 2026-08-31 fix, per Marcelo ("calendar 2 and 3 don't show"): this
+      // used to be a single small text link, easy to overlook entirely
+      // below the big Calendar 1 card above it. Now matches Calendar 1's
+      // own full-size fallback treatment exactly, so a non-embed link for
+      // slot 2/3 is just as visible as slot 1's is, not a much smaller
+      // afterthought.
+      html += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;text-align:center;margin-top:14px;">'
+        + '<div style="font-size:2rem;margin-bottom:8px;">📅</div>'
+        + '<button onclick="openGoogleCalendar(\'' + slot + '\')" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 22px;font-family:\'Nunito\',sans-serif;font-weight:800;font-size:.88rem;cursor:pointer;">Open Calendar ' + slot + '</button>'
+        + '<div style="font-size:.72rem;color:var(--muted);margin-top:12px;line-height:1.5;">This link isn\'t recognized as an "Embed code" link, so it opens in a new tab/app instead of showing inline. Use the "Embed code" link from that calendar\'s Integrate calendar settings to show it here directly.</div>'
+        + '</div>';
     }
   });
   if (subEl) subEl.textContent = anyEmbed ? 'Your calendar, right here.' : 'Opens in a new tab or your calendar app.';
@@ -12999,13 +13081,33 @@ const DEFAULT_INCOME_CATS = [
   {id:'allowance', name:'Allowance',   icon:'👤'},
   {id:'other-inc', name:'Other Income',icon:'···'},
 ];
+// 2026-08-31 redo, per Marcelo: the original 6 categories (Food, Transport,
+// Utilities, Health, Entertainment, Other) were too broad to give useful
+// spending insight — closer to a bank statement's actual category
+// breakdown now. Category ids are internal only (transactions store the
+// NAME, see submitTransaction's `category:cat.name`), so this only affects
+// brand-new accounts or an explicit "Reset to defaults" — anyone who's
+// already customized/saved their own category list in Firebase keeps it
+// exactly as-is.
 const DEFAULT_EXPENSE_CATS = [
-  {id:'food',     name:'Food',         icon:'🍔'},
-  {id:'transport',name:'Transport',    icon:'🚗'},
-  {id:'utilities',name:'Utilities',   icon:'💡'},
-  {id:'health',   name:'Health',       icon:'🏥'},
-  {id:'entertain',name:'Entertainment',icon:'🎮'},
-  {id:'other-exp',name:'Other Expenses',icon:'···'},
+  {id:'groceries',     name:'Groceries',         icon:'🛒'},
+  {id:'restaurants',   name:'Restaurants',       icon:'🍽️'},
+  {id:'entertain',     name:'Entertainment',     icon:'🎬'},
+  {id:'rent',          name:'Rent/Mortgage',     icon:'🏠'},
+  {id:'electric',      name:'Electric',          icon:'💡'},
+  {id:'water',         name:'Water',             icon:'🚿'},
+  {id:'internet',      name:'Internet',          icon:'📶'},
+  {id:'phone',         name:'Phone Bill',        icon:'📱'},
+  {id:'transport',     name:'Transportation',    icon:'🚗'},
+  {id:'health',        name:'Health & Medical',  icon:'🏥'},
+  {id:'shopping',      name:'Shopping',          icon:'🛍️'},
+  {id:'subscriptions', name:'Subscriptions',     icon:'💳'},
+  {id:'personal',      name:'Personal Care',     icon:'🧴'},
+  {id:'education',     name:'Education',         icon:'📚'},
+  {id:'pets',          name:'Pets',              icon:'🐾'},
+  {id:'travel',        name:'Travel',            icon:'✈️'},
+  {id:'gifts',         name:'Gifts & Donations', icon:'🎁'},
+  {id:'other-exp',     name:'Other Expenses',    icon:'···'},
 ];
 const GOAL_CATALOG = [
   {id:'iphone',   name:'New iPhone',   icon:'📱', price:1100},
@@ -13465,7 +13567,7 @@ window._schedSyncSharedPrefs = function() {
 // before. Keeps the same validation/messaging UX, just also writes through
 // to SchedUP so the rest of the family picks it up via
 // window._schedSyncSharedPrefs() above.
-window.setCalendarUrl = function(slot, url) {
+window.setCalendarUrl = async function(slot, url) {
   if (!guardWrite()) return;
   slot = (slot === '2' || slot === '3') ? slot : '1';
   url = (url || '').trim();
@@ -13478,7 +13580,27 @@ window.setCalendarUrl = function(slot, url) {
     if (url) localStorage.setItem('calendar-url-' + slot, url);
     else localStorage.removeItem('calendar-url-' + slot);
   } catch(e) {}
-  set(ref(db, SchedUP + '/schedule-settings/calendarUrls/' + slot), url).catch(function() {});
+  // 2026-08-31 fix: this used to fire-and-forget the Firebase write
+  // (set(...).catch(function(){})) and immediately show "Saved ✓"
+  // regardless of whether that write actually succeeded — so a
+  // permission-denied write (e.g. database.rules.json not yet updated for
+  // schedule-settings, which FIREBASE-RULES-ADDITIONS.md / schedule-ics.js's
+  // own header comment already flags as outstanding) would silently fail
+  // while still telling the person it worked. The value stuck locally
+  // (localStorage, this device only) which is exactly the shape of "only
+  // Calendar 1 works" if 1 was set before this bug existed and 2/3 are
+  // hitting a rules rejection now. Now awaits the write and shows a real
+  // error if it fails, instead of a false "Saved ✓".
+  try {
+    await set(ref(db, SchedUP + '/schedule-settings/calendarUrls/' + slot), url);
+  } catch (err) {
+    console.error('[calendar link] Firebase write failed:', err);
+    if (msg) { msg.textContent = 'Saved on this device only — could not sync to your account (' + (err && err.code || 'error') + '). Check Firebase rules for schedule-settings.'; msg.style.color = '#d94f4f'; }
+    var input2 = document.getElementById('calendar-url-input-' + slot);
+    if (input2) input2.value = url;
+    try { window.renderCalendarPane && window.renderCalendarPane(); } catch(e) {}
+    return;
+  }
   var input = document.getElementById('calendar-url-input-' + slot);
   if (input) input.value = url;
   if (msg) { msg.textContent = url ? 'Saved ✓' : (slot === '1' ? 'Cleared. Calendar will use the default link.' : 'Cleared.'); msg.style.color = 'var(--accent)'; setTimeout(function(){ if(msg) msg.textContent=''; }, 2500); }
@@ -15753,6 +15875,191 @@ function renderHome() {
     </div>`;
   }).join('');
 }
+
+/* ═══ TRANSACTIONS "⋮" MORE MENU, SPENDING REPORT, CSV IMPORT/EXPORT ═══
+   Added 2026-08-31, per Marcelo. Same open/close/outside-click menu
+   pattern as Plans/Level Up Board's own "⋮" menus. */
+window.toggleTxnMoreMenu = function() {
+  var m = document.getElementById('txn-more-menu');
+  if (!m) return;
+  var open = m.style.display !== 'none';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) setTimeout(function() { document.addEventListener('pointerdown', _txnMoreMenuOutside, true); }, 30);
+};
+window.closeTxnMoreMenu = function() {
+  var m = document.getElementById('txn-more-menu');
+  if (m) m.style.display = 'none';
+  document.removeEventListener('pointerdown', _txnMoreMenuOutside, true);
+};
+function _txnMoreMenuOutside(e) {
+  var m = document.getElementById('txn-more-menu'), btn = document.getElementById('txn-more-menu-btn');
+  if (m && !m.contains(e.target) && e.target !== btn) window.closeTxnMoreMenu();
+}
+
+/* ── Spending Report ── */
+let _spendingReportPeriod = 'month';
+window.openSpendingReport = function() {
+  document.getElementById('spending-report-modal').classList.add('open');
+  renderSpendingReport();
+};
+window.closeSpendingReport = function() {
+  document.getElementById('spending-report-modal').classList.remove('open');
+};
+window.setSpendingReportPeriod = function(period) {
+  _spendingReportPeriod = period;
+  renderSpendingReport();
+};
+function _spendingReportTxnsInPeriod() {
+  var now = new Date();
+  var thisMonthKey = window.localDateStr().slice(0, 7); // "YYYY-MM"
+  var lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  var lastMonthKey = lastMonthDate.getFullYear() + '-' + String(lastMonthDate.getMonth() + 1).padStart(2, '0');
+  return Object.values(_transactions).filter(function(t) {
+    if (!t.date) return false;
+    if (_spendingReportPeriod === 'all') return true;
+    var key = t.date.slice(0, 7);
+    if (_spendingReportPeriod === 'month') return key === thisMonthKey;
+    if (_spendingReportPeriod === 'lastmonth') return key === lastMonthKey;
+    return true;
+  });
+}
+function renderSpendingReport() {
+  ['month', 'lastmonth', 'all'].forEach(function(p) {
+    var btn = document.getElementById('sr-period-' + p);
+    if (btn) { btn.style.background = p === _spendingReportPeriod ? 'var(--accent)' : 'var(--surface2)'; btn.style.color = p === _spendingReportPeriod ? '#fff' : 'var(--text)'; }
+  });
+  var txns = _spendingReportTxnsInPeriod();
+  var income = 0, expense = 0;
+  var byCat = {}; // { categoryName: { total, icon } }
+  txns.forEach(function(t) {
+    if (t.type === 'income') income += Number(t.amount) || 0;
+    else if (t.type === 'expense') {
+      var amt = Number(t.amount) || 0;
+      expense += amt;
+      var key = t.category || 'Uncategorized';
+      if (!byCat[key]) byCat[key] = { total: 0, icon: t.catIcon || '💳' };
+      byCat[key].total += amt;
+    }
+    // transfers deliberately excluded from income/expense/category totals —
+    // moving money between your own accounts isn't spending or earning it.
+  });
+  document.getElementById('sr-income').textContent = '$' + window.fmtMoney(income);
+  document.getElementById('sr-expense').textContent = '$' + window.fmtMoney(expense);
+  var net = income - expense;
+  var netEl = document.getElementById('sr-net');
+  netEl.textContent = (net < 0 ? '-$' + window.fmtMoney(Math.abs(net)) : '$' + window.fmtMoney(net));
+  netEl.style.color = net < 0 ? '#c0473a' : 'var(--text)';
+  var catList = Object.keys(byCat).map(function(name) { return { name: name, total: byCat[name].total, icon: byCat[name].icon }; })
+    .sort(function(a, b) { return b.total - a.total; });
+  var catsEl = document.getElementById('sr-categories');
+  var emptyEl = document.getElementById('sr-empty');
+  if (!catList.length) {
+    catsEl.innerHTML = '';
+    emptyEl.style.display = '';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  catsEl.innerHTML = catList.map(function(c) {
+    var pct = expense > 0 ? Math.round((c.total / expense) * 100) : 0;
+    return '<div style="margin-bottom:10px;">'
+      + '<div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px;"><span>' + c.icon + ' ' + c.name + '</span><span style="font-weight:700;">$' + window.fmtMoney(c.total) + ' <span style="color:var(--muted);font-weight:400;">(' + pct + '%)</span></span></div>'
+      + '<div style="height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:99px;"></div></div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ── CSV Export ── */
+var TXN_CSV_HEADERS = ['date', 'type', 'amount', 'account', 'category', 'note'];
+window.exportTransactionsCSV = function() {
+  var rows = Object.values(_transactions).sort(function(a, b) { return (a.ts || 0) - (b.ts || 0); }).map(function(t) {
+    return [
+      t.date || '',
+      t.type || '',
+      t.amount != null ? t.amount : '',
+      t.type === 'transfer' ? ((t.fromName || '') + ' → ' + (t.toName || '')) : (t.accountName || ''),
+      t.category || '',
+      t.note || '',
+    ];
+  });
+  var csvLines = [TXN_CSV_HEADERS.join(',')].concat(rows.map(function(r) {
+    return r.map(function(v) { v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',');
+  }));
+  var blob = new Blob([csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'transactions-' + window.localDateStr() + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.showToast('Exported ' + rows.length + ' transaction' + (rows.length === 1 ? '' : 's'));
+};
+
+/* ── CSV Import ──
+   Format matches the export above: date,type,amount,account,category,note
+   (type is income/expense/transfer; for a transfer, account is written as
+   "From → To" on export, but on import only expense/income rows apply an
+   account-balance effect — transfer rows are skipped on import, since
+   safely re-splitting "From → To" back into two real accounts without
+   guessing wrong is riskier than just asking the person to re-enter any
+   transfers by hand. Account and category are matched by NAME to your
+   existing accounts/categories (case-insensitive); a row whose account or
+   category name doesn't match anything existing is skipped rather than
+   guessed at, and reported in the summary so nothing silently vanishes. */
+window.importTransactionsCSV = async function(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  input.value = ''; // allow re-selecting the same file name later
+  var text = await file.text();
+  var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+  if (lines.length < 2) { window.showToast('That file has no transaction rows.'); return; }
+  function parseCSVLine(line) {
+    var out = [], cur = '', inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cur += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === ',') { out.push(cur); cur = ''; }
+        else cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  }
+  var header = parseCSVLine(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
+  var idx = {};
+  TXN_CSV_HEADERS.forEach(function(h) { idx[h] = header.indexOf(h); });
+  if (idx.date === -1 || idx.type === -1 || idx.amount === -1) {
+    window.showToast('⚠️ That file doesn\'t look like a transactions export (missing date/type/amount columns).');
+    return;
+  }
+  var accts = getAccounts();
+  var incomeCats = getIncomeCats(), expenseCats = getExpenseCats();
+  var imported = 0, skipped = 0;
+  for (var i = 1; i < lines.length; i++) {
+    var cols = parseCSVLine(lines[i]);
+    var type = (cols[idx.type] || '').trim().toLowerCase();
+    var amount = parseFloat(cols[idx.amount]);
+    var date = (cols[idx.date] || '').trim();
+    if (type === 'transfer' || !date || !amount || amount <= 0 || (type !== 'income' && type !== 'expense')) { skipped++; continue; }
+    var acctName = idx.account !== -1 ? (cols[idx.account] || '').trim() : '';
+    var acct = accts.find(function(a) { return a.name.toLowerCase() === acctName.toLowerCase(); });
+    if (!acct) { skipped++; continue; }
+    var catName = idx.category !== -1 ? (cols[idx.category] || '').trim() : '';
+    var catList = type === 'income' ? incomeCats : expenseCats;
+    var cat = catList.find(function(c) { return c.name.toLowerCase() === catName.toLowerCase(); }) || {};
+    var note = idx.note !== -1 ? (cols[idx.note] || '').trim() : '';
+    acct.balance = (Number(acct.balance) || 0) + (type === 'income' ? amount : -amount);
+    var txn = { type: type, amount: amount, account: acct.id, accountName: acct.name, category: cat.name || catName, catIcon: cat.icon || '💳', note: note, date: date, ts: Date.now() + imported };
+    try { await push(ref(db, MP + '/transactions'), txn); imported++; } catch (e) { skipped++; }
+  }
+  await saveAccounts(accts);
+  renderAll();
+  window.showToast('Imported ' + imported + ', skipped ' + skipped + (skipped ? ' (unmatched account/category, or a transfer row)' : ''), 5000);
+};
 
 /* ═══ RENDER TRANSACTIONS ═══ */
 function renderTransactions() {
