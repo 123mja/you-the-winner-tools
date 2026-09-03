@@ -8733,12 +8733,20 @@ window.removeRmMilestone = function(pi, mi) {
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">📊 Spending Report</div>
+    <!-- 2026-08-31 (2nd pass), per Marcelo: "replace all time with a
+         dropdown where you can type the year or all-time" -- This
+         month/Last month stay as quick one-tap buttons since those are the
+         two most common checks; "All time" moved into the dropdown
+         alongside every year that actually has transaction data, built
+         dynamically in renderSpendingReport() below (not hardcoded, since
+         it must include the demo/current year going forward as well as
+         any earlier ones with real data). -->
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="checklist-page-btn" id="sr-period-month" onclick="window.setSpendingReportPeriod('month')" style="flex:1;">This month</button>
       <button class="checklist-page-btn" id="sr-period-lastmonth" onclick="window.setSpendingReportPeriod('lastmonth')" style="flex:1;">Last month</button>
-      <button class="checklist-page-btn" id="sr-period-all" onclick="window.setSpendingReportPeriod('all')" style="flex:1;">All time</button>
+      <select id="sr-period-select" onchange="window.setSpendingReportPeriod(this.value)" style="flex:1;padding:0 6px;border:1.5px solid var(--border);border-radius:8px;font-size:.78rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);"></select>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
       <div style="flex:1;background:var(--surface2);border-radius:12px;padding:10px;text-align:center;">
         <div style="font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Income</div>
         <div id="sr-income" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:#2f9e58;margin-top:2px;">$0</div>
@@ -8750,6 +8758,21 @@ window.removeRmMilestone = function(pi, mi) {
       <div style="flex:1;background:var(--surface2);border-radius:12px;padding:10px;text-align:center;">
         <div style="font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Net</div>
         <div id="sr-net" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:var(--text);margin-top:2px;">$0</div>
+      </div>
+    </div>
+    <!-- Income vs Expense overview bar — added 2026-08-31, per Marcelo
+         ("also add income versus expense overview"). A simple two-bar
+         comparison, each scaled against whichever of the two is larger, so
+         it's visually obvious at a glance which direction net landed on,
+         on top of the exact numbers in the 3 boxes above. -->
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <span style="font-size:.7rem;color:var(--muted);width:44px;flex-shrink:0;">Income</span>
+        <div style="flex:1;height:14px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div id="sr-bar-income" style="height:100%;width:0%;background:#2f9e58;border-radius:99px;"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:.7rem;color:var(--muted);width:44px;flex-shrink:0;">Spent</span>
+        <div style="flex:1;height:14px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div id="sr-bar-expense" style="height:100%;width:0%;background:#c0473a;border-radius:99px;"></div></div>
       </div>
     </div>
     <div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:8px;">Spending by category</div>
@@ -8829,6 +8852,15 @@ window.removeRmMilestone = function(pi, mi) {
     <div class="gmodal-title" id="acm-title">Add Category</div>
     <input class="gmodal-input" id="acm-icon" placeholder="Icon emoji" maxlength="4" style="width:80px;text-align:center;">
     <input class="gmodal-input" id="acm-name" placeholder="Category name">
+    <!-- Budget — added 2026-08-31, per Marcelo: "add a field to plug in
+         the budget so that this is also reflected in the money report".
+         Expense categories only (income doesn't have a "budget" concept
+         the same way); shown/hidden by openAddCat based on _editCatType.
+         Read by renderSpendingReport() below to show a progress bar
+         against this amount per category. -->
+    <div id="acm-budget-wrap" style="display:none;">
+      <input class="gmodal-input" id="acm-budget" type="number" min="0" step="0.01" placeholder="Monthly budget (optional)">
+    </div>
     <div class="gmodal-actions">
       <button class="gmodal-cancel" onclick="closeAddCat()">Cancel</button>
       <button class="gmodal-save" onclick="saveCat()">Save</button>
@@ -9738,24 +9770,52 @@ window.renderCalendarPane = function() {
     _renderCalendarGoogleView();
   }
 };
-// Renders up to 3 calendars stacked, one under the other — 2026-08-31,
-// see the "Calendar Link upgraded" comment above _getStoredCalendarUrl.
-// Slot 1 keeps the exact original behavior (falls back to DEFAULT_CAL_URL,
-// shown as an embed OR an "open" fallback card); slots 2/3 only render at
-// all if a URL is actually set for them, and use a smaller inline "open"
-// link rather than a second full-size fallback card, since stacking 3
-// large "open my calendar" cards side by side would be a lot of vertical
-// space for calendars that mostly aren't embed-capable anyway.
+// Combines Calendar Link slots 1/2/3 into ONE embed, per Marcelo
+// ("calendars are shown but separated... I want cal1, 2 and 3 combined in
+// a single calendar instead of separated") — 2026-08-31 (2nd pass); the
+// first pass stacked 3 SEPARATE iframes, which technically showed all 3
+// but not as one merged view. Google's embed URLs actually support
+// multiple calendars in a single iframe via repeated src= params
+// (?src=CAL_A&src=CAL_B&src=CAL_C) — this extracts the src value(s) out of
+// each saved embed-style slot and builds one combined URL from all of
+// them, so it renders as ONE calendar view with every source layered in,
+// the same way manually adding several calendars in Google Calendar's own
+// UI would look. ctz comes from whichever slot supplied it first (they
+// should generally agree, since it's normally the account's own zone).
+function _extractCalendarSrcParams(url) {
+  try {
+    var u = new URL(url);
+    return u.searchParams.getAll('src'); // a URL can already carry more than one src= if someone pre-combined calendars themselves
+  } catch (e) { return []; }
+}
+function _buildCombinedCalendarEmbedUrl(embedUrls) {
+  var allSrc = [];
+  var ctz = null;
+  embedUrls.forEach(function(url) {
+    _extractCalendarSrcParams(url).forEach(function(src) { if (allSrc.indexOf(src) === -1) allSrc.push(src); });
+    if (!ctz) {
+      try { ctz = new URL(url).searchParams.get('ctz'); } catch (e) {}
+    }
+  });
+  if (!allSrc.length) return null;
+  var qs = allSrc.map(function(s) { return 'src=' + encodeURIComponent(s); }).join('&');
+  if (ctz) qs += '&ctz=' + encodeURIComponent(ctz);
+  return 'https://calendar.google.com/calendar/embed?' + qs;
+}
 function _renderCalendarGoogleView() {
   var subEl = document.getElementById('calendar-pane-sub');
   var bodyEl = document.getElementById('calendar-pane-body');
   if (!bodyEl) return;
-  var url1 = _getCalendarUrl('1');
+  var slotUrls = ['1', '2', '3'].map(function(slot) { return _getStoredCalendarUrl(slot); });
+  if (!slotUrls[0]) slotUrls[0] = DEFAULT_CAL_URL; // slot 1 keeps its original fallback default
+  var embedUrls = slotUrls.filter(function(u) { return u && _isCalendarEmbedUrl(u); });
+  var nonEmbedSlots = ['1', '2', '3'].filter(function(slot, i) { return slotUrls[i] && !_isCalendarEmbedUrl(slotUrls[i]); });
   var html = '';
   var anyEmbed = false;
-  if (_isCalendarEmbedUrl(url1)) {
+  var combined = embedUrls.length ? _buildCombinedCalendarEmbedUrl(embedUrls) : null;
+  if (combined) {
     anyEmbed = true;
-    html += '<iframe src="' + url1.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;" loading="lazy"></iframe>'
+    html += '<iframe src="' + combined.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;" loading="lazy"></iframe>'
       + '<div style="text-align:center;margin-top:10px;margin-bottom:14px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'1\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
   } else {
     html += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;text-align:center;margin-bottom:14px;">'
@@ -9764,28 +9824,15 @@ function _renderCalendarGoogleView() {
       + '<div style="font-size:.72rem;color:var(--muted);margin-top:12px;line-height:1.5;">Want the calendar to show right here instead? In Settings → Calendar Link, use a Google Calendar "Embed code" link (from that calendar\'s Integrate calendar settings). It needs to be shared publicly for embedding to work.</div>'
       + '</div>';
   }
-  ['2', '3'].forEach(function(slot) {
-    var url = _getStoredCalendarUrl(slot); // slots 2/3 have no default — only show if actually set
-    if (!url) return;
-    if (_isCalendarEmbedUrl(url)) {
-      anyEmbed = true;
-      html += '<iframe src="' + url.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;margin-top:14px;" loading="lazy"></iframe>'
-        + '<div style="text-align:center;margin-top:10px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'' + slot + '\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
-    } else {
-      // 2026-08-31 fix, per Marcelo ("calendar 2 and 3 don't show"): this
-      // used to be a single small text link, easy to overlook entirely
-      // below the big Calendar 1 card above it. Now matches Calendar 1's
-      // own full-size fallback treatment exactly, so a non-embed link for
-      // slot 2/3 is just as visible as slot 1's is, not a much smaller
-      // afterthought.
-      html += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;text-align:center;margin-top:14px;">'
-        + '<div style="font-size:2rem;margin-bottom:8px;">📅</div>'
-        + '<button onclick="openGoogleCalendar(\'' + slot + '\')" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 22px;font-family:\'Nunito\',sans-serif;font-weight:800;font-size:.88rem;cursor:pointer;">Open Calendar ' + slot + '</button>'
-        + '<div style="font-size:.72rem;color:var(--muted);margin-top:12px;line-height:1.5;">This link isn\'t recognized as an "Embed code" link, so it opens in a new tab/app instead of showing inline. Use the "Embed code" link from that calendar\'s Integrate calendar settings to show it here directly.</div>'
-        + '</div>';
-    }
+  // Any slot that isn't an embed-style link at all can't be merged into the
+  // iframe above (Google requires the src= form for that) — those still
+  // get their own small "open" link, since that's the only way to reach
+  // them at all, but there's no separated per-slot EMBED anymore once
+  // they're combinable — that's the actual fix here.
+  nonEmbedSlots.forEach(function(slot) {
+    html += '<div style="text-align:center;margin-top:10px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'' + slot + '\')" style="font-size:.8rem;color:var(--accent);font-weight:700;">📅 Open Calendar ' + slot + ' ↗ (not an embeddable link)</a></div>';
   });
-  if (subEl) subEl.textContent = anyEmbed ? 'Your calendar, right here.' : 'Opens in a new tab or your calendar app.';
+  if (subEl) subEl.textContent = anyEmbed ? 'Your calendar' + (embedUrls.length > 1 ? 's, combined' : '') + ', right here.' : 'Opens in a new tab or your calendar app.';
   bodyEl.innerHTML = html;
 }
 
@@ -12439,7 +12486,7 @@ window.closeMoneyModal = closeMoneyModal;
 // so a since-renamed or since-deleted category just falls back to
 // whatever the select's first option is, same as a brand-new entry would.
 window.editTxn = function(id) {
-  const t = _transactions[id];
+  const t = window._getTxnById(id);
   if (!t) return;
   const type = t.type === 'income' ? 'got' : (t.type === 'transfer' ? 'move' : 'spent');
   _editingTxnId = id;
@@ -12744,11 +12791,19 @@ let _editCatType = 'income', _editCatId = null;
 function openAddCat(type, id) {
   _editCatType = type; _editCatId = id||null;
   document.getElementById('acm-title').textContent = (id?'Edit':'Add') + ' ' + (type==='income'?'Income':'Expense') + ' Category';
+  var budgetWrap = document.getElementById('acm-budget-wrap');
+  if (budgetWrap) budgetWrap.style.display = type === 'expense' ? '' : 'none';
   if(id) {
     const cats = type==='income' ? getIncomeCats() : getExpenseCats();
     const c = cats.find(x=>x.id===id)||{};
     document.getElementById('acm-icon').value=c.icon||''; document.getElementById('acm-name').value=c.name||'';
-  } else { document.getElementById('acm-icon').value=''; document.getElementById('acm-name').value=''; }
+    var budgetInput = document.getElementById('acm-budget');
+    if (budgetInput) budgetInput.value = c.budget != null ? c.budget : '';
+  } else {
+    document.getElementById('acm-icon').value=''; document.getElementById('acm-name').value='';
+    var budgetInput2 = document.getElementById('acm-budget');
+    if (budgetInput2) budgetInput2.value = '';
+  }
   document.getElementById('add-cat-modal').classList.add('open');
 }
 window.openAddCat = openAddCat;
@@ -13126,6 +13181,23 @@ let _accounts = null;        // array (loaded from Firebase or defaults)
 let _incomeCats = null;
 let _expenseCats = null;
 let _transactions = {};      // {id: {...}}
+// 2026-08-31 fix, per Marcelo ("editing a money transaction is not
+// possible, pencil is there but does not open"): window.editTxn lives in
+// the earlier classic (non-module) <script> block, same as db/ref/etc had
+// to be mirrored to window for that same classic block back on 2026-08-15
+// (see that fix's comment near "window._db = db" above) — a MODULE script
+// CAN read a classic script's top-level let/const, but a classic script
+// can NOT read a module's (this asymmetry is real, verified against the
+// spec's module-linking behavior rather than assumed). _transactions is
+// declared here in this module, so editTxn's bare `_transactions[id]`
+// threw "_transactions is not defined" on its very first line, aborting
+// before it ever reached the `.classList.add('open')` call that actually
+// shows the modal — which is exactly "pencil is there but does not open."
+// A getter function (rather than a one-time window._transactions = ...
+// snapshot) always reads the CURRENT live value, so it can't go stale the
+// way copying the object once could as _transactions gets reassigned by
+// the realtime listeners further below.
+window._getTxnById = function(id) { return _transactions[id]; };
 let _goalBasket = {};        // {id: {...}}
 let _catalogData = {};       // Firebase custom catalog items + overrides
 let _canWrite = false;
@@ -15909,6 +15981,12 @@ window.setSpendingReportPeriod = function(period) {
   _spendingReportPeriod = period;
   renderSpendingReport();
 };
+// _spendingReportPeriod is one of: 'month', 'lastmonth', 'all', or a
+// 4-digit year string (e.g. '2026') selected from the dropdown — added
+// 2026-08-31 (2nd pass), replacing the old plain "All time" button with a
+// dropdown that also lists every year with real transaction data, per
+// Marcelo ("replace all time with a dropdown where you can type the year
+// or all-time").
 function _spendingReportTxnsInPeriod() {
   var now = new Date();
   var thisMonthKey = window.localDateStr().slice(0, 7); // "YYYY-MM"
@@ -15917,17 +15995,27 @@ function _spendingReportTxnsInPeriod() {
   return Object.values(_transactions).filter(function(t) {
     if (!t.date) return false;
     if (_spendingReportPeriod === 'all') return true;
-    var key = t.date.slice(0, 7);
-    if (_spendingReportPeriod === 'month') return key === thisMonthKey;
-    if (_spendingReportPeriod === 'lastmonth') return key === lastMonthKey;
+    if (_spendingReportPeriod === 'month') return t.date.slice(0, 7) === thisMonthKey;
+    if (_spendingReportPeriod === 'lastmonth') return t.date.slice(0, 7) === lastMonthKey;
+    if (/^\d{4}$/.test(_spendingReportPeriod)) return t.date.slice(0, 4) === _spendingReportPeriod; // a specific year
     return true;
   });
 }
 function renderSpendingReport() {
-  ['month', 'lastmonth', 'all'].forEach(function(p) {
+  ['month', 'lastmonth'].forEach(function(p) {
     var btn = document.getElementById('sr-period-' + p);
     if (btn) { btn.style.background = p === _spendingReportPeriod ? 'var(--accent)' : 'var(--surface2)'; btn.style.color = p === _spendingReportPeriod ? '#fff' : 'var(--text)'; }
   });
+  var sel = document.getElementById('sr-period-select');
+  if (sel) {
+    if (!sel.options.length) {
+      var years = Array.from(new Set(Object.values(_transactions).map(function(t) { return t.date ? t.date.slice(0, 4) : null; }).filter(Boolean))).sort().reverse();
+      var curYear = String(new Date().getFullYear());
+      if (years.indexOf(curYear) === -1) years.unshift(curYear); // always offer the current year even with no data in it yet
+      sel.innerHTML = '<option value="all">All time</option>' + years.map(function(y) { return '<option value="' + y + '">' + y + '</option>'; }).join('');
+    }
+    sel.value = (_spendingReportPeriod === 'all' || /^\d{4}$/.test(_spendingReportPeriod)) ? _spendingReportPeriod : 'all';
+  }
   var txns = _spendingReportTxnsInPeriod();
   var income = 0, expense = 0;
   var byCat = {}; // { categoryName: { total, icon } }
@@ -15949,7 +16037,26 @@ function renderSpendingReport() {
   var netEl = document.getElementById('sr-net');
   netEl.textContent = (net < 0 ? '-$' + window.fmtMoney(Math.abs(net)) : '$' + window.fmtMoney(net));
   netEl.style.color = net < 0 ? '#c0473a' : 'var(--text)';
-  var catList = Object.keys(byCat).map(function(name) { return { name: name, total: byCat[name].total, icon: byCat[name].icon }; })
+  // Income vs Expense overview bar — added 2026-08-31, per Marcelo ("also
+  // add income versus expense overview"). Both bars scaled against
+  // whichever of the two is larger, so the comparison reads correctly
+  // regardless of which side dominates.
+  var maxIE = Math.max(income, expense, 1);
+  var incomeBar = document.getElementById('sr-bar-income'), expenseBar = document.getElementById('sr-bar-expense');
+  if (incomeBar) incomeBar.style.width = Math.round((income / maxIE) * 100) + '%';
+  if (expenseBar) expenseBar.style.width = Math.round((expense / maxIE) * 100) + '%';
+  // Budgets — added 2026-08-31, per Marcelo ("add a field to plug in the
+  // budget so that this is also reflected in the money report"). Matched
+  // by category NAME (transactions only ever stored the name, not a
+  // category id — see submitTransaction), same lookup approach as editTxn
+  // re-selecting a category to edit. Budgets are a MONTHLY figure by
+  // design (set once in Settings, not per-period) — comparing a monthly
+  // budget against an "All time" or a whole year's total wouldn't mean
+  // anything, so the progress bar only appears for 'month'/'lastmonth'.
+  var expenseCatsByName = {};
+  getExpenseCats().forEach(function(c) { if (c.budget != null) expenseCatsByName[c.name] = c.budget; });
+  var showBudgets = _spendingReportPeriod === 'month' || _spendingReportPeriod === 'lastmonth';
+  var catList = Object.keys(byCat).map(function(name) { return { name: name, total: byCat[name].total, icon: byCat[name].icon, budget: expenseCatsByName[name] }; })
     .sort(function(a, b) { return b.total - a.total; });
   var catsEl = document.getElementById('sr-categories');
   var emptyEl = document.getElementById('sr-empty');
@@ -15961,9 +16068,17 @@ function renderSpendingReport() {
   emptyEl.style.display = 'none';
   catsEl.innerHTML = catList.map(function(c) {
     var pct = expense > 0 ? Math.round((c.total / expense) * 100) : 0;
+    var budgetLine = '';
+    if (showBudgets && c.budget != null && c.budget > 0) {
+      var budgetPct = Math.min(100, Math.round((c.total / c.budget) * 100));
+      var over = c.total > c.budget;
+      budgetLine = '<div style="font-size:.68rem;color:' + (over ? '#c0473a' : 'var(--muted)') + ';margin-top:2px;">' + (over ? '⚠️ over ' : '') + '$' + window.fmtMoney(c.total) + ' of $' + window.fmtMoney(c.budget) + ' budget'
+        + '<div style="height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + budgetPct + '%;background:' + (over ? '#c0473a' : '#2f9e58') + ';border-radius:99px;"></div></div></div>';
+    }
     return '<div style="margin-bottom:10px;">'
       + '<div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px;"><span>' + c.icon + ' ' + c.name + '</span><span style="font-weight:700;">$' + window.fmtMoney(c.total) + ' <span style="color:var(--muted);font-weight:400;">(' + pct + '%)</span></span></div>'
       + '<div style="height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:99px;"></div></div>'
+      + budgetLine
       + '</div>';
   }).join('');
 }
@@ -19158,6 +19273,7 @@ function renderSettings() {
       <div class="cat-row">
         <span class="cat-icon">${c.icon}</span>
         <span class="cat-name">${c.name}</span>
+        ${c.budget != null ? `<span style="font-size:.7rem;color:var(--muted);margin-right:auto;flex-shrink:0;">budget $${window.fmtMoney(c.budget)}/mo</span>` : ''}
         <button class="cat-edit" onclick="openAddCat('expense','${c.id}')">✏️</button>
         <button class="cat-del" onclick="deleteCat('expense','${c.id}')">🗑</button>
       </div>`).join('');
@@ -19240,12 +19356,14 @@ window.saveCat = async function() {
   const icon = document.getElementById('acm-icon').value.trim()||'📌';
   const name = document.getElementById('acm-name').value.trim();
   if(!name){ window.showToast('Enter a category name'); return; }
+  const budgetInput = document.getElementById('acm-budget');
+  const budget = (_editCatType === 'expense' && budgetInput && budgetInput.value !== '') ? parseFloat(budgetInput.value) : null;
   const cats = _editCatType==='income' ? getIncomeCats() : getExpenseCats();
   if(_editCatId) {
     const idx = cats.findIndex(c=>c.id===_editCatId);
-    if(idx>-1) cats[idx] = {...cats[idx], icon, name};
+    if(idx>-1) cats[idx] = {...cats[idx], icon, name, budget};
   } else {
-    cats.push({id:'cat-'+Date.now(), icon, name});
+    cats.push({id:'cat-'+Date.now(), icon, name, budget});
   }
   await saveCats(_editCatType, cats);
   closeAddCat();
