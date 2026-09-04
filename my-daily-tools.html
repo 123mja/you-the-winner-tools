@@ -5474,6 +5474,18 @@
       <button class="cyc-mood-btn" data-v="heavy" onclick="window.selectCycleBleeding('heavy')">🩸🩸🩸<span>Heavy</span></button>
     </div>
 
+    <!-- Cramps -- added 2026-09-04, per Marcelo: "there is no way where you
+         can enter cramps." Same compact row/button pattern as Bleeding and
+         Energy right above/below it, so the modal doesn't grow any wider or
+         change shape -- just one more optional row, tap to pick, tap Save. -->
+    <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin:14px 0 6px;">Cramps</label>
+    <div class="cyc-mood-row" id="cyc-cramps-row">
+      <button class="cyc-mood-btn" data-v="none" onclick="window.selectCycleCramps('none')">⚪<span>None</span></button>
+      <button class="cyc-mood-btn" data-v="mild" onclick="window.selectCycleCramps('mild')">⚡<span>Mild</span></button>
+      <button class="cyc-mood-btn" data-v="moderate" onclick="window.selectCycleCramps('moderate')">⚡⚡<span>Moderate</span></button>
+      <button class="cyc-mood-btn" data-v="severe" onclick="window.selectCycleCramps('severe')">⚡⚡⚡<span>Severe</span></button>
+    </div>
+
     <label style="font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin:14px 0 6px;">Energy</label>
     <div class="cyc-mood-row" id="cyc-energy-row">
       <button class="cyc-mood-btn" data-v="low" onclick="window.selectCycleEnergy('low')">🔋<span>Low</span></button>
@@ -15937,6 +15949,7 @@ let _editingPeriodKey = null;
 let _editingMoodDate = null;   // date (YYYY-MM-DD) currently open in the mood modal
 let _pendingCycleMoodValue = null; // 1-5, selected but not yet saved in the mood modal
 let _pendingCycleBleedingValue = null; // 'none'|'spotting'|'light'|'medium'|'heavy'
+let _pendingCycleCrampsValue = null;   // 'none'|'mild'|'moderate'|'severe' -- added 2026-09-04, per Marcelo: cramps had no way to be logged at all
 let _pendingCycleEnergyValue = null;   // 'low'|'medium'|'high'
 let _cycleCalOpen = false;
 let _cycleCalYear = 0, _cycleCalMonth = 0; // 0-indexed month, whichever the calendar modal is showing
@@ -15955,6 +15968,12 @@ const CYCLE_MOOD_EMOJI = { 1:'😢', 2:'😔', 3:'😐', 4:'🙂', 5:'😄' };
 const CYCLE_MOOD_LABEL = { 1:'Hard', 2:'Low', 3:'Okay', 4:'Good', 5:'Great' };
 const CYCLE_BLEEDING_EMOJI = { none:'⚪', spotting:'🩸', light:'🩸', medium:'🩸🩸', heavy:'🩸🩸🩸' };
 const CYCLE_BLEEDING_LABEL = { none:'None', spotting:'Spotting', light:'Light', medium:'Medium', heavy:'Heavy' };
+// Cramps -- added 2026-09-04, per Marcelo: no field existed anywhere to log
+// this, even though it's exactly the kind of thing (along with bleeding)
+// this tool exists to track. Same repeat-the-icon-for-severity convention
+// as Bleeding/Energy above, so it reads consistently at a glance.
+const CYCLE_CRAMPS_EMOJI = { none:'⚪', mild:'⚡', moderate:'⚡⚡', severe:'⚡⚡⚡' };
+const CYCLE_CRAMPS_LABEL = { none:'None', mild:'Mild', moderate:'Moderate', severe:'Severe' };
 const CYCLE_ENERGY_EMOJI = { low:'🔋', medium:'🔋🔋', high:'🔋🔋🔋' };
 const CYCLE_ENERGY_LABEL = { low:'Low', medium:'Medium', high:'High' };
 
@@ -21022,6 +21041,7 @@ window.openLogMoodModal = function(dateStr) {
 _editingMoodDate = null;
 _pendingCycleMoodValue = null;
 _pendingCycleBleedingValue = null;
+_pendingCycleCrampsValue = null;
 _pendingCycleEnergyValue = null;
 var date = dateStr || localDateStr();
 var title = document.getElementById('mood-modal-title');
@@ -21033,6 +21053,7 @@ var inp = document.getElementById('cycle-mood-date-input');
 if (inp) inp.value = date;
 _pendingCycleMoodValue = existing ? existing.v : null;
 _pendingCycleBleedingValue = existing ? (existing.bleeding || null) : null;
+_pendingCycleCrampsValue = existing ? (existing.cramps || null) : null;
 _pendingCycleEnergyValue = existing ? (existing.energy || null) : null;
 _paintCycleMoodButtons();
 var clearBtn = document.getElementById('cycle-mood-clear-btn');
@@ -21044,6 +21065,7 @@ window.closeLogMoodModal = function() {
 _editingMoodDate = null;
 _pendingCycleMoodValue = null;
 _pendingCycleBleedingValue = null;
+_pendingCycleCrampsValue = null;
 _pendingCycleEnergyValue = null;
 var ov = document.getElementById('log-mood-overlay');
 if (ov) ov.style.display = 'none';
@@ -21057,6 +21079,7 @@ var date = inp ? inp.value : localDateStr();
 var existing = (_cycleData.moods || {})[date];
 _pendingCycleMoodValue = existing ? existing.v : null;
 _pendingCycleBleedingValue = existing ? (existing.bleeding || null) : null;
+_pendingCycleCrampsValue = existing ? (existing.cramps || null) : null;
 _pendingCycleEnergyValue = existing ? (existing.energy || null) : null;
 _paintCycleMoodButtons();
 var clearBtn = document.getElementById('cycle-mood-clear-btn');
@@ -21070,6 +21093,10 @@ window.selectCycleBleeding = function(v) {
 _pendingCycleBleedingValue = v;
 _paintCycleMoodButtons();
 };
+window.selectCycleCramps = function(v) {
+_pendingCycleCrampsValue = v;
+_paintCycleMoodButtons();
+};
 window.selectCycleEnergy = function(v) {
 _pendingCycleEnergyValue = v;
 _paintCycleMoodButtons();
@@ -21081,6 +21108,9 @@ btn.classList.toggle('selected', Number(btn.getAttribute('data-v')) === _pending
 document.querySelectorAll('#cyc-bleeding-row .cyc-mood-btn').forEach(function(btn) {
 btn.classList.toggle('selected', btn.getAttribute('data-v') === _pendingCycleBleedingValue);
 });
+document.querySelectorAll('#cyc-cramps-row .cyc-mood-btn').forEach(function(btn) {
+btn.classList.toggle('selected', btn.getAttribute('data-v') === _pendingCycleCrampsValue);
+});
 document.querySelectorAll('#cyc-energy-row .cyc-mood-btn').forEach(function(btn) {
 btn.classList.toggle('selected', btn.getAttribute('data-v') === _pendingCycleEnergyValue);
 });
@@ -21089,13 +21119,14 @@ window.saveCycleMood = async function() {
 var inp = document.getElementById('cycle-mood-date-input');
 var date = inp ? inp.value : '';
 if (!date) { window.showToast && window.showToast('Please pick a date first'); return; }
-if (!_pendingCycleMoodValue && !_pendingCycleBleedingValue && !_pendingCycleEnergyValue) {
+if (!_pendingCycleMoodValue && !_pendingCycleBleedingValue && !_pendingCycleCrampsValue && !_pendingCycleEnergyValue) {
 window.showToast && window.showToast('Please choose at least one thing to log');
 return;
 }
 var entry = { ts: Date.now() };
 if (_pendingCycleMoodValue) entry.v = _pendingCycleMoodValue;
 if (_pendingCycleBleedingValue) entry.bleeding = _pendingCycleBleedingValue;
+if (_pendingCycleCrampsValue) entry.cramps = _pendingCycleCrampsValue;
 if (_pendingCycleEnergyValue) entry.energy = _pendingCycleEnergyValue;
 window.closeLogMoodModal();
 _cycleData.moods = _cycleData.moods || {};
@@ -21127,7 +21158,7 @@ if (!date) return;
 // deletePeriod() above, just for a day's logged mood/bleeding/energy
 // instead of a period entry. Same styled dialog, same reasoning.
 var ok = await window.appConfirm('Clear this day\'s log?', {
-  detail: 'Removes the mood, bleeding, and energy logged for ' + date + '. It cannot be undone.',
+  detail: 'Removes the mood, bleeding, cramps, and energy logged for ' + date + '. It cannot be undone.',
   icon: '🗑️',
   confirmLabel: 'Yes, clear'
 });
@@ -21258,6 +21289,7 @@ if (phase) titleBits.push(phase.name+' phase');
 if (isRealPeriodStart) titleBits.push('🩸 Period started');
 else if (log && log.bleeding && log.bleeding !== 'none') titleBits.push('🩸 Bleeding: '+log.bleeding);
 if (log && log.v) titleBits.push('Mood: '+(CYCLE_MOOD_LABEL[log.v]||''));
+if (log && log.cramps && log.cramps !== 'none') titleBits.push('Cramps: '+(CYCLE_CRAMPS_LABEL[log.cramps]||log.cramps));
 if (log && log.energy) titleBits.push('Energy: '+log.energy);
 if (isFuture) titleBits.push('forecast, not yet logged');
 var titleText = dateStr + (titleBits.length ? ': ' + titleBits.join(' · ') : '');
