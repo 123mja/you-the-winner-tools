@@ -307,7 +307,32 @@ try {
         if (user) { window._authUser = user; window._tenantRoot = computeTenantRoot(user); setupLogout(auth); }
         reveal();
       } else if (!user) {
-        redirectToLogin();
+        // 2026-09-04 fix, per Marcelo ("demo no longer works, it keeps
+        // asking the user to login"): this branch used to redirect every
+        // anonymous visitor straight to login, full stop -- it never
+        // consulted DEFAULTS at all. That's exactly what silently re-broke
+        // my-daily-tools's guest/demo flow (window._startDemo) again after
+        // the 2026-08-31 fix that set DEFAULTS['my-daily-tools'] = 'public':
+        // that fix only helps once execution reaches runPageAccessFlow()
+        // (the "not configured yet" branch above, or the signed-in
+        // PAGE_KEY-in-DEFAULTS branch below) -- but the moment ANY
+        // usergroup exists for this tenant (see admin-settings.html's
+        // ALL_PAGES / Feature Permissions grid), getFeaturePermission()
+        // takes over for every anonymous request, and 'my-daily-tools' was
+        // sitting at "Not configured" there (no explicit 'r' row for the
+        // 'public' pseudo-group), so perm.r came back false and this
+        // branch fired before DEFAULTS was ever looked at. A page whose
+        // hardcoded DEFAULTS really is 'public' must stay reachable by an
+        // anonymous visitor regardless of whether the newer permissions
+        // system has an explicit row for it yet -- mirrors the "public
+        // also grants a signed-in user access, never less than anonymous"
+        // reasoning in getFeaturePermission() above, extended to cover
+        // anonymous visitors against the legacy DEFAULTS map too.
+        if (DEFAULTS[PAGE_KEY] === 'public') {
+          reveal();
+        } else {
+          redirectToLogin();
+        }
       } else if (PAGE_KEY in DEFAULTS) {
         // Signed in but no explicit permissions row yet for this page.
         // Fall back to the DEFAULTS behaviour so pages like habits.html
