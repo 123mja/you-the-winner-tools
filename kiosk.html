@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Picture Frame View</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Quicksand:wght@400;500;600;700&family=Baloo+2:wght@600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
+<style id="auth-loading-style">body{visibility:hidden;}</style>
+<script>window.PAGE_KEY='kiosk';</script>
+<script type="module" src="auth-guard.js"></script>
+<!--
+  kiosk.html — added 2026-09-04, per Marcelo's "digital picture frame"
+  idea: many families put a spare tablet or old phone on the kitchen
+  counter/fridge. This is a full-screen, READ-ONLY, auto-rotating view of
+  a few of the app's own cards (Weather, Calendar, Plans, Money, Today's
+  Message), meant to be opened once on that device (after signing in
+  normally) and left running.
+
+  Deliberately NOT included, ever: Cycle Tracker. This is a shared/family
+  display by design, and that data doesn't belong on one, even opt-in —
+  see the "Picture Frame Mode" Settings card in my-daily-tools.html, which
+  doesn't offer it as a choice at all.
+
+  Which slides are enabled + seconds-per-slide are read from this
+  account's synced settings (P+'/settings/kiosk-*', the same
+  SYNCED_SETTINGS_KEYS mechanism every other preference in this app uses)
+  so they can be set from the main app and take effect here without
+  touching this device again. A slide is skipped from the rotation
+  entirely if there's nothing to show (e.g. Calendar with no link set,
+  Weather with no zip code entered on THIS device — zip is intentionally
+  per-device, same as the Home tab).
+
+  Known gap: Today's Message here always reads this account's OWN
+  family-notes root (familyNotesRoot()'s simple case). It does not yet
+  replicate the Family-Plan-owner redirect that the main app's
+  familyNotesRoot() does for a member of a shared Family Plan — fine for
+  the common case (an individual account, or the Family Plan owner's own
+  device), but a non-owner Family Plan member's kiosk would currently show
+  an empty/wrong Today's Message thread. Flagged for follow-up.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: 'Quicksand', sans-serif;
+  }
+  #kiosk-root { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* Top bar: clock + date, always visible */
+  #kiosk-topbar {
+    display: flex; align-items: baseline; justify-content: center; gap: 18px;
+    padding: clamp(14px, 3vh, 34px) 20px clamp(6px, 1.5vh, 16px);
+    font-family: 'Baloo 2', cursive; color: var(--text); flex-shrink: 0;
+  }
+  #kiosk-clock { font-size: clamp(1.6rem, 5vw, 3.2rem); font-weight: 700; letter-spacing: .02em; }
+  #kiosk-date  { font-size: clamp(.9rem, 2vw, 1.4rem); font-weight: 600; color: var(--muted); }
+
+  /* Slide viewport */
+  #kiosk-stage { position: relative; flex: 1; min-height: 0; padding: 0 clamp(20px, 5vw, 70px) clamp(10px, 3vh, 30px); }
+  .kiosk-slide {
+    position: absolute; inset: 0 clamp(20px, 5vw, 70px) clamp(10px, 3vh, 30px);
+    display: flex; flex-direction: column; opacity: 0; pointer-events: none;
+    transition: opacity .7s ease; overflow: hidden;
+  }
+  .kiosk-slide.active { opacity: 1; pointer-events: auto; }
+  .kiosk-slide-title {
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: clamp(1.1rem, 3vw, 2rem); margin-bottom: clamp(10px, 2vh, 26px);
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .kiosk-slide-body { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; }
+  .kiosk-slide-body::-webkit-scrollbar { display: none; }
+
+  /* Weather */
+  .kiosk-wx-main { display: flex; align-items: center; gap: clamp(14px,3vw,30px); }
+  .kiosk-wx-icon { font-size: clamp(3rem, 9vw, 7rem); line-height: 1; }
+  .kiosk-wx-temp { font-family: 'Baloo 2', cursive; font-weight: 700; font-size: clamp(2.4rem, 8vw, 6rem); }
+  .kiosk-wx-cond { font-size: clamp(1rem, 2.4vw, 1.6rem); color: var(--muted); font-weight: 700; }
+  .kiosk-wx-place { font-size: clamp(.85rem, 1.8vw, 1.2rem); color: var(--muted); margin-top: 4px; }
+  .kiosk-wx-sun { margin-top: clamp(14px,3vh,30px); font-size: clamp(.9rem, 2vw, 1.4rem); color: var(--muted); display: flex; gap: 22px; }
+
+  /* Calendar */
+  .kiosk-cal-frame { width: 100%; height: 100%; border: none; border-radius: var(--radius); background: var(--surface); }
+
+  /* Plans */
+  .kiosk-list-row {
+    display: flex; align-items: center; gap: clamp(10px,2vw,18px);
+    padding: clamp(10px,1.6vh,18px) 0; border-bottom: 1px solid var(--border);
+    font-size: clamp(.95rem, 2.1vw, 1.5rem);
+  }
+  .kiosk-list-row:last-child { border-bottom: none; }
+  .kiosk-list-emoji { font-size: 1.3em; flex-shrink: 0; }
+  .kiosk-list-title { flex: 1; font-weight: 700; }
+  .kiosk-list-due { color: var(--muted); font-size: .78em; font-weight: 700; flex-shrink: 0; }
+  .kiosk-list-due.overdue { color: #e0574c; }
+
+  /* Money */
+  .kiosk-money-total { font-family: 'Baloo 2', cursive; font-weight: 700; font-size: clamp(2.2rem, 7vw, 5rem); margin-bottom: clamp(14px,2.5vh,26px); }
+  .kiosk-money-row { display: flex; align-items: center; gap: 12px; padding: clamp(8px,1.4vh,14px) 0; border-bottom: 1px solid var(--border); font-size: clamp(.9rem, 2vw, 1.4rem); }
+  .kiosk-money-row:last-child { border-bottom: none; }
+  .kiosk-money-name { flex: 1; font-weight: 700; }
+  .kiosk-money-bal { font-weight: 800; }
+  .kiosk-money-bal.neg { color: #e0574c; }
+
+  /* Today's Message */
+  .kiosk-msg-bubble {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: clamp(14px,2.4vh,26px) clamp(16px,2.6vw,28px); margin-bottom: clamp(12px,2vh,20px);
+    font-size: clamp(1rem, 2.3vw, 1.6rem); line-height: 1.5;
+  }
+  .kiosk-msg-meta { font-size: .62em; color: var(--muted); font-weight: 700; margin-top: 8px; }
+  .kiosk-msg-audio { margin-top: 10px; width: 100%; max-width: 420px; }
+  .kiosk-empty { color: var(--muted); font-size: clamp(.95rem, 2vw, 1.4rem); font-style: italic; }
+
+  /* Dots */
+  #kiosk-dots { display: flex; justify-content: center; gap: 10px; padding: clamp(8px,1.6vh,18px) 0; flex-shrink: 0; }
+  .kiosk-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); cursor: pointer; transition: background .2s, transform .2s; }
+  .kiosk-dot.active { background: var(--accent); transform: scale(1.35); }
+
+  /* Pause indicator */
+  #kiosk-pause-badge {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-140%);
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 99px;
+    padding: 6px 16px; font-size: .8rem; font-weight: 800; font-family: 'Nunito', sans-serif;
+    opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; z-index: 40;
+  }
+  #kiosk-pause-badge.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Corner exit link — nearly invisible until touched/hovered, so it
+     doesn't compete with the display but is still reachable */
+  #kiosk-exit {
+    position: fixed; top: 10px; left: 10px; width: 40px; height: 40px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    text-decoration: none; color: var(--muted); font-size: 1.1rem; opacity: .18;
+    transition: opacity .2s, background .2s; z-index: 40;
+  }
+  #kiosk-exit:hover, #kiosk-exit:focus { opacity: 1; background: var(--surface2); }
+
+  #kiosk-center-msg {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 16px; text-align: center; padding: 40px;
+    font-family: 'Nunito', sans-serif;
+  }
+  #kiosk-center-msg .big { font-size: clamp(1.4rem, 4vw, 2.2rem); font-weight: 800; }
+  #kiosk-center-msg .small { font-size: 1rem; color: var(--muted); max-width: 480px; }
+  #kiosk-center-msg a.btn {
+    background: var(--accent); color: #fff; text-decoration: none; border-radius: 10px;
+    padding: 12px 26px; font-weight: 700; font-size: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<a id="kiosk-exit" href="my-daily-tools.html" title="Back to My Daily Tools">←</a>
+<div id="kiosk-pause-badge">⏸ Paused — tap again to resume</div>
+
+<div id="kiosk-root" style="display:none;">
+  <div id="kiosk-topbar">
+    <span id="kiosk-clock">--:--</span>
+    <span id="kiosk-date"></span>
+  </div>
+  <div id="kiosk-stage"></div>
+  <div id="kiosk-dots"></div>
+</div>
+
+<div id="kiosk-center-msg" style="display:none;"></div>
+
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { CLIENT } from "./client.config.js";
+
+const FB_CONFIG = CLIENT.firebase;
+const app = getApps().find(a => a.name === 'guard') || initializeApp(FB_CONFIG);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const centerMsg = document.getElementById('kiosk-center-msg');
+const root = document.getElementById('kiosk-root');
+
+function showCenter(html) {
+  root.style.display = 'none';
+  centerMsg.innerHTML = html;
+  centerMsg.style.display = 'flex';
+}
+
+function localDateStr(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// ── CLOCK ──────────────────────────────────────────────────────────────
+function tickClock() {
+  var now = new Date();
+  var h = now.getHours(), m = now.getMinutes();
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  document.getElementById('kiosk-clock').textContent = h12 + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+  document.getElementById('kiosk-date').textContent = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+setInterval(tickClock, 15000);
+
+// ── AUTH ───────────────────────────────────────────────────────────────
+onAuthStateChanged(auth, function(user) {
+  var loadStyle = document.getElementById('auth-loading-style');
+  if (loadStyle) loadStyle.remove();
+  document.body.style.visibility = 'visible';
+  if (!user) {
+    showCenter(
+      '<div class="big">🖼️ Picture Frame View</div>' +
+      '<div class="small">This device needs to be signed in first. Sign in once here, then come back and open this page again — it\'ll stay signed in.</div>' +
+      '<a class="btn" href="login.html?return=' + encodeURIComponent(location.pathname) + '">Sign In</a>'
+    );
+    return;
+  }
+  tickClock();
+  start(user.uid);
+});
+
+// ── SETTINGS ───────────────────────────────────────────────────────────
+async function loadKioskSettings(UP) {
+  var P = UP + '/daily-tools';
+  var snap = await get(ref(db, P + '/settings')).catch(function(){ return null; });
+  var s = (snap && snap.val()) || {};
+  function on(key) { return s[key] !== '0'; } // default on unless explicitly turned off
+  var intervalSec = parseInt(s['kiosk-interval-seconds'], 10);
+  if (!intervalSec || intervalSec < 5) intervalSec = 20;
+  return {
+    weather: on('kiosk-slide-weather'),
+    calendar: on('kiosk-slide-calendar'),
+    plans: on('kiosk-slide-plans'),
+    money: on('kiosk-slide-money'),
+    messages: on('kiosk-slide-messages'),
+    intervalSec: intervalSec
+  };
+}
+
+// ── WEATHER SLIDE (mirrors the Home tab's zip → Zippopotam.us → Open-Meteo
+// flow; zip and cache are intentionally the SAME localStorage keys the
+// Home tab uses, since both live on this one device/browser) ──
+var WELCOME_ZIP_KEY = 'welcome-weather-zip';
+var WELCOME_WX_CACHE_KEY = 'welcome-weather-cache';
+var WELCOME_WX_FRESH_MS = 45 * 60 * 1000;
+var WMO = {
+  0:['☀️','Clear'],1:['🌤️','Mostly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],
+  45:['🌫️','Foggy'],48:['🌫️','Foggy'],
+  51:['🌦️','Light drizzle'],53:['🌦️','Drizzle'],55:['🌦️','Drizzle'],
+  56:['🌧️','Freezing drizzle'],57:['🌧️','Freezing drizzle'],
+  61:['🌧️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],
+  66:['🌧️','Freezing rain'],67:['🌧️','Freezing rain'],
+  71:['❄️','Light snow'],73:['❄️','Snow'],75:['❄️','Heavy snow'],77:['❄️','Snow'],
+  80:['🌦️','Rain showers'],81:['🌦️','Rain showers'],82:['⛈️','Heavy showers'],
+  85:['🌨️','Snow showers'],86:['🌨️','Snow showers'],
+  95:['⛈️','Thunderstorms'],96:['⛈️','Thunderstorms'],99:['⛈️','Thunderstorms']
+};
+function clockFromIso(iso) {
+  var m = /T(\d{2}):(\d{2})/.exec(iso || '');
+  if (!m) return '';
+  var h = parseInt(m[1], 10);
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + m[2] + ' ' + ampm;
+}
+async function fetchWeatherEntry() {
+  var zip = '';
+  try { zip = localStorage.getItem(WELCOME_ZIP_KEY) || ''; } catch (e) {}
+  if (!/^\d{5}$/.test(zip)) return null;
+  var cache = null;
+  try { cache = JSON.parse(localStorage.getItem(WELCOME_WX_CACHE_KEY) || 'null'); } catch (e) {}
+  if (cache && cache.zip === zip && (Date.now() - cache.ts) < WELCOME_WX_FRESH_MS) return cache;
+  try {
+    var geoR = await fetch('https://api.zippopotam.us/us/' + zip);
+    if (!geoR.ok) return null;
+    var geo = await geoR.json();
+    var place = geo.places && geo.places[0];
+    if (!place) return null;
+    var placeName = place['place name'] + ', ' + place['state abbreviation'];
+    var wxR = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + place.latitude + '&longitude=' + place.longitude
+        + '&current_weather=true&hourly=precipitation_probability&daily=sunrise,sunset&temperature_unit=fahrenheit&timezone=auto');
+    var wx = await wxR.json();
+    var cw = wx.current_weather || {};
+    if (typeof cw.temperature !== 'number') return null;
+    var precip = null;
+    try {
+      var hourPrefix = (cw.time || '').slice(0, 13);
+      var hTimes = (wx.hourly || {}).time || [];
+      var hProbs = (wx.hourly || {}).precipitation_probability || [];
+      var idx = hTimes.findIndex(function(t){ return t.slice(0,13) === hourPrefix; });
+      if (idx !== -1) precip = hProbs[idx];
+    } catch (e) {}
+    var entry = {
+      zip: zip, tempF: cw.temperature, code: cw.weathercode, place: placeName, precip: precip,
+      sunrise: ((wx.daily||{}).sunrise||[])[0] || null, sunset: ((wx.daily||{}).sunset||[])[0] || null,
+      ts: Date.now()
+    };
+    try { localStorage.setItem(WELCOME_WX_CACHE_KEY, JSON.stringify(entry)); } catch (e) {}
+    return entry;
+  } catch (e) { return cache || null; }
+}
+async function buildWeatherSlide() {
+  var entry = await fetchWeatherEntry();
+  if (!entry) return null;
+  var info = WMO[entry.code] || ['🌡️',''];
+  var precipHtml = (typeof entry.precip === 'number' && entry.precip >= 20)
+    ? '<div class="kiosk-wx-cond">🌧️ ' + entry.precip + '% chance of rain</div>' : '';
+  var sunHtml = (entry.sunrise && entry.sunset)
+    ? '<div class="kiosk-wx-sun"><span>🌅 ' + clockFromIso(entry.sunrise) + '</span><span>🌇 ' + clockFromIso(entry.sunset) + '</span></div>' : '';
+  return {
+    key: 'weather', title: '🌤️ Weather',
+    html: '<div class="kiosk-wx-main"><div class="kiosk-wx-icon">' + info[0] + '</div><div>' +
+      '<div class="kiosk-wx-temp">' + Math.round(entry.tempF) + '°F</div>' +
+      '<div class="kiosk-wx-cond">' + info[1] + '</div>' +
+      precipHtml +
+      '<div class="kiosk-wx-place">' + entry.place + '</div>' +
+      '</div></div>' + sunHtml
+  };
+}
+
+// ── CALENDAR SLIDE ──
+async function buildCalendarSlide(UP) {
+  var snap = await get(ref(db, UP + '/schedule-settings/calendarUrls')).catch(function(){ return null; });
+  var urls = (snap && snap.val()) || {};
+  var slots = ['1','2','3'].map(function(s){ return urls[s]; }).filter(Boolean);
+  if (!slots.length) return null;
+  var frames = slots.map(function(u) {
+    return '<iframe class="kiosk-cal-frame" src="' + u.replace(/"/g,'&quot;') + '" style="margin-bottom:14px;min-height:' + (slots.length > 1 ? '46%' : '100%') + ';"></iframe>';
+  }).join('');
+  return { key: 'calendar', title: '📅 Calendar', html: '<div style="height:100%;display:flex;flex-direction:column;">' + frames + '</div>' };
+}
+
+// ── PLANS SLIDE ──
+var PLAN_PRIORITY_EMOJI = {urgent:'🔴',high:'🟠',medium:'🟡',low:'🟢'};
+var PLAN_STATUS_EMOJI = {idea:'💡',planning:'📋',active:'🔥',completed:'✅',archived:'📦',idle:'💡',done:'✅'};
+var PRIORITY_RANK = {urgent:0,high:1,medium:2,low:3};
+async function buildPlansSlide(UP) {
+  var snap = await get(ref(db, UP + '/plans')).catch(function(){ return null; });
+  var val = (snap && snap.val()) || {};
+  var items = Object.keys(val).map(function(k){ var v = val[k] || {}; v._key = k; return v; });
+  var today = localDateStr();
+  items = items.filter(function(it) {
+    var st = it.status || 'idle';
+    return st !== 'completed' && st !== 'archived' && st !== 'done';
+  });
+  items.sort(function(a, b) {
+    if (!!a.due !== !!b.due) return a.due ? -1 : 1;
+    if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1;
+    var pa = PRIORITY_RANK[a.priority] != null ? PRIORITY_RANK[a.priority] : 9;
+    var pb = PRIORITY_RANK[b.priority] != null ? PRIORITY_RANK[b.priority] : 9;
+    return pa - pb;
+  });
+  items = items.slice(0, 8);
+  if (!items.length) return { key: 'plans', title: '🎯 Plans', html: '<div class="kiosk-empty">Nothing open right now 🎉</div>' };
+  var rows = items.map(function(it) {
+    var st = it.status || 'idle';
+    var emoji = PLAN_PRIORITY_EMOJI[it.priority] || PLAN_STATUS_EMOJI[st] || '💡';
+    var overdue = it.due && it.due < today;
+    var dueHtml = it.due ? '<span class="kiosk-list-due' + (overdue ? ' overdue' : '') + '">' + (overdue ? 'Overdue · ' : '') + it.due + '</span>' : '';
+    return '<div class="kiosk-list-row"><span class="kiosk-list-emoji">' + emoji + '</span><span class="kiosk-list-title">' + escHtml(it.title || 'Untitled') + '</span>' + dueHtml + '</div>';
+  }).join('');
+  return { key: 'plans', title: '🎯 Plans', html: '<div class="kiosk-list">' + rows + '</div>' };
+}
+
+// ── MONEY SLIDE ──
+function fmtMoney(n) {
+  var neg = n < 0;
+  var s = Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (neg ? '-$' : '$') + s;
+}
+async function buildMoneySlide(UP) {
+  var snap = await get(ref(db, UP + '/daily-tools/accounts')).catch(function(){ return null; });
+  var val = (snap && snap.val()) || null;
+  if (!val) return null;
+  var accts = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+  if (!accts.length) return null;
+  var total = accts.reduce(function(sum, a){ return sum + (Number(a.balance) || 0); }, 0);
+  var rows = accts.slice(0, 6).map(function(a) {
+    var bal = Number(a.balance) || 0;
+    return '<div class="kiosk-money-row"><span style="font-size:1.2em;">' + (a.icon || '🏦') + '</span><span class="kiosk-money-name">' + escHtml(a.name || 'Account') + '</span><span class="kiosk-money-bal' + (bal < 0 ? ' neg' : '') + '">' + fmtMoney(bal) + '</span></div>';
+  }).join('');
+  return { key: 'money', title: '💰 Money', html: '<div class="kiosk-money-total">' + fmtMoney(total) + '</div><div>' + rows + '</div>' };
+}
+
+// ── TODAY'S MESSAGE SLIDE ──
+function fmtTs(ms) { return ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; }
+async function buildMessagesSlide(UP) {
+  var dateKey = localDateStr();
+  var snap = await get(ref(db, UP + '/family-notes/' + dateKey)).catch(function(){ return null; });
+  var d = (snap && snap.val()) || null;
+  if (!d || (!d.text && !d.reply && !d.audioUrl && !d.replyAudioUrl)) {
+    return { key: 'messages', title: "💌 Today's Message", html: '<div class="kiosk-empty">No message today yet.</div>' };
+  }
+  var parts = '';
+  if (d.text || d.audioUrl) {
+    parts += '<div class="kiosk-msg-bubble">' + (d.text ? escHtml(d.text) : '<em>Voice message</em>') +
+      (d.audioUrl ? '<audio class="kiosk-msg-audio" controls src="' + d.audioUrl.replace(/"/g,'&quot;') + '"></audio>' : '') +
+      '<div class="kiosk-msg-meta">' + escHtml(d.updatedByName || 'Message') + (d.ts ? ' · ' + fmtTs(d.ts) : '') + '</div></div>';
+  }
+  if (d.reply || d.replyAudioUrl) {
+    parts += '<div class="kiosk-msg-bubble">' + (d.reply ? escHtml(d.reply) : '<em>Voice reply</em>') +
+      (d.replyAudioUrl ? '<audio class="kiosk-msg-audio" controls src="' + d.replyAudioUrl.replace(/"/g,'&quot;') + '"></audio>' : '') +
+      '<div class="kiosk-msg-meta">' + escHtml(d.repliedByName || 'Reply') + (d.replyTs ? ' · ' + fmtTs(d.replyTs) : '') + '</div></div>';
+  }
+  return { key: 'messages', title: "💌 Today's Message", html: parts };
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+// ── ROTATION ENGINE ──────────────────────────────────────────────────
+var slides = [];
+var slideIdx = 0;
+var rotateTimer = null;
+var paused = false;
+var intervalMs = 20000;
+
+function renderStage() {
+  var stage = document.getElementById('kiosk-stage');
+  stage.innerHTML = slides.map(function(s, i) {
+    return '<div class="kiosk-slide' + (i === slideIdx ? ' active' : '') + '" data-i="' + i + '">' +
+      '<div class="kiosk-slide-title">' + s.title + '</div>' +
+      '<div class="kiosk-slide-body">' + s.html + '</div></div>';
+  }).join('');
+  var dots = document.getElementById('kiosk-dots');
+  dots.innerHTML = slides.map(function(s, i) {
+    return '<span class="kiosk-dot' + (i === slideIdx ? ' active' : '') + '" data-i="' + i + '" title="' + s.title.replace(/"/g,'') + '"></span>';
+  }).join('');
+  Array.prototype.forEach.call(dots.querySelectorAll('.kiosk-dot'), function(el) {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      goTo(parseInt(el.getAttribute('data-i'), 10));
+    });
+  });
+}
+
+function goTo(i) {
+  if (!slides.length) return;
+  slideIdx = ((i % slides.length) + slides.length) % slides.length;
+  var stageEls = document.querySelectorAll('.kiosk-slide');
+  stageEls.forEach(function(el) { el.classList.toggle('active', parseInt(el.getAttribute('data-i'),10) === slideIdx); });
+  var dotEls = document.querySelectorAll('.kiosk-dot');
+  dotEls.forEach(function(el) { el.classList.toggle('active', parseInt(el.getAttribute('data-i'),10) === slideIdx); });
+}
+
+function next() { goTo(slideIdx + 1); }
+
+function startTimer() {
+  clearInterval(rotateTimer);
+  if (slides.length > 1 && !paused) rotateTimer = setInterval(next, intervalMs);
+}
+
+document.addEventListener('click', function() {
+  if (!slides.length) return;
+  paused = !paused;
+  var badge = document.getElementById('kiosk-pause-badge');
+  badge.classList.toggle('show', paused);
+  startTimer();
+});
+
+// ── MAIN ──────────────────────────────────────────────────────────────
+async function buildAllSlides(UP, cfg) {
+  var results = await Promise.all([
+    cfg.weather ? buildWeatherSlide() : null,
+    cfg.calendar ? buildCalendarSlide(UP) : null,
+    cfg.plans ? buildPlansSlide(UP) : null,
+    cfg.money ? buildMoneySlide(UP) : null,
+    cfg.messages ? buildMessagesSlide(UP) : null
+  ]);
+  return results.filter(Boolean);
+}
+
+async function start(uid) {
+  var UP = 'users/' + uid;
+  showCenter('<div class="big">Loading your picture frame view…</div>');
+  var cfg = await loadKioskSettings(UP);
+  intervalMs = cfg.intervalSec * 1000;
+  slides = await buildAllSlides(UP, cfg);
+  if (!slides.length) {
+    showCenter(
+      '<div class="big">Nothing to show yet</div>' +
+      '<div class="small">Turn on at least one card in Settings → 🖼️ Picture Frame Mode, and make sure it has something to show (a Calendar link, a zip code for Weather, etc).</div>' +
+      '<a class="btn" href="my-daily-tools.html">Open Settings</a>'
+    );
+    return;
+  }
+  centerMsg.style.display = 'none';
+  root.style.display = 'flex';
+  slideIdx = 0;
+  renderStage();
+  startTimer();
+
+  // Periodic refresh so a display left running all day doesn't go stale.
+  setInterval(async function() {
+    var fresh = await buildAllSlides(UP, cfg);
+    if (fresh.length) {
+      slides = fresh;
+      if (slideIdx >= slides.length) slideIdx = 0;
+      renderStage();
+    }
+  }, 5 * 60 * 1000);
+}
+</script>
+</body>
+</html>

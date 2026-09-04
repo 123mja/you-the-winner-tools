@@ -49,6 +49,12 @@ const DEFAULTS = {
   // (window._authUser), a guest just sees the welcome/demo choice instead.
   'my-daily-tools':         'public',
   'habits':                 'auth',
+  // Added 2026-09-04, per Marcelo's "digital picture frame" idea — a
+  // read-only, auto-rotating full-screen view (kiosk.html) meant for a
+  // spare tablet/phone left running somewhere shared. Same access level as
+  // My Day / Money: any signed-in account can open it, gated to their own
+  // data (there is no separate admin/caregiver-only concept for this page).
+  'kiosk':                   'auth',
   // Added 2026-08-31: missing entirely before, which is what caused Calm
   // Corner to hard-404 (see accessDenied() below) for anyone once ANY
   // usergroup existed for this tenant and no group had an explicit 'r'
