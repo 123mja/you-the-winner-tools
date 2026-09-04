@@ -6866,7 +6866,18 @@ window.removeRmMilestone = function(pi, mi) {
     <button id="settings-jump-danger" class="settings-tab" onclick="switchSettingsTab('danger')" style="display:none;">🛠️ Admin</button>
   </div>
 
-  <!-- Demo refresh (guests only) -->
+  <!-- Demo refresh (admin/caregiver only) -- 2026-09-04 fix, per Marcelo
+       ("should only be available for the caregiver / admin, not for the
+       demo itself"): this card used to be shown to anonymous demo/guest
+       visitors and hidden from every signed-in account, including the
+       admin -- the exact opposite of the intent. A guest reloading demo
+       data mid-demo isn't a real use case (it's THEIR demo session,
+       there's nothing meaningful to "reset" from their side), whereas
+       an admin/caregiver refreshing what new demo visitors will see next
+       is. Now gated the same way as demo-setup-card just below
+       (CLIENT.primaryAdminEmail) instead of guest-vs-signed-in -- see the
+       onAuthStateChanged admin-only-cards block and _startDemo() for the
+       show/hide logic. -->
   <div id="demo-refresh-card" style="display:none;margin-bottom:12px;">
     <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div>
@@ -9633,7 +9644,14 @@ window.removeRmMilestone = function(pi, mi) {
    pattern and renderCalendarPane() renders it as an iframe. Anyone who
    wants a different calendar still overrides it per-account exactly as
    before. */
-var DEFAULT_CAL_URL = 'https://calendar.google.com/calendar/embed?src=f590c5dcef18013ae278b137790995778f796d4b3e08d620a7aefcb1a64bdd84%40group.calendar.google.com&ctz=America%2FChicago';
+// 2026-09-04, per Marcelo ("demo is loading some calendars that are not
+// even configured anymore... use only this one"): replaced with a fresh
+// calendar he made public specifically for this. The previous cid
+// (f590c5dc...) is retired. See also the demo-specific calendarUrls reset
+// in loadDemoPlans() below, which forces slots 2/3 clear for the shared
+// demo account too -- this constant alone only fixes slot 1 / any
+// account that's never set its own link.
+var DEFAULT_CAL_URL = 'https://calendar.google.com/calendar/embed?src=c7963bff9ba73906932e9f899c229ad0102940d2de0f5140fd74c928d31e7dc6%40group.calendar.google.com&ctz=America%2FChicago';
 // 2026-08-31: Calendar Link upgraded from a single URL to up to 3, per
 // Marcelo ("can I have 3 ics instead of only one? I combine it in single
 // calendar" — this is the feature that request actually meant; see
@@ -23032,13 +23050,48 @@ if (!plansSnap.val()) {
   });
   try { await set(ref(db, 'tools-you-the-winner/demo/plans'), seedPlans); } catch(e) { console.warn('demo seed plans:', e); }
   try {
+    // 2026-09-04 fix, per Marcelo ("undefined shown on my money"): these
+    // account objects never had an `icon` field -- the emoji was baked
+    // into `name` instead ('🏦 Checking'), but renderHome()/renderSettings()
+    // both render a.icon in the account's icon box and a.name as the plain
+    // label (see DEFAULT_ACCOUNTS above and saveAccount() for the real
+    // shape every other account uses), so the icon box showed the literal
+    // string "undefined" and the name showed a redundant emoji baked in.
     await set(ref(db, 'tools-you-the-winner/demo/accounts'), [
-      { id:'acct-chk', name:'🏦 Checking',    balance:125.00, color:'#2a7d6f' },
-      { id:'acct-abl', name:'🎯 ABLE Account', balance:350.00, color:'#1a5c7a', type:'savings' }
+      { id:'acct-chk', icon:'🏦', name:'Checking',    balance:125.00 },
+      { id:'acct-abl', icon:'🎯', name:'ABLE Account', balance:350.00, type:'savings' }
     ]);
   } catch(e) { console.warn('demo seed accounts:', e); }
   // onValue listeners will fire with the freshly written data
 }
+
+// Accounts icon self-heal, 2026-09-04 fix, per Marcelo ("undefined shown
+// on my money"): the seed write above is only reached "if plans path is
+// completely empty", so simply fixing that write doesn't repair whatever's
+// ALREADY live in Firebase right now from before this fix existed --
+// nothing else ever revisits existing account data. Runs unconditionally,
+// every load/refresh, and only touches the two known demo account ids if
+// they're still missing `icon` (i.e. still in the old broken shape);
+// balance is left untouched either way.
+try {
+  var acctsSnap = await get(ref(db, 'tools-you-the-winner/demo/accounts'));
+  var existingAccts = acctsSnap.val();
+  if (Array.isArray(existingAccts)) {
+    var ICON_BY_ID = { 'acct-chk': '🏦', 'acct-abl': '🎯' };
+    var NAME_BY_ID = { 'acct-chk': 'Checking', 'acct-abl': 'ABLE Account' };
+    var acctsChanged = false;
+    var fixedAccts = existingAccts.map(function(a) {
+      if (a && !a.icon && ICON_BY_ID[a.id]) {
+        acctsChanged = true;
+        return Object.assign({}, a, { icon: ICON_BY_ID[a.id], name: NAME_BY_ID[a.id] });
+      }
+      return a;
+    });
+    if (acctsChanged) {
+      await set(ref(db, 'tools-you-the-winner/demo/accounts'), fixedAccts);
+    }
+  }
+} catch(e) { console.warn('demo heal accounts icon:', e); }
 
 // Level Up Board demo seed, added 2026-08-30 -- own existence check
 // (separate from the plans check above) so a demo account that already
@@ -23074,6 +23127,19 @@ if (Object.keys(sgSettingsToSeed).length) {
     await update(ref(db, 'tools-you-the-winner/demo/schedule-settings'), sgSettingsToSeed);
   } catch(e) { console.warn('demo seed schedule-settings:', e); }
 }
+
+// Calendar link — force to the single public demo calendar, 2026-09-04 per
+// Marcelo ("demo is loading some calendars that are not even configured
+// anymore ... use only this one"). Deliberately NOT the "seed only if
+// empty" pattern used above: stale slot 2/3 links (leftover from earlier
+// testing, no longer valid calendars) would otherwise stick around
+// forever, since nothing else ever clears them. The demo calendar is meant
+// to be one fixed, curated example, not a per-visit or per-account
+// setting, so every load/refresh unconditionally resets it to exactly
+// slot 1 = DEFAULT_CAL_URL, slots 2/3 = empty.
+try {
+  await set(ref(db, 'tools-you-the-winner/demo/schedule-settings/calendarUrls'), { '1': DEFAULT_CAL_URL, '2': '', '3': '' });
+} catch(e) { console.warn('demo reset calendarUrls:', e); }
 
 if (btn && showFeedback) {
   btn.textContent = 'Done!';
@@ -23190,9 +23256,12 @@ function daysAgo(n) {
 // ── accounts ──
 var checkBal = rnd(80, 350);
 var ableBal  = rnd(150, 600);
+// 2026-09-04 fix: same missing-`icon`-field bug as loadDemoPlans()'s seed
+// accounts above -- see that comment for why renderHome()/renderSettings()
+// showed the literal string "undefined" here.
 var accounts = [
-  { id:'acct-chk', name:'🏦 Checking',    balance: checkBal, color:'#2a7d6f' },
-  { id:'acct-abl', name:'🎯 ABLE Account', balance: ableBal,  color:'#1a5c7a', type:'savings' }
+  { id:'acct-chk', icon:'🏦', name:'Checking',    balance: checkBal },
+  { id:'acct-abl', icon:'🎯', name:'ABLE Account', balance: ableBal, type:'savings' }
 ];
 
 // ── transactions (last 30 days, realistic) ──
@@ -24727,6 +24796,8 @@ window._refreshLinkedAccounts();
 
 // Show admin-only cards: demo setup + clone config
 if ((user.email || '').toLowerCase() === CLIENT.primaryAdminEmail) {
+var demoRefresh = document.getElementById('demo-refresh-card');
+if (demoRefresh) demoRefresh.style.display = '';
 var demoSetup = document.getElementById('demo-setup-card');
 if (demoSetup) {
 demoSetup.style.display = '';
@@ -24751,7 +24822,7 @@ if (dangerJump) dangerJump.style.display = '';
 // Non-admin account: make sure admin-only cards are hidden even if this
 // browser tab previously had an admin session signed in (account switch
 // without a full page reload).
-['demo-setup-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
+['demo-refresh-card','demo-setup-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
 var el = document.getElementById(id);
 if (el) el.style.display = 'none';
 });
@@ -27044,7 +27115,7 @@ try { await set(ref(db, RmUP+'/daily-tools/settings/roadmap-config'), cfg); } ca
 // Guest / signed-out: hide admin-only cards (Demo setup, Clone config,
 // Data Cleanup) in case an admin was signed in on this tab before signing
 // out, mirroring the same reset done above for a non-admin account switch.
-['demo-setup-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
+['demo-refresh-card','demo-setup-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
 var el = document.getElementById(id);
 if (el) el.style.display = 'none';
 });
@@ -27304,9 +27375,15 @@ try { applyTabOrder(); } catch(e) {
   if (calBtn2) calBtn2.style.display = _calendarTabEnabled ? '' : 'none';
 }
 
-// Show demo refresh card
+// 2026-09-04 fix: this card is admin/caregiver-only now (see its own HTML
+// comment above and the admin-only-cards block in onAuthStateChanged) --
+// an anonymous demo visitor never gets it, regardless of demoCard's default
+// 'display:none' in the markup. Left as an explicit no-op assignment rather
+// than deleting the block outright, so a future _startDemo() edit that
+// reorders things doesn't accidentally resurrect the old guests-only
+// behavior without a comment explaining why that would be wrong.
 var demoCard2 = document.getElementById('demo-refresh-card');
-if (demoCard2) demoCard2.style.display = '';
+if (demoCard2) demoCard2.style.display = 'none';
 
 // Hide-nav: check localStorage first (written by admin when they saved the setting)
 try {
