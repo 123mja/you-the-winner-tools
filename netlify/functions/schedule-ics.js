@@ -73,8 +73,12 @@ function foldLine(line) {
 // wall-clock dates/times with no timezone concept attached, so a shift
 // shows at the same clock time in whatever timezone the subscribing
 // calendar app itself is set to, matching how it was actually entered.
-// No longer used for DTSTART/DTEND (see wallClockToUTC below) — kept here
-// since it's still handy for anything wanting the raw wall-clock string.
+// 2026-09-04: back in active use for DTSTART/DTEND (see comment at the
+// call site below) — briefly replaced by the UTC-instant approach on
+// 2026-08-31, reverted per Marcelo because Google's "From URL" subscribed
+// calendars have no per-calendar timezone override, so a UTC instant only
+// displays correctly if the viewer's own Google account timezone happens
+// to be Chicago. Floating time removes that dependency entirely.
 function toICSDateTime(dateStr, timeStr) {
   var parts = String(dateStr).split('-');
   var y = parts[0], mo = parts[1], d = parts[2];
@@ -106,6 +110,13 @@ function toICSDateTime(dateStr, timeStr) {
 // instead sidesteps the whole VTIMEZONE question — there's no ambiguity
 // left for any calendar app to get wrong, since every app already knows
 // how to localize a UTC instant into whatever timezone IT is set to.
+// 2026-09-04: no longer wired to DTSTART/DTEND (see toICSDateTime above
+// and the call site below) — this UTC-instant approach turned out to have
+// its own gap: Google's "From URL" subscribed calendars have no per-feed
+// timezone override, so display correctness depended on the *viewer's*
+// Google account being set to Chicago. Kept here, unused, in case a
+// future need for true cross-timezone-synchronized events (as opposed to
+// a location-anchored work shift) brings this approach back.
 function wallClockToUTC(dateStr, timeStr, timeZone) {
   var parts = String(dateStr).split('-');
   var y = +parts[0], mo = +parts[1], d = +parts[2];
@@ -187,16 +198,27 @@ exports.handler = async function(event) {
       lines.push('BEGIN:VEVENT');
       lines.push(foldLine('UID:' + id + '@you-the-winner.com'));
       lines.push('DTSTAMP:' + nowUTCStamp());
-      // 2026-08-31 fix: see wallClockToUTC's comment above — replaced the
-      // TZID-based lines (kept below, commented out, for reference) with
-      // plain UTC (Z-suffixed) instants computed from the wall-clock time
-      // + the account's configured timeZone. This is what actually
-      // resolves "YTW Schedule and Google Calendar don't share the same
-      // timezone".
-      // lines.push('DTSTART;TZID=' + timeZone + ':' + toICSDateTime(s.date, s.start));
-      // lines.push('DTEND;TZID=' + timeZone + ':' + toICSDateTime(s.date, s.end));
-      lines.push('DTSTART:' + toICSDateTimeUTC(s.date, s.start, timeZone));
-      lines.push('DTEND:' + toICSDateTimeUTC(s.date, s.end, timeZone));
+      // 2026-09-04 fix: switched back to FLOATING time (no Z, no TZID) for
+      // DTSTART/DTEND, per Marcelo. The 2026-08-31 UTC-instant approach
+      // (wallClockToUTC/toICSDateTimeUTC, still defined above) was RFC
+      // 5545-correct, but it has a real-world gap: a "From URL" subscribed
+      // calendar in Google Calendar has NO per-calendar timezone setting —
+      // it always displays a UTC instant converted into the viewer's
+      // *overall* Google account timezone (Settings > General), which may
+      // or may not be Chicago. Floating time sidesteps that dependency
+      // entirely: no offset is ever computed or applied, so whatever
+      // wall-clock time is stored (e.g. 19:00) is written into the feed
+      // and displayed AS-IS by every calendar app, unconditionally — no
+      // manual re-adjustment needed if a viewer's timezone setting is
+      // wrong, missing, or different from Chicago. Tradeoff (accepted):
+      // this is genuinely a location-anchored work-shift schedule, not a
+      // cross-timezone meeting that needs to represent one synchronized
+      // global instant, so "same clock number everywhere" is the correct
+      // semantics here, not "same moment everywhere converted per viewer".
+      // lines.push('DTSTART:' + toICSDateTimeUTC(s.date, s.start, timeZone));
+      // lines.push('DTEND:' + toICSDateTimeUTC(s.date, s.end, timeZone));
+      lines.push('DTSTART:' + toICSDateTime(s.date, s.start));
+      lines.push('DTEND:' + toICSDateTime(s.date, s.end));
 	  
       lines.push(foldLine('SUMMARY:' + icsEscape(s.label || 'Shift')));
       if (s.notes) lines.push(foldLine('DESCRIPTION:' + icsEscape(s.notes)));
