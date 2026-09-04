@@ -25426,7 +25426,19 @@ function renderNoteHistoryList() {
       var label = noteHistoryDateLabel(k, todayKey).toLowerCase();
       var text  = (plansNoteStripToText(d.text) || '').toLowerCase();
       var reply = (plansNoteStripToText(d.reply) || '').toLowerCase();
-      return k.indexOf(q) !== -1 || label.indexOf(q) !== -1 || text.indexOf(q) !== -1 || reply.indexOf(q) !== -1;
+      // 2026-09-04 fix, per Marcelo: a voice-only message (no typed text)
+      // had NOTHING here for a search term to match -- there's no
+      // speech-to-text in this app, so text/reply are both '' for it, and
+      // it silently dropped out of every search that wasn't the exact date
+      // string, even though it really was saved (confirmed: saving never
+      // requires text, only text-or-recording). Give it the same default
+      // "audio message at <time>" label the row itself already shows, so
+      // searching "audio", "voice", "recording", or the time of day all
+      // find it too.
+      var audioText  = d.audioUrl      ? ('audio message voice recording ' + (d.ts      ? _fmtMsgTs(d.ts).toLowerCase()      : '')) : '';
+      var audioReply = d.replyAudioUrl ? ('audio reply voice recording '   + (d.replyTs ? _fmtMsgTs(d.replyTs).toLowerCase() : '')) : '';
+      return k.indexOf(q) !== -1 || label.indexOf(q) !== -1 || text.indexOf(q) !== -1 || reply.indexOf(q) !== -1
+        || audioText.indexOf(q) !== -1 || audioReply.indexOf(q) !== -1;
     });
   }
   var pagerEl = document.getElementById('note-history-pagination');
@@ -25469,7 +25481,11 @@ function renderNoteHistoryList() {
     var label = noteHistoryDateLabel(k, todayKey);
     var hasReply = !!(d.reply || d.replyAudioUrl);
     var plainSnippet = plansNoteStripToText(d.text);
-    var snippet = plainSnippet ? (plainSnippet.length > 46 ? plainSnippet.slice(0, 46) + '…' : plainSnippet) : (d.audioUrl ? '🎤 Voice message' : '');
+    // 2026-09-04, per Marcelo: an audio-only entry (no typed text) used to
+    // show a bare "🎤 Voice message" with no way to tell WHEN it was sent —
+    // added the time of day, same _fmtMsgTs helper the rest of this module
+    // already uses. Renamed "Voice" -> "Audio" to match how he described it.
+    var snippet = plainSnippet ? (plainSnippet.length > 46 ? plainSnippet.slice(0, 46) + '…' : plainSnippet) : (d.audioUrl ? ('🎤 Audio message' + (d.ts ? (' at ' + _fmtMsgTs(d.ts)) : '')) : '');
     // This row's markup is built as an HTML string (see the .join('') below),
     // so the plain-text snippet needs escaping — otherwise a literal "<" or
     // "&" the person actually typed would be parsed as HTML instead of shown
@@ -25504,9 +25520,9 @@ function renderNoteHistoryList() {
     var plainReply = plansNoteStripToText(d.reply);
     var tipLines = [];
     if (plainSnippet) tipLines.push((d.updatedByName || 'Sender') + ': ' + plainSnippet);
-    else if (d.audioUrl) tipLines.push((d.updatedByName || 'Sender') + ': 🎤 Voice message');
+    else if (d.audioUrl) tipLines.push((d.updatedByName || 'Sender') + ': 🎤 Audio message' + (d.ts ? (' at ' + _fmtMsgTs(d.ts)) : ''));
     if (plainReply) tipLines.push((d.repliedByName || 'Reply') + ': ' + plainReply);
-    else if (d.replyAudioUrl) tipLines.push((d.repliedByName || 'Reply') + ': 🎤 Voice reply');
+    else if (d.replyAudioUrl) tipLines.push((d.repliedByName || 'Reply') + ': 🎤 Audio reply' + (d.replyTs ? (' at ' + _fmtMsgTs(d.replyTs)) : ''));
     // 2026-08-08: a plain newline between the two lines read as too subtle —
     // added a short dash divider between the caregiver's line and the
     // supported person's line so the two are clearly separated at a glance.
