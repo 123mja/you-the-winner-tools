@@ -198,7 +198,12 @@ exports.handler = async function(event) {
 
     Object.keys(schedule).forEach(function(id) {
       var s = schedule[id] || {};
-      if (!s.date || !s.start || !s.end) return; // skip malformed/partial entries
+      // 2026-09-04: also skip cancelled shifts — a cancelled shift shouldn't
+      // linger as an upcoming commitment on a calendar someone subscribed to;
+      // dropping it from the feed is simpler and more predictable across
+      // calendar apps than emitting STATUS:CANCELLED (client support for
+      // that varies).
+      if (!s.date || !s.start || !s.end || s.cancelled) return; // skip malformed/partial entries, and cancelled shifts
       lines.push('BEGIN:VEVENT');
       lines.push(foldLine('UID:' + id + '@you-the-winner.com'));
       lines.push('DTSTAMP:' + nowUTCStamp());

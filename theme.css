@@ -90,7 +90,20 @@
   --text: #eef3f6;
   --muted: #9fb3c2;
   --soft: #6d8494;
-  --accent: #4fd8bc;
+  /* 2026-09-04 fix, per Marcelo: --accent was #4fd8bc, a pale mint-green
+     picked to pop as TEXT against the dark background (10.2:1 contrast
+     there) -- but --accent is also used all over the app as a solid
+     BUTTON/BADGE BACKGROUND with plain white text on top (e.g. active
+     payroll-mode buttons, CTAs, progress fills), and white-on-#4fd8bc is
+     only ~1.8:1 contrast, well under WCAG's 4.5:1 minimum -- exactly the
+     "white font doesn't contrast well with light green" hard-to-read
+     complaint. Darkened to #178a72 (still a clear teal/green, keeping the
+     theme's identity): ~4.3:1 for white text on an --accent background,
+     and still ~4.2:1 for --accent used as plain text against --bg, so
+     both directions stay readable. --accent2 (blue) wasn't reported as an
+     issue so it's untouched.
+  */
+  --accent: #178a72;
   --accent2: #7fb8e8;
   --accent-light: #1d3b38;
   --gold: #ffcf6b;

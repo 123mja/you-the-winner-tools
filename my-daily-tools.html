@@ -7185,6 +7185,39 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
+  <!-- Caregiver override: recommend tab visibility for a linked/shared
+       individual — added 2026-09-04, per Marcelo: "let caregiver overwrite
+       the tab visibility of the individuo who shared the plan to which he
+       governs... he can recommend what is the best setup." Only shown
+       while actively viewing-as a linked account with readwrite access
+       (see _applyCaregiverTabOverrideCardVisibility, called from
+       switchToAccount/switchToOwnAccount right alongside the existing
+       _renderCaregiverSwitcher() calls, and from renderSettings() like
+       _applyCaregiverOnlySettingsVisibility() above it).
+
+       Writes go straight to that account's OWN
+       users/{uid}/daily-tools/settings/{key} path — the exact path their
+       own device already reads on every sign-in via _initSettingsSync
+       (SYNCED_SETTINGS_KEYS), so no new sync mechanism was needed: the
+       next time they open the app (or refresh), these choices come down
+       as their own settings, same as if they'd set them themselves.
+       Reuses TAB_ENABLED_DEFAULT_KEYS (already the single source of truth
+       for "which localStorage key backs which tab's enabled flag", added
+       2026-08-30 for the admin-defaults feature) so this can never drift
+       out of sync with the tab list. See renderCaregiverTabOverrideList()/
+       window._setCaregiverTabOverride() below _applyCaregiverOnlySettings-
+       Visibility(). -->
+  <div class="card" id="settings-card-caregiver-tab-override" style="display:none;padding:0;overflow:hidden;margin-top:12px;">
+    <div class="txn-collapse-header" onclick="window.openCaregiverTabOverrideSection()" style="padding:14px 16px;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">🗂 Recommend Tabs for <span id="caregiver-tab-override-name">this account</span></span>
+      <span class="txn-collapse-chevron" id="settings-chevron-caregiver-tab-override">▼</span>
+    </div>
+    <div id="settings-section-caregiver-tab-override" style="display:none;padding:12px 16px 14px;">
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Set which tabs show up when <span id="caregiver-tab-override-name2">they</span> sign in on their own device — a recommended setup, not a lock; they can still change it themselves in their own Settings. Takes effect next time they open the app.</div>
+      <div id="caregiver-tab-override-list" style="font-size:.8rem;color:var(--muted);">Loading…</div>
+    </div>
+  </div>
+
     <!-- Home Quick Links (2026-08-12, moved here from the Money tab 2026-08-14
        per Marcelo's request — it's a Home-page feature, not a money one) —
        closed by default, same collapsible pattern as elsewhere in Settings.
@@ -8295,10 +8328,26 @@ window.removeRmMilestone = function(pi, mi) {
     <div id="sched-modal-rate-wrap" style="display:none;margin-bottom:4px;">
       <input class="modal-note" type="number" step="0.01" min="0" id="sched-modal-rate" placeholder="Hourly rate for this shift, e.g. 18.50">
     </div>
-    <label class="modal-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;margin-bottom:10px;">
+    <label class="modal-label" id="sched-modal-confirmed-row" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;margin-bottom:6px;">
       <input type="checkbox" id="sched-modal-confirmed">
       ✅ Confirmed as worked (counts toward payroll)
     </label>
+    <!-- Cancelled status — added 2026-09-04, per Marcelo: a shift that was
+         planned but didn't happen (illness, no ride, etc.) shouldn't just
+         sit as "unconfirmed" with no way to tell "forgot to confirm" apart
+         from "didn't happen". Cancelled is mutually exclusive with
+         Confirmed — checking it hides the Confirmed row and reveals an
+         optional reason field (window._schedToggleCancelledUI). Cancelled
+         shifts are excluded from payroll/forecast/chart everywhere
+         s.confirmed is checked, shown struck-through/greyed on the grid,
+         and dropped from the ICS feed entirely. -->
+    <label class="modal-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:2px;margin-bottom:6px;">
+      <input type="checkbox" id="sched-modal-cancelled" onchange="window._schedToggleCancelledUI(this.checked);">
+      ❌ Cancelled (didn't happen)
+    </label>
+    <div id="sched-modal-cancel-reason-wrap" style="display:none;margin-bottom:10px;">
+      <input class="modal-note" id="sched-modal-cancel-reason" placeholder="Reason (optional) — e.g. Sick">
+    </div>
     <button class="modal-cta got" onclick="window.saveShiftModal()">Save</button>
     <button id="sched-modal-delete-btn" onclick="window.deleteShiftModal()" style="display:none;width:100%;padding:11px;border:none;border-radius:12px;background:none;color:#d94f4f;font-family:'Nunito',sans-serif;font-weight:700;font-size:.86rem;margin-top:6px;cursor:pointer;">Delete shift</button>
     <button class="modal-cancel" onclick="window.closeShiftModal()">Cancel</button>
@@ -14139,7 +14188,7 @@ window.renderPayrollReport = function() {
   if (lbl) lbl.textContent = _payrollPeriodLabel(_payrollMode, range);
   var startStr = _schedDateStr(range.start), endStr = _schedDateStr(range.end);
   var rows = _schedEntries().filter(function(s) {
-    return s.confirmed && s.date >= startStr && s.date <= endStr;
+    return s.confirmed && !s.cancelled && s.date >= startStr && s.date <= endStr;
   }).sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
   var rowsEl = document.getElementById('sched-payroll-rows');
   var totalsEl = document.getElementById('sched-payroll-totals');
@@ -14182,7 +14231,9 @@ window.renderPayrollReport = function() {
 // a realistic "if the rest of the schedule happens as planned" total, not
 // just what's confirmed so far. Shifts in the past that were never marked
 // confirmed are excluded from both halves — per the existing Payroll Report
-// rule, unconfirmed = hasn't actually happened.
+// rule, unconfirmed = hasn't actually happened. Cancelled shifts (added
+// 2026-09-04) are excluded from both halves too — a cancelled shift isn't
+// still scheduled and was never worked.
 function _payrollForecastForPeriod(range) {
   var todayStr = _schedDateStr(new Date());
   var startStr = _schedDateStr(range.start), endStr = _schedDateStr(range.end);
@@ -14191,7 +14242,8 @@ function _payrollForecastForPeriod(range) {
     var hours = _schedTimeToHours(s.end) - _schedTimeToHours(s.start);
     var rate = (s.rate != null) ? s.rate : (_payrollRateForDate(s.date) != null ? _payrollRateForDate(s.date) : 0);
     var pay = hours * rate;
-    if (s.confirmed && s.date <= todayStr) { actualHours += hours; actualPay += pay; }
+    if (s.cancelled) { /* excluded from both halves */ }
+    else if (s.confirmed && s.date <= todayStr) { actualHours += hours; actualPay += pay; }
     else if (s.date >= todayStr) { schedHours += hours; schedPay += pay; }
   });
   var totalHours = actualHours + schedHours, totalPay = actualPay + schedPay;
@@ -14243,7 +14295,7 @@ function _payrollChartData(range, mode, filingStatus, deductAmt, deductOn) {
   units.forEach(function(u) { byKey[u.key] = u; });
   var startStr = _schedDateStr(range.start), endStr = _schedDateStr(range.end);
   _schedEntries().filter(function(s) { return s.date >= startStr && s.date <= endStr; }).forEach(function(s) {
-    var include = (s.confirmed && s.date <= todayStr) || (s.date >= todayStr); // matches the Forecast section's rule: an unconfirmed past shift counts as neither
+    var include = !s.cancelled && ((s.confirmed && s.date <= todayStr) || (s.date >= todayStr)); // matches the Forecast section's rule: unconfirmed-past counts as neither; cancelled (2026-09-04) is excluded outright
     if (!include) return;
     var hours = _schedTimeToHours(s.end) - _schedTimeToHours(s.start);
     var rate = (s.rate != null) ? s.rate : (_payrollRateForDate(s.date) || 0);
@@ -15269,10 +15321,21 @@ window.renderScheduleNative = function() {
       // can also be set from the Edit Shift modal's checkbox.
       var confirmedRing = s.confirmed ? 'outline:2.5px solid rgba(255,255,255,.95);outline-offset:-2.5px;' : '';
       var confirmedBadge = s.confirmed ? '<span style="position:absolute;top:2px;right:4px;font-size:.62rem;" title="Confirmed as worked">✅</span>' : '';
-      html += '<div class="sched-block" data-id="' + s.id + '" style="position:absolute;left:3px;right:3px;top:' + top + 'px;height:' + height + 'px;background:' + color + ';color:#fff;border-radius:8px;padding:3px 6px;font-size:.64rem;font-family:\'Quicksand\',sans-serif;font-weight:600;overflow:hidden;cursor:grab;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:3;touch-action:none;' + confirmedRing + '">'
+      // Cancelled shifts — added 2026-09-04. Rendered with a neutral
+      // theme-derived grey (var(--surface2)/var(--muted), not the label's
+      // own color) plus a strikethrough label and a ❌ badge, so a
+      // cancelled shift reads clearly different from a merely-unconfirmed
+      // one at a glance without needing a whole new color. Not draggable
+      // (cursor stays default) since there's nothing left to schedule.
+      var isCancelled = !!s.cancelled;
+      var blockBg = isCancelled ? 'var(--surface2)' : color;
+      var blockTextColor = isCancelled ? 'var(--muted)' : '#fff';
+      var cancelledBadge = isCancelled ? '<span style="position:absolute;top:2px;right:4px;font-size:.62rem;" title="Cancelled' + (s.cancelReason ? (': ' + _schedEscape(s.cancelReason)) : '') + '">❌</span>' : '';
+      var labelStyle = isCancelled ? 'text-decoration:line-through;' : '';
+      html += '<div class="sched-block" data-id="' + s.id + '" style="position:absolute;left:3px;right:3px;top:' + top + 'px;height:' + height + 'px;background:' + blockBg + ';color:' + blockTextColor + ';border-radius:8px;padding:3px 6px;font-size:.64rem;font-family:\'Quicksand\',sans-serif;font-weight:600;overflow:hidden;cursor:' + (isCancelled ? 'pointer' : 'grab') + ';box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:3;touch-action:none;opacity:' + (isCancelled ? '.68' : '1') + ';' + (isCancelled ? '' : confirmedRing) + '">'
         + '<div class="sched-handle" style="position:absolute;left:50%;top:3px;transform:translateX(-50%);width:22px;height:3px;background:rgba(255,255,255,.85);border-radius:2px;"></div>'
-        + confirmedBadge
-        + _schedEscape(s.label || 'Shift') + '<br><span style="opacity:.85;font-size:.58rem;">' + _schedFmtRange(s.start, s.end) + '</span>'
+        + (isCancelled ? cancelledBadge : confirmedBadge)
+        + '<span style="' + labelStyle + '">' + _schedEscape(s.label || 'Shift') + '</span><br><span style="opacity:.85;font-size:.58rem;">' + _schedFmtRange(s.start, s.end) + '</span>'
         + '<div class="sched-handle" style="position:absolute;left:50%;bottom:3px;transform:translateX(-50%);width:22px;height:3px;background:rgba(255,255,255,.85);border-radius:2px;"></div>'
         + '</div>';
     });
@@ -15417,6 +15480,9 @@ window.toggleShiftConfirmed = function(id) {
   if (!guardWrite()) return;
   var entry = _schedData && _schedData[id];
   if (!entry) return;
+  // 2026-09-04: a cancelled shift shouldn't be flippable back to
+  // confirmed with a stray double-tap — edit it explicitly instead.
+  if (entry.cancelled) { showToast('This shift is cancelled — edit it to change status'); return; }
   var next = !entry.confirmed;
   update(ref(db, SchedUP + '/schedule/' + id), { confirmed: next, confirmedAt: next ? Date.now() : null }).then(function() {
     showToast(next ? 'Marked as worked ✅' : 'Unmarked as worked');
@@ -15554,6 +15620,9 @@ window.openAddShiftModal = function(dateStr, startHour, endHour) {
   document.getElementById('sched-modal-rate-wrap').style.display = 'none';
   document.getElementById('sched-modal-rate').value = '';
   document.getElementById('sched-modal-confirmed').checked = false;
+  document.getElementById('sched-modal-cancelled').checked = false;
+  document.getElementById('sched-modal-cancel-reason').value = '';
+  window._schedToggleCancelledUI(false);
   _schedRefreshLabelSuggestions();
   _schedWireRangeSlider();
   _schedRenderRangeSlider();
@@ -15575,6 +15644,9 @@ window.openEditShiftModal = function(id) {
   document.getElementById('sched-modal-rate-wrap').style.display = hasRateOverride ? 'block' : 'none';
   document.getElementById('sched-modal-rate').value = hasRateOverride ? s.rate : '';
   document.getElementById('sched-modal-confirmed').checked = !!s.confirmed;
+  document.getElementById('sched-modal-cancelled').checked = !!s.cancelled;
+  document.getElementById('sched-modal-cancel-reason').value = s.cancelReason || '';
+  window._schedToggleCancelledUI(!!s.cancelled);
   _schedRefreshLabelSuggestions();
   _schedWireRangeSlider();
   _schedRenderRangeSlider();
@@ -15583,6 +15655,17 @@ window.openEditShiftModal = function(id) {
 window.closeShiftModal = function() {
   var m = document.getElementById('sched-shift-modal');
   if (m) m.classList.remove('open');
+};
+// Cancelled/Confirmed are mutually exclusive in the modal — checking
+// Cancelled hides the Confirmed row (and the save-time logic below forces
+// confirmed off regardless) and reveals the reason field; unchecking it
+// reverses both. Added 2026-09-04.
+window._schedToggleCancelledUI = function(cancelledOn) {
+  var confirmedRow = document.getElementById('sched-modal-confirmed-row');
+  var reasonWrap = document.getElementById('sched-modal-cancel-reason-wrap');
+  if (confirmedRow) confirmedRow.style.display = cancelledOn ? 'none' : 'flex';
+  if (reasonWrap) reasonWrap.style.display = cancelledOn ? 'block' : 'none';
+  if (cancelledOn) { var cb = document.getElementById('sched-modal-confirmed'); if (cb) cb.checked = false; }
 };
 function _schedRefreshLabelSuggestions() {
   var dl = document.getElementById('sched-label-list');
@@ -15609,13 +15692,25 @@ window.saveShiftModal = function() {
   // edit-and-resave doesn't reset when a shift was first marked done.
   var rateOverrideOn = document.getElementById('sched-modal-rate-override').checked;
   var rateVal = parseFloat(document.getElementById('sched-modal-rate').value);
-  var confirmedOn = document.getElementById('sched-modal-confirmed').checked;
+  // Cancelled — added 2026-09-04. Overrides Confirmed: a shift can't be
+  // both "didn't happen" and "confirmed as worked". The UI already
+  // hides/unchecks Confirmed when Cancelled is on (_schedToggleCancelledUI);
+  // confirmedOn is forced off here too as the save-time guarantee.
+  // cancelledAt mirrors confirmedAt's existing pattern — only moves when
+  // the cancelled state actually flips, so a plain edit-and-resave doesn't
+  // reset it.
+  var cancelledOn = document.getElementById('sched-modal-cancelled').checked;
+  var cancelReason = document.getElementById('sched-modal-cancel-reason').value.trim();
+  var confirmedOn = !cancelledOn && document.getElementById('sched-modal-confirmed').checked;
   var prevEntry = _schedEditingId ? _schedData[_schedEditingId] : null;
   var data = {
     date: date, start: start, end: end, label: label || 'Shift', notes: notes, updatedAt: now,
     rate: (rateOverrideOn && !isNaN(rateVal)) ? rateVal : null,
     confirmed: confirmedOn,
-    confirmedAt: confirmedOn ? ((prevEntry && prevEntry.confirmed) ? (prevEntry.confirmedAt || now) : now) : null
+    confirmedAt: confirmedOn ? ((prevEntry && prevEntry.confirmed) ? (prevEntry.confirmedAt || now) : now) : null,
+    cancelled: cancelledOn,
+    cancelReason: cancelledOn ? (cancelReason || null) : null,
+    cancelledAt: cancelledOn ? ((prevEntry && prevEntry.cancelled) ? (prevEntry.cancelledAt || now) : now) : null
   };
   var p;
   if (_schedEditingId) {
@@ -18226,6 +18321,104 @@ function _applyCaregiverOnlySettingsVisibility() {
 }
 window._applyCaregiverOnlySettingsVisibility = _applyCaregiverOnlySettingsVisibility;
 
+// Which tabs default to ON for someone who has never set this tab's key at
+// all (local OR remote) — mirrors the _xTabEnabled local-variable defaults
+// declared up near TAB_ENABLED_DEFAULT_KEYS, so the caregiver's toggle list
+// below doesn't show a misleadingly-blank/off state for a tab the linked
+// account simply hasn't touched yet. Added 2026-09-04.
+function _tabOverrideFallbackDefault(tabKey) {
+  return ['home', 'plans', 'myday', 'calendar', 'help'].indexOf(tabKey) !== -1;
+}
+
+function _applyCaregiverTabOverrideCardVisibility() {
+  var card = document.getElementById('settings-card-caregiver-tab-override');
+  if (!card) return;
+  var show = !!(window._viewingAs && window._canWrite);
+  card.style.display = show ? '' : 'none';
+  var label = (window._viewingAs && window._viewingAs.name) ? window._viewingAs.name : 'this account';
+  var nameEl = document.getElementById('caregiver-tab-override-name');
+  var nameEl2 = document.getElementById('caregiver-tab-override-name2');
+  if (nameEl) nameEl.textContent = label;
+  if (nameEl2) nameEl2.textContent = label;
+  // Collapse and invalidate on every call (i.e. every time the viewed
+  // account changes, including back to "My plans") so a stale fetch from
+  // the PREVIOUS linked account can never render under the new one, or
+  // worse, get a toggle written to the wrong uid.
+  var panel = document.getElementById('settings-section-caregiver-tab-override');
+  var chevron = document.getElementById('settings-chevron-caregiver-tab-override');
+  if (panel) panel.style.display = 'none';
+  if (chevron) chevron.style.transform = '';
+  window._caregiverTabOverrideTargetUid = null;
+}
+window._applyCaregiverTabOverrideCardVisibility = _applyCaregiverTabOverrideCardVisibility;
+
+window.openCaregiverTabOverrideSection = function() {
+  var panel = document.getElementById('settings-section-caregiver-tab-override');
+  var chevron = document.getElementById('settings-chevron-caregiver-tab-override');
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : '';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+  if (!open) renderCaregiverTabOverrideList();
+};
+
+async function renderCaregiverTabOverrideList() {
+  var list = document.getElementById('caregiver-tab-override-list');
+  if (!list) return;
+  if (!window._viewingAs || !window._canWrite) { list.innerHTML = ''; return; }
+  var targetUid = window._viewingAs.uid;
+  list.innerHTML = '<div style="padding:8px 0;">Loading…</div>';
+  var remote = {};
+  try {
+    var snap = await get(ref(db, 'users/' + targetUid + '/daily-tools/settings'));
+    remote = snap.val() || {};
+  } catch (e) {
+    list.innerHTML = '<div style="padding:8px 0;color:#d94f4f;">Could not load — try again.</div>';
+    return;
+  }
+  // Bail if the caregiver switched to a different account (or back to their
+  // own) while this fetch was in flight — never render, or let a toggle
+  // write against, data for an account that's no longer the one being viewed.
+  if (!window._viewingAs || window._viewingAs.uid !== targetUid) return;
+  window._caregiverTabOverrideTargetUid = targetUid;
+  var rows = Object.keys(TAB_ENABLED_DEFAULT_KEYS).map(function(tabKey) {
+    var lsKey = TAB_ENABLED_DEFAULT_KEYS[tabKey];
+    var raw = remote[lsKey];
+    var on = (raw !== undefined && raw !== null) ? (raw === '1') : _tabOverrideFallbackDefault(tabKey);
+    var meta = TAB_META[tabKey];
+    if (!meta) return '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);">'
+      + '<label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer;">'
+      + '<input type="checkbox"' + (on ? ' checked' : '') + ' onchange="window._setCaregiverTabOverride(\'' + tabKey + '\', this.checked)" style="opacity:0;width:0;height:0;position:absolute;">'
+      + '<span style="position:absolute;inset:0;border-radius:99px;background:' + (on ? 'var(--accent)' : 'var(--border)') + ';transition:.2s;">'
+      + '<span style="position:absolute;left:' + (on ? '18px' : '2px') + ';top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2);"></span>'
+      + '</span></label>'
+      + '<div style="flex:1;min-width:0;font-weight:700;font-size:.86rem;">' + meta.icon + '  ' + meta.label + '</div>'
+      + '</div>';
+  }).join('');
+  list.innerHTML = rows;
+}
+
+window._setCaregiverTabOverride = function(tabKey, on) {
+  if (!guardWrite()) return;
+  if (!window._viewingAs || !window._canWrite) return;
+  var targetUid = window._caregiverTabOverrideTargetUid;
+  // Guards against a toggle click landing after the caregiver has already
+  // switched away from the account this list was loaded for.
+  if (!targetUid || !window._viewingAs || targetUid !== window._viewingAs.uid) {
+    showToast('Switched accounts — reopen this section to try again');
+    return;
+  }
+  var lsKey = TAB_ENABLED_DEFAULT_KEYS[tabKey];
+  if (!lsKey) return;
+  set(ref(db, 'users/' + targetUid + '/daily-tools/settings/' + lsKey), on ? '1' : '0').then(function() {
+    showToast('Saved — takes effect next time they open the app');
+  }).catch(function() {
+    showToast('Could not save, try again');
+    renderCaregiverTabOverrideList();
+  });
+};
+
 function _rewardsBalance() {
   var ledger = _rewardsData.ledger || {};
   var total = 0;
@@ -19377,6 +19570,7 @@ function renderSettings() {
   // Sync wishlist mode toggle button states
   if(window._applyWishlistModeUI) window._applyWishlistModeUI(window.getWishlistMode ? window.getWishlistMode() : 'integrated');
   try { _applyCaregiverOnlySettingsVisibility(); } catch(e) {}
+  try { _applyCaregiverTabOverrideCardVisibility(); } catch(e) {}
 }
 
 function renderAll() { [renderHome, renderTransactions, renderGoals, renderSettings, renderPlans, function renderRoadmapSafe(){ window.renderRoadmap && window.renderRoadmap(); }].forEach(fn => { try { fn(); } catch(e) { console.warn('renderAll:', fn.name, e); } }); }
@@ -22151,6 +22345,13 @@ function _syncPlansViewToggleBtn() {
   btn.style.background = onCard ? 'var(--accent)' : 'var(--surface2)';
   btn.style.color = onCard ? '#fff' : 'var(--text)';
 }
+// 2026-09-04: the '!!!'-in-title flag color was '#d94f4f' — the same red
+// used for the overdue-date text right below it — so an important-flagged
+// title was indistinguishable from a late one. Per Marcelo, switched to
+// '#e67e22' (the app's existing "pay attention" orange, already used for
+// the #date-card "editing a past entry" banner) so it reads as flagged-
+// important without colliding with the late/overdue meaning. Same change
+// applied to the table-row title below (see renderPlansTableRow-ish code).
 function renderPlansCarouselCard(items, canEdit, today2) {
   if (_plansCarouselIndex >= items.length) _plansCarouselIndex = items.length - 1;
   if (_plansCarouselIndex < 0) _plansCarouselIndex = 0;
@@ -22196,7 +22397,7 @@ function renderPlansCarouselCard(items, canEdit, today2) {
     <div id="plans-carousel-card" class="${slideClass}" ontouchstart="_plansCarouselTouchStart(event)" ontouchend="_plansCarouselTouchEnd(event)"
          style="width:100%;max-width:420px;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:16px;padding:22px 18px;text-align:center;">
       <div class="plans-carousel-icon-pop" style="font-size:2.6rem;line-height:1;margin-bottom:8px;">${item.emoji || '🌱'}</div>
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);line-height:1.35;word-break:break-word;${isDone?'text-decoration:line-through;opacity:.6;':''}${(item.title||'').includes('!!!')?'color:#d94f4f;':''}">${item.title||'—'}${linkHtml}</div>
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text);line-height:1.35;word-break:break-word;${isDone?'text-decoration:line-through;opacity:.6;':''}${(item.title||'').includes('!!!')?'color:#e67e22;':''}">${item.title||'—'}${linkHtml}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
         <span style="font-size:.8rem;font-weight:700;color:${overdue?'#d94f4f':'var(--muted)'};">📅 ${dueTxt}</span>
         ${item.tag ? `<span style="font-size:.74rem;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 10px;">${item.tag}</span>` : ''}
@@ -22429,7 +22630,7 @@ const reorderCell = _reorderUiOn
 return `<tr class="${isDone?'todo-done-row':''}" ${dblEdit} style="${canEdit?'cursor:pointer;':''}">
 ${reorderCell}
 <td style="max-width:0;overflow:hidden;">
-<div style="display:flex;align-items:flex-start;gap:5px;">${emojiBtn}<span class="todo-task-text ${isDone?'done':''}" ${titleClick} style="display:block;word-break:break-word;cursor:${canEdit?'pointer':'inherit'};line-height:1.35;${_plansUppercaseTitle?'text-transform:uppercase;font-weight:800;':''}${(item.title||'').includes('!!!')?'color:#d94f4f;font-weight:800;':''}" title="${item.title||''}${canEdit?'. Hold to quick-edit title, double-click row for full edit':''}">${item.title||'—'}${linkHtml}</span></div>
+<div style="display:flex;align-items:flex-start;gap:5px;">${emojiBtn}<span class="todo-task-text ${isDone?'done':''}" ${titleClick} style="display:block;word-break:break-word;cursor:${canEdit?'pointer':'inherit'};line-height:1.35;${_plansUppercaseTitle?'text-transform:uppercase;font-weight:800;':''}${(item.title||'').includes('!!!')?'color:#e67e22;font-weight:800;':''}" title="${item.title||''}${canEdit?'. Hold to quick-edit title, double-click row for full edit':''}">${item.title||'—'}${linkHtml}</span></div>
 </td>
 <td style="text-align:center;font-size:.66rem;color:${overdue?'#d94f4f':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"${item.due?` title="${item.due}"`:''}>${item.due?`${_plansShowCalIcon?'📅 ':''}${(function(d){var p=d.split('-');return p.length===3?(p[1]+'/'+p[2]):d;})(item.due)}`:'<span style="color:var(--border);">—</span>'}</td>
 <td style="text-align:center;">${stBtn}</td>
@@ -24541,6 +24742,7 @@ window.switchToAccount = function(targetUid, targetName) {
   _registerPlanListeners(UP, PlansUP, CycleUP, RmUP, RwUP, SchedUP, TlUP);
   window._schedSyncSharedPrefs && window._schedSyncSharedPrefs(); // SchedUP just changed above — refresh the cached start-hour/week-start for the newly-viewed account
   _renderCaregiverSwitcher();
+  try { _applyCaregiverTabOverrideCardVisibility(); } catch(e) {} // 2026-09-04: show/refresh the "Recommend Tabs for X" card for whichever account this switch just landed on
   _renderFamilyPlanBanner();
   _resetFamilyNoteForAccountSwitch();
   // Bookmarks' editable/locked slots depend on window._viewingAs, which just
@@ -24586,6 +24788,7 @@ window.switchToOwnAccount = async function() {
   // fixed for Plans/Cycle/Roadmap/My Day.
   _registerMoneyListeners(MP);
   _renderCaregiverSwitcher();
+  try { _applyCaregiverTabOverrideCardVisibility(); } catch(e) {} // 2026-09-04: back to "My plans" — hide the caregiver tab-override card again
   _renderFamilyPlanBanner();
   _resetFamilyNoteForAccountSwitch();
   try { renderHomeBookmarks(); renderSettingsBookmarks(); } catch(e) {}
@@ -24792,6 +24995,7 @@ lastSeen: Date.now()
 // Caregiver: reset view state to own account, then check for linked accounts
 window._viewingAs = null;
 _renderCaregiverSwitcher();
+try { _applyCaregiverTabOverrideCardVisibility(); } catch(e) {}
 window._refreshLinkedAccounts();
 
 // Show admin-only cards: demo setup + clone config
