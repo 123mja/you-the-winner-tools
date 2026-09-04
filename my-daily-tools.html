@@ -8775,8 +8775,19 @@ window.removeRmMilestone = function(pi, mi) {
         <div style="flex:1;height:14px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div id="sr-bar-expense" style="height:100%;width:0%;background:#c0473a;border-radius:99px;"></div></div>
       </div>
     </div>
+    <!-- Income by category — added 2026-09-04, per Marcelo ("should income
+         also have a budget, instead of only spending?"). Mirrors Spending
+         by category below: same per-category progress bar, but against a
+         monthly "goal" instead of a "budget" — hitting/exceeding it is the
+         good direction for income, so it's called out with 🎉 instead of
+         the ⚠️ over-budget warning expense uses. Both sections share the
+         _renderSpendingCatList() helper in renderSpendingReport(). -->
+    <div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:8px;">Income by category</div>
+    <div id="sr-categories-income" style="max-height:22vh;overflow-y:auto;margin-bottom:14px;"></div>
+    <div id="sr-empty-income" style="display:none;text-align:center;padding:12px 0;color:var(--muted);font-size:.8rem;margin-bottom:14px;">No income in this period.</div>
+
     <div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:8px;">Spending by category</div>
-    <div id="sr-categories" style="max-height:38vh;overflow-y:auto;"></div>
+    <div id="sr-categories" style="max-height:30vh;overflow-y:auto;"></div>
     <div id="sr-empty" style="display:none;text-align:center;padding:20px 0;color:var(--muted);font-size:.8rem;">No expenses in this period.</div>
     <button class="modal-cancel" onclick="window.closeSpendingReport()" style="margin-top:14px;">Close</button>
   </div>
@@ -8854,11 +8865,15 @@ window.removeRmMilestone = function(pi, mi) {
     <input class="gmodal-input" id="acm-name" placeholder="Category name">
     <!-- Budget — added 2026-08-31, per Marcelo: "add a field to plug in
          the budget so that this is also reflected in the money report".
-         Expense categories only (income doesn't have a "budget" concept
-         the same way); shown/hidden by openAddCat based on _editCatType.
-         Read by renderSpendingReport() below to show a progress bar
-         against this amount per category. -->
-    <div id="acm-budget-wrap" style="display:none;">
+         2026-09-04: extended to Income categories too, per Marcelo ("should
+         income also have a budget, instead of only spending?") — framed as
+         a monthly GOAL for income rather than a budget (placeholder text
+         swapped in openAddCat based on _editCatType; same underlying
+         `budget` field either way, since exceeding it is the desired
+         direction for income and the undesired direction for expense).
+         Read by renderSpendingReport() below to show a progress bar against
+         this amount per category, for both Income and Expense sections. -->
+    <div id="acm-budget-wrap">
       <input class="gmodal-input" id="acm-budget" type="number" min="0" step="0.01" placeholder="Monthly budget (optional)">
     </div>
     <div class="gmodal-actions">
@@ -12791,8 +12806,13 @@ let _editCatType = 'income', _editCatId = null;
 function openAddCat(type, id) {
   _editCatType = type; _editCatId = id||null;
   document.getElementById('acm-title').textContent = (id?'Edit':'Add') + ' ' + (type==='income'?'Income':'Expense') + ' Category';
+  // 2026-09-04: budget field now shown for both types — worded as a
+  // "goal" for income (per Marcelo, income deserves the same field
+  // spending categories already had), and "budget" for expense as before.
   var budgetWrap = document.getElementById('acm-budget-wrap');
-  if (budgetWrap) budgetWrap.style.display = type === 'expense' ? '' : 'none';
+  if (budgetWrap) budgetWrap.style.display = '';
+  var budgetInputEl = document.getElementById('acm-budget');
+  if (budgetInputEl) budgetInputEl.placeholder = type === 'income' ? 'Monthly income goal (optional)' : 'Monthly budget (optional)';
   if(id) {
     const cats = type==='income' ? getIncomeCats() : getExpenseCats();
     const c = cats.find(x=>x.id===id)||{};
@@ -16018,10 +16038,19 @@ function renderSpendingReport() {
   }
   var txns = _spendingReportTxnsInPeriod();
   var income = 0, expense = 0;
-  var byCat = {}; // { categoryName: { total, icon } }
+  var byCat = {}; // { categoryName: { total, icon } } — expense
+  // byCatIncome added 2026-09-04, per Marcelo ("should income also have a
+  // budget, instead of only spending?") — income previously only had a
+  // single lump total (sr-income), no per-category breakdown at all.
+  var byCatIncome = {}; // { categoryName: { total, icon } } — income
   txns.forEach(function(t) {
-    if (t.type === 'income') income += Number(t.amount) || 0;
-    else if (t.type === 'expense') {
+    if (t.type === 'income') {
+      var incAmt = Number(t.amount) || 0;
+      income += incAmt;
+      var incKey = t.category || 'Uncategorized';
+      if (!byCatIncome[incKey]) byCatIncome[incKey] = { total: 0, icon: t.catIcon || '📈' };
+      byCatIncome[incKey].total += incAmt;
+    } else if (t.type === 'expense') {
       var amt = Number(t.amount) || 0;
       expense += amt;
       var key = t.category || 'Uncategorized';
@@ -16055,29 +16084,57 @@ function renderSpendingReport() {
   // anything, so the progress bar only appears for 'month'/'lastmonth'.
   var expenseCatsByName = {};
   getExpenseCats().forEach(function(c) { if (c.budget != null) expenseCatsByName[c.name] = c.budget; });
+  // incomeCatsByName added 2026-09-04 alongside byCatIncome above.
+  var incomeCatsByName = {};
+  getIncomeCats().forEach(function(c) { if (c.budget != null) incomeCatsByName[c.name] = c.budget; });
   var showBudgets = _spendingReportPeriod === 'month' || _spendingReportPeriod === 'lastmonth';
+
   var catList = Object.keys(byCat).map(function(name) { return { name: name, total: byCat[name].total, icon: byCat[name].icon, budget: expenseCatsByName[name] }; })
     .sort(function(a, b) { return b.total - a.total; });
-  var catsEl = document.getElementById('sr-categories');
-  var emptyEl = document.getElementById('sr-empty');
+  var catListIncome = Object.keys(byCatIncome).map(function(name) { return { name: name, total: byCatIncome[name].total, icon: byCatIncome[name].icon, budget: incomeCatsByName[name] }; })
+    .sort(function(a, b) { return b.total - a.total; });
+
+  _renderSpendingCatList('sr-categories-income', 'sr-empty-income', 'No income in this period.', catListIncome, income, showBudgets, true);
+  _renderSpendingCatList('sr-categories', 'sr-empty', 'No expenses in this period.', catList, expense, showBudgets, false);
+}
+
+// Shared by both the Income by category and Spending by category sections
+// of the Money Report (split out 2026-09-04 when income got its own
+// per-category breakdown, per Marcelo — "should income also have a
+// budget, instead of only spending?"). isIncome controls only the
+// wording/color of the goal-vs-budget line: for income, meeting or beating
+// the goal is the GOOD direction (🎉, green), whereas for expense going
+// over the budget is the thing being flagged (⚠️, red) — same underlying
+// `budget` field and progress-bar math either way.
+function _renderSpendingCatList(listElId, emptyElId, emptyText, catList, totalForPct, showBudgets, isIncome) {
+  var catsEl = document.getElementById(listElId);
+  var emptyEl = document.getElementById(emptyElId);
+  if (!catsEl || !emptyEl) return;
   if (!catList.length) {
     catsEl.innerHTML = '';
+    emptyEl.textContent = emptyText;
     emptyEl.style.display = '';
     return;
   }
   emptyEl.style.display = 'none';
   catsEl.innerHTML = catList.map(function(c) {
-    var pct = expense > 0 ? Math.round((c.total / expense) * 100) : 0;
+    var pct = totalForPct > 0 ? Math.round((c.total / totalForPct) * 100) : 0;
     var budgetLine = '';
     if (showBudgets && c.budget != null && c.budget > 0) {
       var budgetPct = Math.min(100, Math.round((c.total / c.budget) * 100));
-      var over = c.total > c.budget;
-      budgetLine = '<div style="font-size:.68rem;color:' + (over ? '#c0473a' : 'var(--muted)') + ';margin-top:2px;">' + (over ? '⚠️ over ' : '') + '$' + window.fmtMoney(c.total) + ' of $' + window.fmtMoney(c.budget) + ' budget'
-        + '<div style="height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + budgetPct + '%;background:' + (over ? '#c0473a' : '#2f9e58') + ';border-radius:99px;"></div></div></div>';
+      if (isIncome) {
+        var reached = c.total >= c.budget;
+        budgetLine = '<div style="font-size:.68rem;color:' + (reached ? '#2f9e58' : 'var(--muted)') + ';margin-top:2px;">' + (reached ? '🎉 goal reached — ' : '') + '$' + window.fmtMoney(c.total) + ' of $' + window.fmtMoney(c.budget) + ' goal'
+          + '<div style="height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + budgetPct + '%;background:#2f9e58;border-radius:99px;"></div></div></div>';
+      } else {
+        var over = c.total > c.budget;
+        budgetLine = '<div style="font-size:.68rem;color:' + (over ? '#c0473a' : 'var(--muted)') + ';margin-top:2px;">' + (over ? '⚠️ over ' : '') + '$' + window.fmtMoney(c.total) + ' of $' + window.fmtMoney(c.budget) + ' budget'
+          + '<div style="height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:2px;"><div style="height:100%;width:' + budgetPct + '%;background:' + (over ? '#c0473a' : '#2f9e58') + ';border-radius:99px;"></div></div></div>';
+      }
     }
     return '<div style="margin-bottom:10px;">'
       + '<div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px;"><span>' + c.icon + ' ' + c.name + '</span><span style="font-weight:700;">$' + window.fmtMoney(c.total) + ' <span style="color:var(--muted);font-weight:400;">(' + pct + '%)</span></span></div>'
-      + '<div style="height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:99px;"></div></div>'
+      + '<div style="height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + (isIncome ? '#2f9e58' : 'var(--accent)') + ';border-radius:99px;"></div></div>'
       + budgetLine
       + '</div>';
   }).join('');
@@ -19262,6 +19319,7 @@ function renderSettings() {
       <div class="cat-row">
         <span class="cat-icon">${c.icon}</span>
         <span class="cat-name">${c.name}</span>
+        ${c.budget != null ? `<span style="font-size:.7rem;color:var(--muted);margin-right:auto;flex-shrink:0;">goal $${window.fmtMoney(c.budget)}/mo</span>` : ''}
         <button class="cat-edit" onclick="openAddCat('income','${c.id}')">✏️</button>
         <button class="cat-del" onclick="deleteCat('income','${c.id}')">🗑</button>
       </div>`).join('');
@@ -19356,8 +19414,10 @@ window.saveCat = async function() {
   const icon = document.getElementById('acm-icon').value.trim()||'📌';
   const name = document.getElementById('acm-name').value.trim();
   if(!name){ window.showToast('Enter a category name'); return; }
+  // 2026-09-04: budget/goal now captured for both income and expense
+  // categories (previously expense-only — see acm-budget-wrap comment).
   const budgetInput = document.getElementById('acm-budget');
-  const budget = (_editCatType === 'expense' && budgetInput && budgetInput.value !== '') ? parseFloat(budgetInput.value) : null;
+  const budget = (budgetInput && budgetInput.value !== '') ? parseFloat(budgetInput.value) : null;
   const cats = _editCatType==='income' ? getIncomeCats() : getExpenseCats();
   if(_editCatId) {
     const idx = cats.findIndex(c=>c.id===_editCatId);
