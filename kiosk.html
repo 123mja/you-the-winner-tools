@@ -71,7 +71,7 @@
     font-size: clamp(1.1rem, 3vw, 2rem); margin-bottom: clamp(10px, 2vh, 26px);
     display: flex; align-items: center; gap: 10px; flex-shrink: 0;
   }
-  .kiosk-slide-body { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; }
+  .kiosk-slide-body { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; position: relative; }
   .kiosk-slide-body::-webkit-scrollbar { display: none; }
 
   /* Weather */
@@ -84,6 +84,14 @@
 
   /* Calendar */
   .kiosk-cal-frame { width: 100%; height: 100%; border: none; border-radius: var(--radius); background: var(--surface); }
+
+  /* Dad Joke */
+  .kiosk-joke-wrap { height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 clamp(10px, 3vw, 40px); }
+  .kiosk-joke-text { font-family: 'Baloo 2', cursive; font-weight: 700; font-size: clamp(1.3rem, 3.6vw, 2.6rem); line-height: 1.4; }
+
+  /* Nature photo */
+  .kiosk-nature-img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius); display: block; background: var(--surface2); }
+  .kiosk-nature-credit { position: absolute; bottom: 8px; right: 12px; font-size: .68rem; color: rgba(255,255,255,.75); text-shadow: 0 1px 3px rgba(0,0,0,.6); font-weight: 600; }
 
   /* Plans */
   .kiosk-list-row {
@@ -230,12 +238,49 @@ async function loadKioskSettings(UP) {
   var intervalSec = parseInt(s['kiosk-interval-seconds'], 10);
   if (!intervalSec || intervalSec < 5) intervalSec = 20;
   return {
+    nature: on('kiosk-slide-nature'),
+    dadjoke: on('kiosk-slide-dadjoke'),
     weather: on('kiosk-slide-weather'),
     calendar: on('kiosk-slide-calendar'),
     plans: on('kiosk-slide-plans'),
     money: on('kiosk-slide-money'),
     messages: on('kiosk-slide-messages'),
     intervalSec: intervalSec
+  };
+}
+
+// ── NATURE PHOTO SLIDE ── A small curated list of well-known, freely
+// hotlinkable Unsplash landscape photos (Unsplash License — free for
+// commercial and personal use, no permission or attribution required,
+// though a subtle credit line is shown as good practice). A fresh one is
+// picked at random every time this slide is (re)built, so it changes
+// across rotations and across the 5-minute background refresh, not just
+// once a day. If a specific photo ever goes stale (deleted by its
+// photographer, etc.), the <img>'s onerror swaps to Picsum's random-photo
+// endpoint instead — that service is built to always return a real photo,
+// so the slide degrades to "some beautiful photo" rather than ever
+// showing a broken image on an unattended kitchen tablet. ──
+var NATURE_PHOTOS = [
+  '1506905925346-21bda4d32df4', // misty mountain ridge at sunrise
+  '1441974231531-c6227db76b6e', // sunbeams through tall forest
+  '1470071459604-3b5ec3a7fe05', // still mountain lake reflection
+  '1472214103451-9374bd1c798e', // golden-hour mountain range
+  '1501854140801-50d01698950b', // quiet forest path
+  '1447752875215-b2761acb3c5d', // light rays through green trees
+  '1439066615861-d1af74d74000', // waterfall in a green forest
+  '1441260038675-7329ab4cc264', // desert dunes at sunset
+  '1500534623283-312aade485b7', // lake and mountain reflection
+  '1441716844725-09cedc13a4e6'  // starry night sky over mountains
+];
+function unsplashUrl(id) { return 'https://images.unsplash.com/photo-' + id + '?w=1920&q=80&auto=format&fit=crop'; }
+function fallbackNatureUrl() { return 'https://picsum.photos/1920/1080?random=' + Date.now() + Math.floor(Math.random() * 10000); }
+function buildNatureSlide() {
+  var url = unsplashUrl(NATURE_PHOTOS[Math.floor(Math.random() * NATURE_PHOTOS.length)]);
+  var fb = fallbackNatureUrl();
+  return {
+    key: 'nature', title: '🌿 Nature',
+    html: '<img class="kiosk-nature-img" src="' + url + '" alt="" loading="eager" onerror="this.onerror=null;this.src=\'' + fb + '\';">' +
+      '<span class="kiosk-nature-credit">Photo via Unsplash</span>'
   };
 }
 
@@ -464,8 +509,41 @@ document.addEventListener('click', function() {
 });
 
 // ── MAIN ──────────────────────────────────────────────────────────────
+async // ── DAD JOKE SLIDE ── icanhazdadjoke.com is a free, keyless, CORS-enabled
+// API (Accept: application/json gets a JSON reply instead of their default
+// plain-text/HTML). A fresh joke is fetched every time this slide is
+// (re)built. If the request fails for any reason (offline, API hiccup), a
+// small local fallback list keeps the slide from ever going blank.
+var DAD_JOKE_FALLBACKS = [
+  "I'm reading a book about anti-gravity. It's impossible to put down.",
+  "Did you hear about the claustrophobic astronaut? He just needed a little space.",
+  "Why don't skeletons fight each other? They don't have the guts.",
+  "I used to be a banker, but I lost interest.",
+  "What do you call fake spaghetti? An impasta.",
+  "Why did the scarecrow win an award? He was outstanding in his field.",
+  "I only know 25 letters of the alphabet. I don't know y.",
+  "What do you call cheese that isn't yours? Nacho cheese."
+];
+async function buildDadJokeSlide() {
+  var text = null;
+  try {
+    var r = await fetch('https://icanhazdadjoke.com/', { headers: { 'Accept': 'application/json' } });
+    if (r.ok) {
+      var j = await r.json();
+      if (j && j.joke) text = j.joke;
+    }
+  } catch (e) {}
+  if (!text) text = DAD_JOKE_FALLBACKS[Math.floor(Math.random() * DAD_JOKE_FALLBACKS.length)];
+  return {
+    key: 'dadjoke', title: '😄 Dad Joke',
+    html: '<div class="kiosk-joke-wrap"><div class="kiosk-joke-text">' + escHtml(text) + '</div></div>'
+  };
+}
+
 async function buildAllSlides(UP, cfg) {
   var results = await Promise.all([
+    cfg.nature ? buildNatureSlide() : null,
+    cfg.dadjoke ? buildDadJokeSlide() : null,
     cfg.weather ? buildWeatherSlide() : null,
     cfg.calendar ? buildCalendarSlide(UP) : null,
     cfg.plans ? buildPlansSlide(UP) : null,

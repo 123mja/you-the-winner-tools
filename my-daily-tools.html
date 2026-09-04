@@ -1247,6 +1247,30 @@
       </div>
     </div>
 
+    <!-- Weight & Height (optional, added 2026-09-04) -- hidden entirely
+         unless turned on in Settings -> Weight & Height Tracking (off by
+         default). Deliberately no BMI, no target/goal field, no
+         color-coded feedback -- just two plain numbers for your own
+         record, same neutral treatment as the rest of My Day. Left
+         unnumbered (not folded into the 1-4 flow below) since most
+         accounts will never turn this on. -->
+    <div class="card" id="myday-weight-card" style="display:none;">
+      <div class="card-label collapsible" onclick="toggleCard('weight')">
+        <span id="weight-title">⚖️ Weight &amp; height</span>
+        <span class="card-chevron" id="weight-chevron">▾</span>
+      </div>
+      <div id="weight-body" style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:5px;">WEIGHT (LBS)</label>
+          <input type="number" id="myday-weight-lb" inputmode="decimal" min="0" step="0.1" placeholder="optional" oninput="scheduleAutoSave()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.9rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
+        </div>
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:5px;">HEIGHT (IN)</label>
+          <input type="number" id="myday-height-in" inputmode="decimal" min="0" step="0.1" placeholder="optional, rarely changes" oninput="scheduleAutoSave()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.9rem;background:var(--surface2);color:var(--text);box-sizing:border-box;">
+        </div>
+      </div>
+    </div>
+
     <!-- 4. NOTE — LAST BEFORE SAVE
          (was "5."; the old standalone "4. What did I do today?" Activity
          Tracker card was absorbed into section 1, My Day Flow, above —
@@ -1459,6 +1483,10 @@
           <div class="kpi-card"><div class="kpi-value" id="ins-streak">—</div><div class="kpi-label">🔥 Current streak</div></div>
           <div class="kpi-card"><div class="kpi-value" id="ins-longest-streak">—</div><div class="kpi-label">🏅 Longest streak</div></div>
           <div class="kpi-card"><div class="kpi-value" id="ins-avg-mood">—</div><div class="kpi-label">🌈 All-time avg mood</div></div>
+        </div>
+        <div class="chart-card" id="weight-chart-card" style="display:none;margin-top:4px;">
+          <div class="chart-title">⚖️ Weight over time</div>
+          <canvas id="weight-chart" height="130"></canvas>
         </div>
         <div id="insights-list" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
       </div>
@@ -3783,6 +3811,7 @@
       b.classList.toggle('selected', selectedChecks.has(b.dataset.check));
     });
     _mydApplyNotePrivacyToForm(entry);
+    _mydApplyWeightToForm(entry);
     document.getElementById('save-btn').textContent = t('update-btn');
     // Refresh med tracker, activity buttons, and My Day Flow's blocks +
     // progress bar to show the selected date's state, not today's
@@ -3846,6 +3875,7 @@
     selectedChecks = new Set(entry.checks || []);
     document.querySelectorAll('.check-btn, .check-pill').forEach(b => b.classList.toggle('selected', selectedChecks.has(b.dataset.check)));
     _mydApplyNotePrivacyToForm(entry);
+    _mydApplyWeightToForm(entry);
     document.getElementById('save-btn').textContent = t('update-btn');
     if (window._actlog) renderActivityTracker(window._actlog);
   }
@@ -3900,6 +3930,17 @@
     }
   }
 
+  // Populates the optional Weight & Height fields from a saved entry.
+  // Companion to _mydApplyNotePrivacyToForm — called from the same two
+  // places (editEntry, loadTodayIfExists) so both read/populate paths for
+  // this optional feature stay in sync with each other.
+  function _mydApplyWeightToForm(entry) {
+    var wl = document.getElementById('myday-weight-lb');
+    var hi = document.getElementById('myday-height-in');
+    if (wl) wl.value = (entry.weightLb != null) ? entry.weightLb : '';
+    if (hi) hi.value = (entry.heightIn != null) ? entry.heightIn : '';
+  }
+
   function persistDayEntry() {
     if (_autoSaveTimer) { clearTimeout(_autoSaveTimer); _autoSaveTimer = null; }
     let entryDate, entryTs;
@@ -3932,6 +3973,15 @@
     const noteLocked = !!(noteEl && noteEl.disabled);
     const lockedNote = noteLocked && editKey && window._fbEntries && window._fbEntries[editKey]
       ? (window._fbEntries[editKey].note || '') : '';
+    // Weight & Height — optional, off by default (see _weightTrackerEnabled).
+    // Read defensively even when the feature is off, so a value left over
+    // from before someone turned it off is never silently resurrected —
+    // only ever written when the feature is currently on.
+    const weightLbEl = document.getElementById('myday-weight-lb');
+    const heightInEl = document.getElementById('myday-height-in');
+    const weightLbNum = (_weightTrackerEnabled && weightLbEl && weightLbEl.value.trim() !== '') ? parseFloat(weightLbEl.value) : null;
+    const heightInNum = (_weightTrackerEnabled && heightInEl && heightInEl.value.trim() !== '') ? parseFloat(heightInEl.value) : null;
+
     const entry = {
       date:     entryDate,
       ts:       entryTs,
@@ -3941,6 +3991,8 @@
       ...(wakeup  ? { wakeup  } : {}),
       checks:   [...selectedChecks],
       note:     noteLocked ? lockedNote : noteEl.value.trim(),
+      ...(weightLbNum != null && !isNaN(weightLbNum) ? { weightLb: weightLbNum } : {}),
+      ...(heightInNum != null && !isNaN(heightInNum) ? { heightIn: heightInNum } : {}),
       filledBy: window._authUser ? (window._authUser.email || window._authUser.uid) : (window._pinAccess ? 'supporter' : 'unknown'),
     };
     // Caregiver-only note privacy flag. The checkbox is only ever visible to
@@ -4081,6 +4133,8 @@
     if (notePrivateEl) notePrivateEl.checked = false;
     document.getElementById('sleep-bedtime').value = '';
     document.getElementById('sleep-wakeup').value  = '';
+    var wlReset = document.getElementById('myday-weight-lb'); if (wlReset) wlReset.value = '';
+    var hiReset = document.getElementById('myday-height-in'); if (hiReset) hiReset.value = '';
     document.getElementById('save-btn').textContent = t('save-btn-label');
   }
 
@@ -4687,6 +4741,7 @@
   // ── CHARTS ──
   let _trendChart = null;
   let _sleepChart = null;
+  let _weightChart = null;
 
   function renderCharts() {
     const entries = analyticsMonthEntries()
@@ -4824,6 +4879,43 @@
     const moods = entries.map(e => e.mood).filter(Boolean);
     const avgMoodAll = moods.length ? moods.reduce((a, b) => a + b, 0) / moods.length : null;
     document.getElementById('ins-avg-mood').textContent = avgMoodAll ? avgMoodAll.toFixed(1) + '/5' : '—';
+
+    // Weight over time (optional feature, off by default — see
+    // _weightTrackerEnabled). Plain line chart of whatever's been logged,
+    // full history, no goal line, no BMI, no color-coded zones — just the
+    // numbers, same neutral treatment the rest of My Day gives sleep/mood.
+    const weightChartCard = document.getElementById('weight-chart-card');
+    if (weightChartCard) {
+      const weightEntries = entries.filter(e => typeof e.weightLb === 'number').sort((a, b) => a.ts - b.ts);
+      if (_weightTrackerEnabled && weightEntries.length >= 2) {
+        weightChartCard.style.display = '';
+        const wCtx = document.getElementById('weight-chart').getContext('2d');
+        if (_weightChart) _weightChart.destroy();
+        _weightChart = new Chart(wCtx, {
+          type: 'line',
+          data: {
+            labels: weightEntries.map(e => new Date(e.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+            datasets: [{
+              label: 'Weight (lbs)',
+              data: weightEntries.map(e => e.weightLb),
+              borderColor: '#2a7d6f',
+              backgroundColor: 'rgba(42,125,111,0.08)',
+              tension: 0.3, fill: true, pointRadius: 3, pointBackgroundColor: '#2a7d6f'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { ticks: { font: { size: 10 } }, grid: { color: '#e8f0ed' } },
+              x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 20 }, grid: { display: false } }
+            }
+          }
+        });
+      } else {
+        weightChartCard.style.display = 'none';
+      }
+    }
 
     // ── Narrative insight cards — each only appears once there's enough
     // data behind it, so a new user sees an encouraging empty state instead
@@ -6878,28 +6970,6 @@ window.removeRmMilestone = function(pi, mi) {
     <button id="settings-jump-danger" class="settings-tab" onclick="switchSettingsTab('danger')" style="display:none;">🛠️ Admin</button>
   </div>
 
-  <!-- Demo refresh (admin/caregiver only) -- 2026-09-04 fix, per Marcelo
-       ("should only be available for the caregiver / admin, not for the
-       demo itself"): this card used to be shown to anonymous demo/guest
-       visitors and hidden from every signed-in account, including the
-       admin -- the exact opposite of the intent. A guest reloading demo
-       data mid-demo isn't a real use case (it's THEIR demo session,
-       there's nothing meaningful to "reset" from their side), whereas
-       an admin/caregiver refreshing what new demo visitors will see next
-       is. Now gated the same way as demo-setup-card just below
-       (CLIENT.primaryAdminEmail) instead of guest-vs-signed-in -- see the
-       onAuthStateChanged admin-only-cards block and _startDemo() for the
-       show/hide logic. -->
-  <div id="demo-refresh-card" style="display:none;margin-bottom:12px;">
-    <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <div>
-        <div style="font-size:.84rem;font-weight:700;">Demo data</div>
-        <div style="font-size:.72rem;color:var(--muted);">Reload demo plans using the current mode</div>
-      </div>
-      <button id="refresh-demo-btn" onclick="window.loadDemoPlans(true)" style="background:var(--accent);color:#fff;border:none;border-radius:99px;padding:8px 18px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;white-space:nowrap;">🔄 Refresh Demo</button>
-    </div>
-  </div>
-
   <div class="settings-tabpage active" id="settings-tabpage-appearance">
   <!-- ── Group: Appearance & Navigation ── -->
   <div id="settings-group-appearance" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:6px 4px 8px;scroll-margin-top:76px;">🎨 Appearance &amp; Navigation</div>
@@ -7178,6 +7248,34 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
+  <!-- Weight & Height Tracking (added 2026-09-04, per Marcelo: an optional
+       historical log, deliberately NOT tied to any goal or target -- no
+       BMI, no "ideal weight", no progress framing, just the numbers over
+       time, same neutral spirit as the rest of My Day. Off by default
+       (opt-in), same toggle pattern as Reward Tokens Strip just above.
+       Never shown on kiosk.html's Picture Frame view -- that page doesn't
+       read this data at all, same reasoning as Cycle Tracker being left
+       off it. -->
+  <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
+    <div class="txn-collapse-header" style="padding:14px 16px;cursor:default;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">⚖️ Weight &amp; Height Tracking</span>
+    </div>
+    <div style="padding:0 16px 14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
+        <div>
+          <div style="font-size:.84rem;font-weight:700;">Track in My Day</div>
+          <div style="font-size:.72rem;color:var(--muted);">Adds an optional Weight &amp; Height field to each day's entry, just for your own historical record. Off by default. No goals, no targets — just the numbers over time.</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+          <input type="checkbox" id="toggle-weight-tracker-enabled" onchange="setWeightTrackerEnabled(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
+          <span id="weight-tracker-enabled-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
+            <span id="weight-tracker-enabled-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
   <!-- Tabs — Visibility & Order (merged) -->
   <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
     <div class="txn-collapse-header" onclick="openTabOrderSection()" style="padding:14px 16px;">
@@ -7337,7 +7435,7 @@ window.removeRmMilestone = function(pi, mi) {
       <span class="txn-collapse-chevron" id="settings-chevron-kiosk">▼</span>
     </div>
     <div id="settings-section-kiosk" style="display:none;padding:0 16px 14px;">
-      <div style="font-size:.76rem;color:var(--muted);margin-bottom:12px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">A slow-rotating, read-only display for a spare tablet or old phone propped up somewhere shared, like a kitchen counter. Sign in on that device once, then open the Kiosk View link below and leave it running. Choose what shows:</div>
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:12px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">A slow-rotating, read-only display for a spare tablet or old phone propped up somewhere shared, like a kitchen counter — including a rotating slide of free, beautiful nature photos. Sign in on that device once, then open the Kiosk View link below and leave it running. Choose what shows:</div>
       <div id="kiosk-slide-toggles" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
         <label for="kiosk-interval-input" style="font-size:.78rem;font-weight:700;color:var(--text);">Seconds per slide</label>
@@ -7697,6 +7795,34 @@ window.removeRmMilestone = function(pi, mi) {
        rather than named after this one section) — tab button id/key both
        still "danger" internally, see switchSettingsTab() comment above. -->
   <div id="settings-group-danger" style="display:none;font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">🧹 Data Cleanup</div>
+
+  <!-- Demo refresh (admin/caregiver only) -- 2026-09-04 fix, per Marcelo
+       ("should only be available for the caregiver / admin, not for the
+       demo itself"): this card used to be shown to anonymous demo/guest
+       visitors and hidden from every signed-in account, including the
+       admin -- the exact opposite of the intent. A guest reloading demo
+       data mid-demo isn't a real use case (it's THEIR demo session,
+       there's nothing meaningful to "reset" from their side), whereas
+       an admin/caregiver refreshing what new demo visitors will see next
+       is. Gated the same way as demo-setup-card/clone-config-card just
+       below (CLIENT.primaryAdminEmail) -- see the onAuthStateChanged
+       admin-only-cards block and _startDemo() for the show/hide logic.
+       2026-09-04 (second fix, same day, per Marcelo): moved from sitting
+       above the settings tab bar (visible on every tab whenever shown at
+       all, easy to brush against by accident) into this Admin tab itself,
+       right alongside the other admin-only/irreversible actions, and the
+       button now confirms before running -- one real tap of "Refresh
+       Demo" used to be enough to instantly overwrite the shared demo
+       dataset every guest visitor sees, with no undo. -->
+  <div id="demo-refresh-card" style="display:none;margin-bottom:12px;">
+    <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <div style="font-size:.84rem;font-weight:700;">Demo data</div>
+        <div style="font-size:.72rem;color:var(--muted);">Reload demo plans using the current mode</div>
+      </div>
+      <button id="refresh-demo-btn" onclick="if(confirm('Reload demo data with a fresh random set now?\n\nThis immediately replaces what every demo visitor currently sees, including anyone mid-demo right now. This cannot be undone.')) window.loadDemoPlans(true);" style="background:var(--accent);color:#fff;border:none;border-radius:99px;padding:8px 18px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;white-space:nowrap;">🔄 Refresh Demo</button>
+    </div>
+  </div>
 
   <!-- Clone Config (admin only) -->
   <div id="clone-config-card" style="display:none;margin-bottom:12px;">
@@ -13090,8 +13216,8 @@ const SYNCED_SETTINGS_KEYS = [
   'calendar-tab-enabled','calendar-view-mode','calm-tab-enabled','cycle-tracker-enabled',
   'daily-tools-tab-order','default-landing-tab','dt-hide-nav',
   'home-tab-enabled','home-today-message-enabled','myday-tab-enabled',
-  'kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-messages',
-  'kiosk-slide-money','kiosk-slide-plans','kiosk-slide-weather',
+  'kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-dadjoke','kiosk-slide-messages',
+  'kiosk-slide-money','kiosk-slide-nature','kiosk-slide-plans','kiosk-slide-weather',
   'plans-tab-enabled',
   'token-banner-user-enabled',
   'plans-col1-width','plans-due-dir','plans-font-size',
@@ -13105,6 +13231,7 @@ const SYNCED_SETTINGS_KEYS = [
   'tab-defaults-applied-version',
   'things-tab-enabled','rewards-tab-enabled','tasklists-tab-enabled',
   'today-message-enabled','today-message-start-open',
+  'weight-tracker-enabled',
   'wishlist-manual-savings',
   'wishlist-mode','wishlist-show-treemap','wishlist-tab-enabled'
 ];
@@ -13817,7 +13944,7 @@ window.setCalendarUrl = async function(slot, url) {
 // preference on this page. Cycle Tracker has no entry in this map on
 // purpose — it is never offered as a kiosk slide choice, not even off by
 // default.
-var KIOSK_SLIDES = { calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather' };
+var KIOSK_SLIDES = { nature: '🌿 Nature', dadjoke: '😄 Dad Joke', calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather' };
 window.renderKioskSettingsSection = function() {
   var wrap = document.getElementById('kiosk-slide-toggles');
   if (wrap) {
@@ -20396,6 +20523,11 @@ document.addEventListener('DOMContentLoaded',function(){
   var tbue0=document.getElementById('toggle-token-banner-user-enabled');if(tbue0)tbue0.checked=_tokenBannerUserEnabled;
   var tbuetr0=document.getElementById('token-banner-user-enabled-track');if(tbuetr0)tbuetr0.style.background=_tokenBannerUserEnabled?'var(--accent)':'var(--border)';
   var tbueth0=document.getElementById('token-banner-user-enabled-thumb');if(tbueth0)tbueth0.style.transform=_tokenBannerUserEnabled?'translateX(18px)':'translateX(0px)';
+  // Weight tracker toggle
+  var wte0=document.getElementById('toggle-weight-tracker-enabled');if(wte0)wte0.checked=_weightTrackerEnabled;
+  var wtetr0=document.getElementById('weight-tracker-enabled-track');if(wtetr0)wtetr0.style.background=_weightTrackerEnabled?'var(--accent)':'var(--border)';
+  var wteth0=document.getElementById('weight-tracker-enabled-thumb');if(wteth0)wteth0.style.transform=_weightTrackerEnabled?'translateX(18px)':'translateX(0px)';
+  _applyWeightTrackerVisibility();
   // Init hide-completed checkbox in plans header
   var hcb=document.getElementById('hide-completed-cb');if(hcb)hcb.checked=_hideCompleted;
   // Calm toggle
@@ -21633,6 +21765,23 @@ if (_htm0 !== null) _homeTodayMessageEnabled = _htm0 === '1';
 // check this flag too via the same shared-origin localStorage key.
 let _tokenBannerUserEnabled = false;
 try { _tokenBannerUserEnabled = localStorage.getItem('token-banner-user-enabled') === '1'; } catch(e) {}
+
+// Weight & Height Tracking (added 2026-09-04, per Marcelo) — an optional,
+// off-by-default My Day field for tracking weight/height purely as a
+// historical record. Deliberately NOT tied to any goal, target, or BMI
+// calculation, and never read by kiosk.html's shared Picture Frame view —
+// same reasoning as Cycle Tracker being kept off that page.
+let _weightTrackerEnabled = false;
+try { _weightTrackerEnabled = localStorage.getItem('weight-tracker-enabled') === '1'; } catch(e) {}
+function _applyWeightTrackerVisibility() {
+  var card = document.getElementById('myday-weight-card');
+  if (card) card.style.display = _weightTrackerEnabled ? '' : 'none';
+  if (!_weightTrackerEnabled) {
+    var chartCard = document.getElementById('weight-chart-card');
+    if (chartCard) chartCard.style.display = 'none';
+  }
+}
+_applyWeightTrackerVisibility();
 window.setTokenBannerUserEnabled = function(on) {
 _tokenBannerUserEnabled = on;
 try { localStorage.setItem('token-banner-user-enabled', on ? '1' : '0'); } catch(e) {}
@@ -21645,6 +21794,22 @@ if(cb5) cb5.checked = on;
 var banner5 = document.getElementById('plans-token-banner');
 if (banner5 && !on) banner5.style.display = 'none';
 try { window._reapplyTokenBannerVisibility && window._reapplyTokenBannerVisibility(); } catch(e) {}
+};
+window.setWeightTrackerEnabled = function(on) {
+_weightTrackerEnabled = on;
+try { localStorage.setItem('weight-tracker-enabled', on ? '1' : '0'); } catch(e) {}
+var trw = document.getElementById('weight-tracker-enabled-track');
+var thw = document.getElementById('weight-tracker-enabled-thumb');
+var cbw = document.getElementById('toggle-weight-tracker-enabled');
+if (trw) trw.style.background = on ? 'var(--accent)' : 'var(--border)';
+if (thw) thw.style.transform = on ? 'translateX(18px)' : 'translateX(0px)';
+if (cbw) cbw.checked = on;
+_applyWeightTrackerVisibility();
+if (!on) {
+var wl = document.getElementById('myday-weight-lb'); if (wl) wl.value = '';
+var hi = document.getElementById('myday-height-in'); if (hi) hi.value = '';
+}
+try { renderInsights(); } catch(e) {}
 };
 window.setHomeTodayMessageEnabled = function(on) {
 _homeTodayMessageEnabled = on;
