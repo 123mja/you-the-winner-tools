@@ -144,6 +144,10 @@ function nowUTCStamp() {
 }
 
 exports.handler = async function(event) {
+  // 2026-09-04: `db` declared outside the try so the finally block below
+  // can always reach it, on every exit path (early 400/403 returns,
+  // success, or a thrown error alike).
+  var db = null;
   try {
     if (_initError) {
       console.error('schedule-ics init error:', _initError);
@@ -162,7 +166,7 @@ exports.handler = async function(event) {
       return { statusCode: 400, body: 'Invalid up parameter.' };
     }
 
-    var db = admin.database();
+    db = admin.database();
     var tokenSnap = await db.ref(up + '/schedule-feed-token').once('value');
     var realToken = tokenSnap.val();
     if (!realToken || realToken !== token) {
@@ -240,5 +244,22 @@ exports.handler = async function(event) {
   } catch (err) {
     console.error('schedule-ics error:', err);
     return { statusCode: 500, body: 'Internal error generating feed.' };
+  } finally {
+    // 2026-09-04 fix: the function was hanging until Netlify's hard
+    // timeout (30s) even though the DB reads above completed almost
+    // instantly. Root cause: admin.database() opens a PERSISTENT
+    // WebSocket connection to the Realtime Database — fine in a
+    // long-running server, but in a short-lived serverless function that
+    // open socket keeps Node's event loop non-empty, so the runtime just
+    // waits (and eventually kills the invocation) instead of returning as
+    // soon as the response is ready. Explicitly closing it here lets the
+    // function return immediately after building the response. Guarded
+    // by `db` (not `admin.apps.length`) so this only runs when a
+    // connection was actually opened this invocation, and it's in a
+    // `finally` so it fires on every exit path — success, an early
+    // 400/403 return, or a thrown error alike.
+    if (db) {
+      try { db.goOffline(); } catch (e) { /* best effort — don't mask the real response/error */ }
+    }
   }
 };
