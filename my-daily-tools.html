@@ -7815,12 +7815,15 @@ window.removeRmMilestone = function(pi, mi) {
        Demo" used to be enough to instantly overwrite the shared demo
        dataset every guest visitor sees, with no undo. -->
   <div id="demo-refresh-card" style="display:none;margin-bottom:12px;">
-    <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <div>
-        <div style="font-size:.84rem;font-weight:700;">Demo data</div>
-        <div style="font-size:.72rem;color:var(--muted);">Reload demo plans using the current mode</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="txn-collapse-header" onclick="toggleSettingsSection('demo-refresh')" style="padding:14px 16px;">
+        <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">🔄 Demo Data</span>
+        <span class="txn-collapse-chevron" id="settings-chevron-demo-refresh">▼</span>
       </div>
-      <button id="refresh-demo-btn" onclick="if(confirm('Reload demo data with a fresh random set now?\n\nThis immediately replaces what every demo visitor currently sees, including anyone mid-demo right now. This cannot be undone.')) window.loadDemoPlans(true);" style="background:var(--accent);color:#fff;border:none;border-radius:99px;padding:8px 18px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;white-space:nowrap;">🔄 Refresh Demo</button>
+      <div id="settings-section-demo-refresh" style="display:none;padding:0 16px 14px;">
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;">Reload demo plans using the current mode</div>
+        <button id="refresh-demo-btn" onclick="if(confirm('Reload demo data with a fresh random set now?\n\nThis immediately replaces what every demo visitor currently sees, including anyone mid-demo right now. This cannot be undone.')) window.loadDemoPlans(true);" style="background:var(--accent);color:#fff;border:none;border-radius:99px;padding:8px 18px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;white-space:nowrap;">🔄 Refresh Demo</button>
+      </div>
     </div>
   </div>
 
