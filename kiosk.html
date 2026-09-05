@@ -240,6 +240,7 @@ async function loadKioskSettings(UP) {
   return {
     nature: on('kiosk-slide-nature'),
     dadjoke: on('kiosk-slide-dadjoke'),
+    healthtip: on('kiosk-slide-healthtip'),
     weather: on('kiosk-slide-weather'),
     calendar: on('kiosk-slide-calendar'),
     plans: on('kiosk-slide-plans'),
@@ -509,18 +510,18 @@ document.addEventListener('click', function() {
 });
 
 // ── MAIN ──────────────────────────────────────────────────────────────
-async // ── DAD JOKE SLIDE ── icanhazdadjoke.com is a free, keyless, CORS-enabled
+// ── DAD JOKE SLIDE ── icanhazdadjoke.com is a free, keyless, CORS-enabled
 // API (Accept: application/json gets a JSON reply instead of their default
 // plain-text/HTML). A fresh joke is fetched every time this slide is
 // (re)built. If the request fails for any reason (offline, API hiccup), a
 // small local fallback list keeps the slide from ever going blank.
 var DAD_JOKE_FALLBACKS = [
-  "I'm reading a book about anti-gravity. It's impossible to put down.",
+  "What do you call a bear with no teeth? A gummy bear.",
   "Did you hear about the claustrophobic astronaut? He just needed a little space.",
-  "Why don't skeletons fight each other? They don't have the guts.",
-  "I used to be a banker, but I lost interest.",
+  "Why did the bicycle fall over? It was two tired.",
+  "What do you call a can opener that doesn't work? A can't opener.",
   "What do you call fake spaghetti? An impasta.",
-  "Why did the scarecrow win an award? He was outstanding in his field.",
+  "What do you call a sleeping dinosaur? A dino-snore.",
   "I only know 25 letters of the alphabet. I don't know y.",
   "What do you call cheese that isn't yours? Nacho cheese."
 ];
@@ -540,10 +541,88 @@ async function buildDadJokeSlide() {
   };
 }
 
+// ── HEALTH TIP SLIDE (added 2026-09-05, per Marcelo) ── MyHealthfinder
+// (health.gov / ODPHP), a free, keyless U.S. government API. Deliberately
+// restricted to a small, curated ALLOWLIST of general-wellness topic
+// titles (nutrition, activity, sleep, hydration, hygiene, dental care, sun
+// safety, routine checkups) rather than pulling from the site's full topic
+// list, which also covers things like STI testing, substance use, and
+// domestic violence -- not appropriate for a shared, always-on household
+// display. Also deliberately excludes anything about weight, BMI, dieting,
+// or calories -- same "avoid sensitive territory" reasoning already
+// applied to the My Day weight tracker elsewhere in this app.
+//
+// NOTE: this API's exact live JSON shape is UNVERIFIED as of this
+// writing -- the sandbox this was built in has no network route to
+// health.gov to confirm it, so parsing below is deliberately defensive
+// (get()s guarded with `||`, an empty array on any missing/renamed field)
+// and falls straight through to the local fallback list on anything
+// unexpected. Worth spot-checking on a real device after deploy to see
+// whether live tips are actually coming through or it's always falling
+// back -- either way the slide can never break or show anything unvetted.
+var HEALTH_TIP_ALLOWLIST = [
+  'eat healthy', 'get active', 'physical activity', 'get enough sleep',
+  'stay hydrated', 'wash your hands', 'take care of your teeth',
+  'protect your skin', 'get preventive', 'checkup', 'flu vaccine'
+];
+var HEALTH_TIP_FALLBACKS = [
+  "Drinking water throughout the day helps your body and mind feel their best.",
+  "A short walk outside can boost your mood and energy for the rest of the day.",
+  "A consistent bedtime helps you feel more focused the next day.",
+  "Washing your hands before meals is one of the easiest ways to stay healthy.",
+  "Brushing twice a day keeps your smile healthy for years to come.",
+  "A little sunscreen goes a long way, even on cloudy days.",
+  "Regular checkups help catch small things before they become big things.",
+  "Eating a rainbow of fruits and veggies gives your body lots of good stuff."
+];
+async function buildHealthTipSlide() {
+  var text = null;
+  try {
+    var r = await fetch('https://health.gov/myhealthfinder/api/v3/itemlist.json?type=topic&lang=en');
+    if (r.ok) {
+      var j = await r.json();
+      var items = (j && j.Result && j.Result.Items && (j.Result.Items.Item || j.Result.Items.item)) || [];
+      if (!Array.isArray(items)) items = [];
+      var matches = items.filter(function(it) {
+        var title = ((it && (it.Title || it.title)) || '').toLowerCase();
+        return HEALTH_TIP_ALLOWLIST.some(function(kw) { return title.indexOf(kw) !== -1; });
+      });
+      if (matches.length) {
+        var pick = matches[Math.floor(Math.random() * matches.length)];
+        var topicId = pick.Id || pick.id;
+        if (topicId) {
+          var r2 = await fetch('https://health.gov/myhealthfinder/api/v3/topicsearch.json?TopicId=' + encodeURIComponent(topicId) + '&lang=en');
+          if (r2.ok) {
+            var j2 = await r2.json();
+            var resources = (j2 && j2.Result && j2.Result.Resources && (j2.Result.Resources.Resource || j2.Result.Resources.resource)) || [];
+            var res = Array.isArray(resources) ? resources[0] : null;
+            var sections = res && res.Sections && (res.Sections.section || res.Sections.Section);
+            if (Array.isArray(sections)) {
+              for (var i = 0; i < sections.length; i++) {
+                var raw = sections[i] && (sections[i].Content || sections[i].content);
+                if (raw) {
+                  var plain = String(raw).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                  if (plain.length > 20) { text = plain.slice(0, 220); break; }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
+  if (!text) text = HEALTH_TIP_FALLBACKS[Math.floor(Math.random() * HEALTH_TIP_FALLBACKS.length)];
+  return {
+    key: 'healthtip', title: '💡 Health Tip',
+    html: '<div class="kiosk-joke-wrap"><div class="kiosk-joke-text">' + escHtml(text) + '</div></div>'
+  };
+}
+
 async function buildAllSlides(UP, cfg) {
   var results = await Promise.all([
     cfg.nature ? buildNatureSlide() : null,
     cfg.dadjoke ? buildDadJokeSlide() : null,
+    cfg.healthtip ? buildHealthTipSlide() : null,
     cfg.weather ? buildWeatherSlide() : null,
     cfg.calendar ? buildCalendarSlide(UP) : null,
     cfg.plans ? buildPlansSlide(UP) : null,

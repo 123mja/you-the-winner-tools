@@ -13276,7 +13276,7 @@ const SYNCED_SETTINGS_KEYS = [
   'calendar-tab-enabled','calendar-view-mode','calm-tab-enabled','cycle-tracker-enabled',
   'daily-tools-tab-order','default-landing-tab','dt-hide-nav',
   'home-tab-enabled','home-today-message-enabled','myday-tab-enabled',
-  'kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-dadjoke','kiosk-slide-messages',
+  'kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-dadjoke','kiosk-slide-healthtip','kiosk-slide-messages',
   'kiosk-slide-money','kiosk-slide-nature','kiosk-slide-plans','kiosk-slide-weather',
   'plans-tab-enabled',
   'token-banner-user-enabled',
@@ -14004,7 +14004,7 @@ window.setCalendarUrl = async function(slot, url) {
 // preference on this page. Cycle Tracker has no entry in this map on
 // purpose — it is never offered as a kiosk slide choice, not even off by
 // default.
-var KIOSK_SLIDES = { nature: '🌿 Nature', dadjoke: '😄 Dad Joke', calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather' };
+var KIOSK_SLIDES = { nature: '🌿 Nature', dadjoke: '😄 Dad Joke', healthtip: '💡 Health Tip', calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather' };
 window.renderKioskSettingsSection = function() {
   var wrap = document.getElementById('kiosk-slide-toggles');
   if (wrap) {
