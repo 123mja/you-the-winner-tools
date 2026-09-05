@@ -113,6 +113,31 @@
   .kiosk-money-bal { font-weight: 800; }
   .kiosk-money-bal.neg { color: #e0574c; }
 
+  /* This Week's Schedule (2026-09-05) — a simplified, read-only agenda
+     version of the My Schedule tab's Week view. No hour grid / drag
+     handles here (nothing to interact with on a kiosk); just each day's
+     shifts stacked in order, so it stays readable at a glance and never
+     breaks no matter how many shifts a day has. */
+  .kiosk-sched-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: clamp(6px, 1vw, 14px); height: 100%; }
+  .kiosk-sched-day { display: flex; flex-direction: column; min-width: 0; }
+  .kiosk-sched-day-head {
+    text-align: center; font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: clamp(.68rem, 1.6vw, 1rem); color: var(--muted);
+    padding-bottom: clamp(6px, 1vh, 12px); border-bottom: 2px solid var(--border); margin-bottom: clamp(6px, 1vh, 12px);
+  }
+  .kiosk-sched-day-head span { display: block; font-size: 1.35em; color: var(--text); margin-top: 2px; }
+  .kiosk-sched-day.today .kiosk-sched-day-head { color: var(--accent); border-bottom-color: var(--accent); }
+  .kiosk-sched-day.today .kiosk-sched-day-head span { color: var(--accent); }
+  .kiosk-sched-day-body { display: flex; flex-direction: column; gap: clamp(4px, .8vh, 8px); overflow-y: auto; scrollbar-width: none; }
+  .kiosk-sched-day-body::-webkit-scrollbar { display: none; }
+  .kiosk-sched-chip {
+    border-radius: clamp(6px, 1vw, 10px); color: #fff; padding: clamp(4px, .8vh, 8px) clamp(5px, 1vw, 9px);
+    font-size: clamp(.6rem, 1.3vw, .82rem); line-height: 1.3; overflow: hidden;
+  }
+  .kiosk-sched-chip-label { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kiosk-sched-chip-time { opacity: .88; font-weight: 600; white-space: nowrap; }
+  .kiosk-sched-empty { color: var(--muted); opacity: .5; text-align: center; font-size: clamp(.7rem, 1.4vw, .95rem); padding-top: 4px; }
+
   /* Today's Message */
   .kiosk-msg-bubble {
     background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
@@ -285,6 +310,7 @@ async function loadKioskSettings(UP) {
     weather: on('kiosk-slide-weather'),
     calendar: on('kiosk-slide-calendar'),
     plans: on('kiosk-slide-plans'),
+    schedule: on('kiosk-slide-schedule'),
     money: on('kiosk-slide-money'),
     messages: on('kiosk-slide-messages'),
     intervalSec: intervalSec,
@@ -450,6 +476,69 @@ async function buildPlansSlide(UP) {
     return '<div class="kiosk-list-row"><span class="kiosk-list-emoji">' + emoji + '</span><span class="kiosk-list-title">' + escHtml(it.title || 'Untitled') + '</span>' + dueHtml + '</div>';
   }).join('');
   return { key: 'plans', title: '🎯 Plans', html: '<div class="kiosk-list">' + rows + '</div>' };
+}
+
+// ── THIS WEEK'S SCHEDULE SLIDE ── added 2026-09-05 per Marcelo. A
+// simplified, read-only agenda version of the My Schedule tab's Week
+// view -- no hour grid or drag handles (nothing to interact with here),
+// just each day's shifts listed in start-time order, so it stays legible
+// at a glance and degrades gracefully on a day with lots of shifts.
+// Week always starts Monday: kiosk.html has no way to read the "Week
+// starts on Sun" preference set in Settings on a DIFFERENT device (it's
+// a plain localStorage value there, not a synced setting), and Monday is
+// this app's own default anyway. Cancelled shifts are left off entirely,
+// same as a quick glance at the real thing would want.
+var KIOSK_SCHED_PALETTE = ['#2a7d6f', '#1a5c7a', '#f9a825', '#f4845f', '#7e6bc4', '#64748b', '#4f9d6e', '#3d84a8'];
+function kioskSchedColorFor(label) {
+  var s = String(label || '').trim().toLowerCase();
+  if (!s) return KIOSK_SCHED_PALETTE[0];
+  var h = 0;
+  for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; }
+  return KIOSK_SCHED_PALETTE[h % KIOSK_SCHED_PALETTE.length];
+}
+function kioskSchedMonday(d) {
+  var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var dow = x.getDay(); // 0=Sun..6=Sat
+  var diff = dow === 0 ? -6 : 1 - dow;
+  x.setDate(x.getDate() + diff);
+  return x;
+}
+function kioskSchedAddDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function kioskSchedFmtTime(t) {
+  var m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
+  if (!m) return t || '';
+  var h = parseInt(m[1], 10), mm = m[2];
+  var ap = h < 12 ? 'a' : 'p';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + (mm === '00' ? '' : ':' + mm) + ap;
+}
+async function buildScheduleSlide(UP) {
+  var snap = await get(ref(db, UP + '/schedule')).catch(function(){ return null; });
+  var data = (snap && snap.val()) || {};
+  var entries = Object.keys(data).map(function(id){ return Object.assign({ id: id }, data[id]); });
+  if (!entries.length) return null;
+  var monday = kioskSchedMonday(new Date());
+  var today = localDateStr();
+  var dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var cols = '';
+  for (var d = 0; d < 7; d++) {
+    var dayDate = kioskSchedAddDays(monday, d);
+    var dayStr = localDateStr(dayDate);
+    var isToday = dayStr === today;
+    var dayShifts = entries.filter(function(s){ return s.date === dayStr && !s.cancelled; })
+      .sort(function(a, b){ return (a.start || '').localeCompare(b.start || ''); });
+    var chips = dayShifts.length ? dayShifts.map(function(s) {
+      return '<div class="kiosk-sched-chip" style="background:' + kioskSchedColorFor(s.label) + ';">'
+        + '<div class="kiosk-sched-chip-label">' + escHtml(s.label || 'Shift') + '</div>'
+        + '<div class="kiosk-sched-chip-time">' + kioskSchedFmtTime(s.start) + '–' + kioskSchedFmtTime(s.end) + '</div>'
+        + '</div>';
+    }).join('') : '<div class="kiosk-sched-empty">—</div>';
+    cols += '<div class="kiosk-sched-day' + (isToday ? ' today' : '') + '">'
+      + '<div class="kiosk-sched-day-head">' + dayNames[d] + '<br><span>' + dayDate.getDate() + '</span></div>'
+      + '<div class="kiosk-sched-day-body">' + chips + '</div>'
+      + '</div>';
+  }
+  return { key: 'schedule', title: '🗓️ This Week', html: '<div class="kiosk-sched-grid">' + cols + '</div>' };
 }
 
 // ── MONEY SLIDE ──
@@ -668,6 +757,7 @@ async function buildAllSlides(UP, cfg) {
     cfg.weather ? buildWeatherSlide() : null,
     cfg.calendar ? buildCalendarSlide(UP) : null,
     cfg.plans ? buildPlansSlide(UP) : null,
+    cfg.schedule ? buildScheduleSlide(UP) : null,
     cfg.money ? buildMoneySlide(UP) : null,
     cfg.messages ? buildMessagesSlide(UP) : null
   ]);

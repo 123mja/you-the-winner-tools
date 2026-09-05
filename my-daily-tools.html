@@ -13468,7 +13468,7 @@ const SYNCED_SETTINGS_KEYS = [
   'daily-tools-tab-order','default-landing-tab','dt-hide-nav',
   'home-tab-enabled','home-today-message-enabled','myday-tab-enabled',
   'kiosk-background','kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-dadjoke','kiosk-slide-healthtip','kiosk-slide-messages',
-  'kiosk-slide-money','kiosk-slide-nature','kiosk-slide-plans','kiosk-slide-weather',
+  'kiosk-slide-money','kiosk-slide-nature','kiosk-slide-plans','kiosk-slide-schedule','kiosk-slide-weather',
   'plans-tab-enabled',
   'token-banner-user-enabled',
   'plans-col1-width','plans-due-dir','plans-font-size',
@@ -14195,7 +14195,7 @@ window.setCalendarUrl = async function(slot, url) {
 // preference on this page. Cycle Tracker has no entry in this map on
 // purpose — it is never offered as a kiosk slide choice, not even off by
 // default.
-var KIOSK_SLIDES = { nature: '🌿 Nature', dadjoke: '😄 Dad Joke', healthtip: '💡 Health Tip', calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather' };
+var KIOSK_SLIDES = { nature: '🌿 Nature', dadjoke: '😄 Dad Joke', healthtip: '💡 Health Tip', calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather', schedule: "🗓️ This Week's Schedule" };
 
 // Picture Frame background presets (2026-09-05, per Marcelo: the kiosk was
 // always mirroring the signed-in device's own app-wide theme (plain --bg/
