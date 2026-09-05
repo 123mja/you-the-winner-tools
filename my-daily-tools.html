@@ -5733,10 +5733,30 @@
       <button onclick="window.openThingsCatalog()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;">🗂️ Quick Add</button>
     </div>
 
-    <!-- Size Map (needs 2+ items to mean anything, same threshold as the Wishlist Value Map) -->
-    <div id="things-map-section" style="display:none;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;color:var(--text);margin-bottom:8px;">Size Map</div>
+    <!-- Visualization (needs 2+ items to mean anything, same threshold as
+         the Wishlist Value Map). 2026-09-05, per Marcelo: this used to ONLY
+         show the Size Map, which is the exact same treemap component
+         (_layoutWishlistTreemapInto) Wishlist's own Value Map uses —
+         visually identical to a Money-area feature, which is exactly what
+         made Value of Things read as duplicated even after the copy/preset
+         changes above. Added a second, genuinely different chart type — a
+         Chart.js horizontal Bar Chart, see _renderThingsBarChart in the
+         module script — plus a small switcher so both "perspectives" are
+         available. Which one shows first is rememberable
+         (getThingsViewMode/setThingsViewMode, localStorage-backed, same
+         pattern as Wish List Mode/Calendar view mode elsewhere in this
+         file) and defaults to Bar Chart specifically, since that one looks
+         nothing like anything on Money. -->
+    <div id="things-viz-section" style="display:none;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;color:var(--text);" id="things-viz-title">Bar Chart</div>
+        <div style="display:flex;border-radius:8px;overflow:hidden;border:1.5px solid var(--accent);flex-shrink:0;">
+          <button id="things-view-btn-barchart" onclick="window.setThingsViewMode('barchart')" style="padding:5px 10px;font-size:.7rem;font-weight:700;border:none;cursor:pointer;">📶 Bar Chart</button>
+          <button id="things-view-btn-sizemap" onclick="window.setThingsViewMode('sizemap')" style="padding:5px 10px;font-size:.7rem;font-weight:700;border:none;cursor:pointer;">🗺️ Size Map</button>
+        </div>
+      </div>
       <div id="things-map" style="position:relative;width:100%;height:220px;"></div>
+      <div id="things-bar-wrap" style="position:relative;width:100%;height:260px;display:none;"><canvas id="things-bar-chart"></canvas></div>
     </div>
 
     <!-- List -->
@@ -6822,6 +6842,12 @@ window.removeRmMilestone = function(pi, mi) {
     <div class="card" style="padding:16px;">
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:16px;line-height:1.5;">Everything here also lives on our main site if you'd rather browse it there.</div>
       <button onclick="window.openHelpFaqOverlay()" style="width:100%;display:block;text-align:center;padding:13px;border-radius:12px;background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:.88rem;border:none;cursor:pointer;margin-bottom:10px;">📖 Getting Started &amp; FAQ</button>
+      <!-- 2026-09-05, per Marcelo ("kind of an about overall of my daily
+           tools... including version name and member since"): a single
+           overview of the APP as a whole (name, tagline, version, member
+           since), distinct from "About Each Tool" below which is per-tab
+           feature documentation. See #about-app-overlay. -->
+      <button onclick="window.openAboutAppOverlay()" style="width:100%;display:block;text-align:center;padding:13px;border-radius:12px;border:1.5px solid var(--border);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:.88rem;background:none;cursor:pointer;margin-bottom:10px;">ℹ️ About My Daily Tools</button>
       <!-- 2026-08-15, moved here from Settings per Marcelo ("About Each Tool
            shouldn't be in Settings, belongs in the ? Help menu") — same
            overlay pattern as Getting Started & FAQ above. -->
@@ -6870,6 +6896,70 @@ window.removeRmMilestone = function(pi, mi) {
   };
   window.closeHelpFaqOverlay = function() {
     var ov = document.getElementById('help-faq-overlay');
+    if (ov) ov.style.display = 'none';
+  };
+</script>
+
+<!-- ══ ABOUT MY DAILY TOOLS OVERLAY ══ (added 2026-09-05, per Marcelo).
+     App-level "what is this, what version, how long have I been a member"
+     card — separate from the per-tool documentation overlay just below.
+     DAILY_TOOLS_VERSION is a plain display string, not read anywhere else
+     in the codebase; bump it by hand on a future deploy worth calling out
+     to users (there's no build step here to auto-stamp one). Member since
+     reads users/{uid}/daily-tools/trial/firstSignInAt — the SAME record
+     auth-guard.js's trial gate (isTrialExpired()/startTrial()) already
+     reads and writes, under the plain users/{uid} root rather than the
+     CLIENT.dbRootPath-prefixed tree the rest of this app's data lives
+     under (see the Trial Gate section of the SKILL.md) — so no new
+     Firebase data or rules are needed for this. Only meaningful for a
+     real signed-in account; left as "—" for demo/guest, and grandfathered
+     pre-trial accounts that only ever got trial.exempt=true with no
+     firstSignInAt recorded show "Not available" rather than a wrong date. -->
+<div id="about-app-overlay" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)window.closeAboutAppOverlay()">
+  <div style="width:100%;max-width:400px;background:var(--surface);border-radius:20px;box-shadow:0 8px 40px rgba(15,31,28,.22);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1.5px solid var(--border);">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;color:var(--text);">ℹ️ About My Daily Tools</div>
+      <button onclick="window.closeAboutAppOverlay()" style="background:var(--surface2);border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;line-height:1;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
+    </div>
+    <div style="padding:18px 20px 22px;text-align:center;">
+      <div style="font-size:2.2rem;margin-bottom:6px;">🌿</div>
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--text);margin-bottom:6px;">My Daily Tools</div>
+      <div style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:14px;">Part of the You The Winner family of tools — daily-living, money, calendar, and wellbeing tools built for people who benefit from structure, low visual noise, and steady routines, and for the caregivers who support them.</div>
+      <div style="display:flex;justify-content:center;gap:22px;padding-top:12px;border-top:1px solid var(--border);">
+        <div>
+          <div style="font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:800;">Version</div>
+          <div id="about-app-version" style="font-size:.82rem;font-weight:700;color:var(--text);margin-top:2px;">—</div>
+        </div>
+        <div>
+          <div style="font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:800;">Member since</div>
+          <div id="about-app-member-since" style="font-size:.82rem;font-weight:700;color:var(--text);margin-top:2px;">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  window.DAILY_TOOLS_VERSION = '2026.09.05';
+  window.openAboutAppOverlay = function() {
+    var ov = document.getElementById('about-app-overlay');
+    if (ov) ov.style.display = 'flex';
+    var vEl = document.getElementById('about-app-version');
+    if (vEl) vEl.textContent = window.DAILY_TOOLS_VERSION;
+    var msEl = document.getElementById('about-app-member-since');
+    if (!msEl) return;
+    msEl.textContent = '—';
+    if (window._demoMode || !window._melUser || !window._melUser.uid || !window._get || !window._ref || !window._db) return;
+    window._get(window._ref(window._db, 'users/' + window._melUser.uid + '/daily-tools/trial/firstSignInAt')).then(function(snap) {
+      var ts = snap.val();
+      if (typeof ts === 'number' && ts > 0) {
+        msEl.textContent = new Date(ts).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      } else {
+        msEl.textContent = 'Not available';
+      }
+    }).catch(function() { msEl.textContent = 'Not available'; });
+  };
+  window.closeAboutAppOverlay = function() {
+    var ov = document.getElementById('about-app-overlay');
     if (ov) ov.style.display = 'none';
   };
 </script>
@@ -9333,6 +9423,14 @@ window.removeRmMilestone = function(pi, mi) {
       <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">⭐ Wish List</div>
     </div>
 
+    <!-- Mode note — added 2026-09-05, per Marcelo ("make a note... so the
+         user knows where it is"): whichever door someone comes in through
+         (the Money-tab button or the sidebar tab), this makes the current
+         Wish List Mode (Settings → Wish List Items → Savings mode)
+         visible right here rather than something only discoverable by
+         digging into Settings. Kept in sync by _applyWishlistModeUI(). -->
+    <div id="wishlist-mode-note" style="text-align:center;font-size:.72rem;font-weight:700;padding:7px 10px;border-radius:8px;margin-bottom:10px;"></div>
+
     <!-- Manual savings pool — shown only in manual mode -->
     <div id="manual-savings-banner" style="display:none;margin:0 0 10px;background:var(--gold-bg);border:1.5px solid var(--gold-border);border-radius:12px;padding:10px 14px;">
       <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;">My savings total</div>
@@ -10789,7 +10887,11 @@ function switchTab(name) {
   // one tab allowed to bypass the active-tabs check rather than bouncing to
   // Home, since applyTabOrder() below is what shows/hides its icon based on
   // whether it's actually the active pane, not this list.
-  if(name !== 'settings' && !TABS.includes(name)) name = 'home';
+  // 2026-09-05: 'wishlist' added to this bypass alongside 'settings', per
+  // Marcelo ("should we keep just the one integrated on my money") --
+  // see openWishlistDialog() below for why this is what makes removing
+  // its silent auto-enable safe.
+  if(name !== 'settings' && name !== 'wishlist' && !TABS.includes(name)) name = 'home';
   // Usage tracking (added 2026-08-18) — fires once per actual tab change,
   // never on a redundant switchTab() call to the pane already showing, so
   // "Most Used Tools" (admin-settings.html, Site-Wide tab) and GA4 both
@@ -12608,20 +12710,26 @@ window.toggleTxnPanel = function() {
 // (see the 'wishlist' branch inside switchTab), same calls this used to make
 // directly.
 window.openWishlistDialog = function() {
-  // Bug fix (2026-08-17, per Marcelo: "on mymoney, wishlist is not
-  // opening"): switchTab() silently bounces back to 'home' for any tab
-  // name that isn't in getActiveTabs() — and 'wishlist' only ends up there
-  // once the separate Wishlist sidebar-tab toggle in Settings has been
-  // turned on (_wishlistTabEnabled defaults to false). The "⭐ Wish List"
-  // button on the Money tab above is shown unconditionally in integrated
-  // savings mode, with no mention anywhere that a second Settings toggle
-  // needs flipping first — so clicking it just silently did nothing if
-  // that toggle had never been touched. Auto-enabling the tab here (same
-  // effect as flipping that toggle) makes the button do what its own
-  // label promises, every time.
-  if (!_wishlistTabEnabled && typeof window.setWishlistTabEnabled === 'function') {
-    window.setWishlistTabEnabled(true);
-  }
+  // 2026-08-17 fix (superseded 2026-09-05, see below): switchTab() used to
+  // silently bounce back to 'home' for any tab not in getActiveTabs(), and
+  // 'wishlist' only landed there once the separate sidebar-tab Settings
+  // toggle was on (off by default) — so the Money tab's own "⭐ Wish List"
+  // button silently did nothing the first time anyone tapped it. The fix
+  // at the time was to auto-enable that toggle here, same effect as
+  // flipping it in Settings.
+  //
+  // 2026-09-05 fix, per Marcelo ("should we keep just the one integrated
+  // on my money" — the Money button and the sidebar Wishes tab looked
+  // like two duplicated ways in): that auto-enable was itself the bug.
+  // Wish List Mode already defaults to Money-only access (the sidebar tab
+  // starts OFF) — but the very first tap of this Money button used to
+  // silently and PERMANENTLY flip the sidebar toggle on, so from then on
+  // every visit showed both the persistent bottom-tab icon AND the Money
+  // button pointing at the same screen. switchTab() itself now lets
+  // 'wishlist' through the same way it already lets 'settings' through
+  // (see its own comment above), so this button reaches the pane without
+  // needing to touch that toggle at all — Money-only stays Money-only
+  // unless someone deliberately turns the sidebar tab on in Settings.
   switchTab('wishlist');
 };
 window.closeWishlistDialog = function() {
@@ -12697,6 +12805,19 @@ window._applyWishlistModeUI = function(mode) {
   // Savings mode only controls the home button — sidebar tab is controlled solely by its own toggle in Settings
   const homeBtn = document.getElementById('home-wishlist-btn-wrap');
   if(homeBtn) homeBtn.style.display = mode === 'standalone' ? 'none' : '';
+  // Mode note on the Wish List pane itself — see markup comment above.
+  const noteEl = document.getElementById('wishlist-mode-note');
+  if (noteEl) {
+    if (mode === 'standalone') {
+      noteEl.textContent = '✋ Manual — tracked here only, separate from your Money balance';
+      noteEl.style.background = 'var(--surface2)';
+      noteEl.style.color = 'var(--muted)';
+    } else {
+      noteEl.textContent = '🔗 Linked to Money — savings here follow your real Money balance automatically';
+      noteEl.style.background = 'var(--accent-light)';
+      noteEl.style.color = 'var(--accent)';
+    }
+  }
   // Refresh manual savings banner
   window._refreshManualSavingsBanner && window._refreshManualSavingsBanner();
 };
@@ -17182,25 +17303,111 @@ function getThingsList() {
   }).sort(function(a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
 }
 let _editingThingId = null;
+
+// View mode (Bar Chart vs Size Map) — 2026-09-05, see the markup comment
+// on #things-viz-section for why. Same localStorage-backed
+// get/set-and-re-render pattern as getWishlistMode()/setWishlistMode()
+// above and Calendar's _getCalendarViewMode elsewhere in this file.
+// Defaults to 'barchart' (not 'sizemap') on purpose — that's the view
+// that looks nothing like anything on Money/Wishlist.
+window.getThingsViewMode = function() {
+  try { return localStorage.getItem('things-view-mode') || 'barchart'; } catch(e) { return 'barchart'; }
+};
+window.setThingsViewMode = function(mode) {
+  try { localStorage.setItem('things-view-mode', mode); } catch(e) {}
+  renderValueThings();
+};
+
+// Bar Chart view — a Chart.js horizontal bar chart (indexAxis:'y'), reusing
+// the same Chart.js instance already loaded for My Day's weight/sleep/mood
+// trend charts (see _weightChart) rather than adding a second charting
+// library. Deliberately a different shape than the treemap's area-based
+// boxes so the two views actually read as different perspectives, not
+// just re-skins of each other. Mixing units (e.g. a dollar amount next to
+// an hours amount) on one axis has the same "not truly comparable" caveat
+// the Size Map already has today — not a new limitation introduced here.
+let _thingsBarChart = null;
+function _renderThingsBarChart(items) {
+  var wrap = document.getElementById('things-bar-wrap');
+  var canvas = document.getElementById('things-bar-chart');
+  if (!wrap || !canvas || typeof Chart === 'undefined') return;
+  // Give each bar real height instead of squashing thinner as more items
+  // are added — Chart.js horizontal bars need per-row height to stay
+  // legible, same reasoning as the treemap's own fixed pixel height.
+  wrap.style.height = Math.max(220, 46 * items.length) + 'px';
+  var palette = ['#2a7d6f', '#e0a92e', '#c76b98', '#4f83cc', '#e2793d', '#7a5fb5', '#4fae8f', '#b56fce'];
+  if (_thingsBarChart) _thingsBarChart.destroy();
+  _thingsBarChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: items.map(function(t) { return (t.icon || '📦') + ' ' + (t.name || 'Thing'); }),
+      datasets: [{
+        data: items.map(function(t) { return Number(t.value) || 0; }),
+        backgroundColor: items.map(function(t, i) { return palette[i % palette.length]; }),
+        borderRadius: 6,
+        maxBarThickness: 28
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              var t = items[ctx.dataIndex];
+              return (Number(t.value) || 0).toLocaleString() + (t.unit ? ' ' + t.unit : '');
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { color: '#e8f0ed' } },
+        y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 function renderValueThings() {
   var items = getThingsList();
   var empty = document.getElementById('things-empty');
   var listEl = document.getElementById('things-list');
-  var mapSection = document.getElementById('things-map-section');
+  var vizSection = document.getElementById('things-viz-section');
   if (!listEl) return; // pane not in DOM yet (tab never opened this session)
   if (!items.length) {
     if (empty) empty.style.display = '';
     listEl.innerHTML = '';
-    if (mapSection) mapSection.style.display = 'none';
+    if (vizSection) vizSection.style.display = 'none';
     return;
   }
   if (empty) empty.style.display = 'none';
   var mapItems = items.filter(function(t) { return (Number(t.value) || 0) > 0; });
-  if (mapSection) mapSection.style.display = mapItems.length >= 2 ? '' : 'none';
+  if (vizSection) vizSection.style.display = mapItems.length >= 2 ? '' : 'none';
   if (mapItems.length >= 2) {
-    _layoutWishlistTreemapInto(document.getElementById('things-map'), mapItems, false, {
-      valueField: 'value', unitField: 'unit', noun: 'Thing', defaultIcon: '📦', clickFnName: 'openThingDialog'
-    });
+    var _tvMode = window.getThingsViewMode();
+    var mapWrap = document.getElementById('things-map');
+    var barWrap = document.getElementById('things-bar-wrap');
+    var vizTitle = document.getElementById('things-viz-title');
+    var btnBar = document.getElementById('things-view-btn-barchart');
+    var btnMap = document.getElementById('things-view-btn-sizemap');
+    if (btnBar) { btnBar.style.background = _tvMode === 'barchart' ? 'var(--accent)' : ''; btnBar.style.color = _tvMode === 'barchart' ? '#fff' : 'var(--accent)'; }
+    if (btnMap) { btnMap.style.background = _tvMode === 'sizemap' ? 'var(--accent)' : ''; btnMap.style.color = _tvMode === 'sizemap' ? '#fff' : 'var(--accent)'; }
+    if (_tvMode === 'sizemap') {
+      if (vizTitle) vizTitle.textContent = 'Size Map';
+      if (mapWrap) mapWrap.style.display = '';
+      if (barWrap) barWrap.style.display = 'none';
+      _layoutWishlistTreemapInto(mapWrap, mapItems, false, {
+        valueField: 'value', unitField: 'unit', noun: 'Thing', defaultIcon: '📦', clickFnName: 'openThingDialog'
+      });
+    } else {
+      if (vizTitle) vizTitle.textContent = 'Bar Chart';
+      if (mapWrap) mapWrap.style.display = 'none';
+      if (barWrap) barWrap.style.display = '';
+      _renderThingsBarChart(mapItems);
+    }
   }
   listEl.innerHTML = items.map(function(t) {
     var valLabel = (Number(t.value) || 0).toLocaleString() + (t.unit ? ' ' + t.unit : '');
