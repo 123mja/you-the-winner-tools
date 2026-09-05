@@ -6782,9 +6782,19 @@ window.moveRmPhase = function(pi, dir) {
   var tmp=phases[pi]; phases[pi]=phases[ni]; phases[ni]=tmp;
   saveRmConfig(); renderRmConfigList(); renderRoadmap();
 };
-window.removeRmPhase = function(pi) {
+window.removeRmPhase = async function(pi) {
   ensureRmConfig();
   if(_rmConfig.phases.length<=1){window.showToast&&window.showToast('Need at least one phase');return;}
+  // 2026-09-05, per Marcelo (logged in as Demo, accidentally deleted
+  // roadmap goals via the small unstyled X button — wants a confirm on
+  // delete regardless of demo or a real account): matches the app-wide
+  // appConfirm() pattern already used for every other delete action in
+  // this file (Value of Things, shifts, task lists, rewards catalog,
+  // etc.) instead of leaving this as the one un-confirmed one-tap delete.
+  var phase = _rmConfig.phases[pi];
+  var stepCount = phase.milestoneIds.length;
+  var detail = 'This removes "' + phase.label + '"' + (stepCount > 0 ? (' and its ' + stepCount + ' step' + (stepCount === 1 ? '' : 's')) : '') + '. This cannot be undone.';
+  if (!(await window.appConfirm('Remove this phase?', { detail: detail, confirmLabel: 'Yes, remove' }))) return;
   _rmConfig.phases.splice(pi,1);
   saveRmConfig(); renderRmConfigList(); renderRoadmap();
 };
@@ -6821,9 +6831,14 @@ window.addRmMilestone = function(pi) {
   _rmConfig.phases[pi].milestoneIds.push(newMid);
   saveRmConfig(); renderRmConfigList(); renderRoadmap();
 };
-window.removeRmMilestone = function(pi, mi) {
+window.removeRmMilestone = async function(pi, mi) {
   ensureRmConfig();
   if(_rmConfig.phases[pi].milestoneIds.length<=1){window.showToast&&window.showToast('Need at least one step per phase');return;}
+  // 2026-09-05: same confirm-before-delete fix as removeRmPhase above, and
+  // for the same reason -- see its comment.
+  var mid = _rmConfig.phases[pi].milestoneIds[mi];
+  var m = getMilestoneData(mid, _rmConfig);
+  if (!(await window.appConfirm('Remove this step?', { detail: 'This removes "' + m.title + '" from the roadmap. This cannot be undone.', confirmLabel: 'Yes, remove' }))) return;
   _rmConfig.phases[pi].milestoneIds.splice(mi,1);
   saveRmConfig(); renderRmConfigList(); renderRoadmap();
 };
