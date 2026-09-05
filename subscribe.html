@@ -1,863 +1,414 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta charset="UTF-8" />
+<link rel="canonical" href="https://tools.you-the-winner.com/subscribe" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subscribe · Daily Tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a7d6f'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
 <!--
-  REAL SUBSCRIBE FLOW -- wired to the live Netlify Functions backend as of
-  2026-08-21 (SUBSCRIPTION-ARCHITECTURE.md step 4). Was a design-only
-  preview before this date (fake setTimeout "Redirecting..." step, no real
-  account or payment) -- see the you-the-winner-engine-SKILL.md changelog
-  entry for this date for the full rebuild notes.
+  subscribe.html — REBUILT 2026-09-05.
 
-  Flow: Step 1 picks Base (always included) + optional Wellness / Goals &
-  Motivation / Calendar packs and a Monthly/Annual interval, computing a
-  live total from the real Stripe prices. Step 2 requires Google sign-in
-  (reusing the same Firebase Auth + denylist-check pattern as login.html)
-  so there's a Firebase uid to attach the purchase to. Step 3 POSTs
-  {uid, email, interval, packs} to /.netlify/functions/create-checkout-session
-  and redirects the browser to the Stripe-hosted Checkout URL it returns --
-  from there the page navigates AWAY to Stripe, then Stripe sends the
-  browser to my-daily-tools.html?checkout=success (or back here with
-  ?checkout=canceled) per that function's success_url/cancel_url. There is
-  no in-page "Done" step anymore for that reason.
+  This used to be a design-only preview of the old Base + independent
+  add-on packs pricing model (fake setTimeout "Redirecting..." step, never
+  actually wired to Stripe -- see SUBSCRIPTION-ARCHITECTURE.md history).
+  That pricing model is retired. Marcelo decided the new marketing site
+  (You-The-Winner marketing/pricing.html) is the pricing model that
+  prevails: flat plan tiers -- Personal, Family, Professional Pro -- each
+  a single Stripe Price per interval. Organization is a custom,
+  sales-assisted tier with no self-serve checkout, so it's not offered
+  here. Professional Supporter is free (rides on this app's existing
+  family/caregiver sharing invite, not a Stripe purchase), so it's not
+  offered here either.
 
-  Whether this charges a real card or Stripe's fake test card depends
-  entirely on admin-settings.html's "Stripe billing mode" toggle -- this
-  page has no mode picker of its own, by design; that decision lives in one
-  admin-only place, not scattered across every entry point into checkout.
+  This page is now the REAL checkout handoff, not a preview:
+    1. Reads ?plan=personal|family|pro&interval=month|year from the URL
+       (the marketing site's pricing.html buttons link here with those
+       params). If missing/invalid, shows an inline plan chooser instead
+       of requiring the marketing site to be live.
+    2. Gates on Firebase sign-in (same Google-only auth as login.html,
+       same 'guard' named app instance so this can share auth state with
+       every other page, same denylist check so a denylisted account can't
+       reach checkout here either).
+    3. POSTs {uid, email, interval, plan} to
+       /.netlify/functions/create-checkout-session and redirects the
+       browser to the real Stripe-hosted Checkout url it returns. That
+       function already sets client_reference_id and
+       subscription_data.metadata.firebaseUid, so stripe-webhook.js can
+       attribute the resulting subscription back to this account -- see
+       that function's header comment for why the marketing site's old
+       static buy.stripe.com Payment Links couldn't do this at all.
+
+  Prices below are display-only copies of the real Stripe Prices (kept in
+  sync by hand with pricing.html and with the STRIPE_PRICE_* Netlify env
+  vars create-checkout-session.js reads) -- this page never charges an
+  amount itself, Stripe Checkout always charges whatever the actual Price
+  object says.
 -->
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Subscribe · You the Winner</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232a7d6f'/><text x='16' y='23' font-family='Nunito,sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'>M</text></svg>" />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="theme.css">
-  <script src="theme.js"></script>
-  <!-- Google Analytics (Engine/Tools funnel) -->
-  <script type="module">
-    import { CLIENT } from "./client.config.js";
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function(){ dataLayer.push(arguments); };
-    var gaScript = document.createElement("script");
-    gaScript.async = true;
-    gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + CLIENT.toolsAnalyticsId;
-    document.head.appendChild(gaScript);
-    gtag("js", new Date());
-    gtag("config", CLIENT.toolsAnalyticsId);
-  </script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg:          #f0f5f3;
-      --surface:     #ffffff;
-      --surface2:    #e8f0ed;
-      --surface3:    #ddeee8;
-      --border:      #cfddd8;
-      --text:        #0f1f1c;
-      --muted:       #6b8c85;
-      --accent:      #2a7d6f;
-      --accent2:     #1a5c7a;
-      --accent-light: #e0eeea;
-      --gold:        #f9a825;
-      --gold-bg:     #fefbe8;
-      --error:       #c0392b;
-      --error-bg:    #fdecea;
-    }
-    body {
-      font-family: 'Quicksand', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding-bottom: 40px;
-    }
-    a { color: inherit; }
+<style>
+  :root {
+    --bg: #f0f5f3; --surface: #ffffff; --surface2: #e8f0ed;
+    --border: #cfddd8; --text: #0f1f1c; --muted: #5a7a73;
+    --soft: #a8c4bc; --accent: #2a7d6f; --accent2: #1a5c7a;
+    --accent-light: #e0eeea; --error: #c0392b; --error-bg: #fdf0ef;
+    --gold: #c99a2e; --gold-bg: #fbf3e1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Quicksand', sans-serif;
+    min-height: 100vh; padding: 24px;
+  }
+  .wrap { width: 100%; max-width: 920px; margin: 0 auto; }
+  .narrow { max-width: 380px; margin: 0 auto; }
 
-    .top-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      max-width: 480px; margin: 0 auto; padding: 16px 18px 4px;
-    }
-    .back-link {
-      font-size: .78rem; font-weight: 700; color: var(--muted);
-      text-decoration: none; display: flex; align-items: center; gap: 4px;
-    }
-    .brand {
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .78rem;
-      color: var(--accent); display: flex; align-items: center; gap: 6px;
-    }
+  .monogram {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--accent); display: flex; align-items: center;
+    justify-content: center; margin: 40px auto 20px;
+  }
+  .monogram span {
+    font-family: 'Nunito', sans-serif; font-size: 1.6rem;
+    font-weight: 800; color: white; line-height: 1;
+  }
+  .heading {
+    font-family: 'Nunito', sans-serif; font-size: 1.5rem;
+    font-weight: 800; text-align: center; margin-bottom: 4px;
+  }
+  .sub { font-size: 0.82rem; color: var(--muted); text-align: center; margin-bottom: 28px; }
 
-    .wrap { max-width: 480px; margin: 0 auto; padding: 10px 18px 20px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px 24px;
+  }
 
-    .canceled-note {
-      display: none; font-size: .78rem; color: var(--error); background: var(--error-bg);
-      border: 1px solid #f3b7b0; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px;
-    }
-    .canceled-note.show { display: block; }
+  .btn {
+    width: 100%; background: var(--accent); color: white;
+    border: none; border-radius: 10px; padding: 13px;
+    font-family: 'Nunito', sans-serif; font-size: 0.95rem;
+    font-weight: 700; cursor: pointer; transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .btn:hover { background: var(--accent2); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* Trial-expired banner (added 2026-09-04) -- gold/warning tone rather
-       than the red error style above, since this isn't a failure or a
-       ban, just "time to subscribe" -- with a way to leave with your data
-       intact if you'd rather not. See auth-guard.js's isTrialExpired()
-       for what redirects here (?trial=expired). */
-    .trial-expired-note {
-      display: none; font-size: .8rem; color: #7a5b00; background: var(--gold-bg);
-      border: 1px solid #f3dfa0; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
-    }
-    .trial-expired-note.show { display: block; }
-    .trial-expired-note .ten-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .88rem; margin-bottom: 4px; color: var(--text); }
-    .trial-expired-note .ten-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .ten-btn {
-      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .74rem; cursor: pointer;
-      border-radius: 8px; padding: 7px 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text);
-    }
-    .ten-btn.danger { border-color: #e3b3ac; color: var(--error); }
+  .google-btn {
+    width: 100%; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+    font-family: 'Quicksand', sans-serif; font-size: 0.92rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .google-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+  .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .google-btn img { width: 18px; height: 18px; }
 
-    /* ── STEP INDICATOR ── */
-    .steps {
-      display: flex; align-items: center; justify-content: center;
-      gap: 4px; margin: 10px 0 22px;
-    }
-    .step-dot {
-      display: flex; align-items: center; gap: 4px;
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .66rem;
-      color: var(--muted);
-    }
-    .step-dot .num {
-      width: 20px; height: 20px; border-radius: 50%;
-      background: var(--surface2); border: 1.5px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: .66rem; color: var(--muted); transition: all .2s;
-    }
-    .step-dot.active .num { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .step-dot.done .num { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
-    .step-dot.active .label, .step-dot.done .label { color: var(--text); }
-    .step-line { width: 18px; height: 1.5px; background: var(--border); }
-    .step-dot .label { display: none; }
-    @media (min-width: 420px) { .step-dot .label { display: inline; } }
+  .error-box {
+    background: var(--error-bg); border: 1px solid #f5c6c4;
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 0.82rem; color: var(--error);
+    margin-bottom: 14px; display: none;
+  }
+  .error-box.show { display: block; }
+  .notice-box {
+    background: var(--gold-bg); border: 1px solid #ecd9a8;
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 0.82rem; color: #7a5c10;
+    margin-bottom: 14px; display: none;
+  }
+  .notice-box.show { display: block; }
 
-    /* ── STEP PANELS ── */
-    .step-panel { display: none; }
-    .step-panel.active { display: block; animation: fadeIn .25s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to {opacity:1; transform:translateY(0);} }
+  .footer-note {
+    text-align: center; font-size: 0.72rem; color: var(--soft);
+    margin-top: 20px; letter-spacing: 0.5px;
+  }
 
-    .panel-title {
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.3rem;
-      margin-bottom: 4px;
-    }
-    .panel-sub { font-size: .8rem; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
 
-    /* ── INTERVAL TOGGLE (step 1) ── */
-    .interval-toggle {
-      display: flex; background: var(--surface2); border: 1.5px solid var(--border);
-      border-radius: 99px; padding: 3px; margin-bottom: 16px;
-    }
-    .interval-btn {
-      flex: 1; text-align: center; padding: 8px 6px; border-radius: 99px; cursor: pointer;
-      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .78rem; color: var(--muted);
-      transition: all .15s; user-select: none;
-    }
-    .interval-btn.active { background: var(--accent); color: #fff; }
-    .interval-btn small { display: block; font-weight: 600; font-size: .62rem; margin-top: 1px; }
+  /* Interval toggle */
+  .interval-toggle {
+    display: flex; justify-content: center; gap: 8px; margin-bottom: 26px;
+  }
+  .interval-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 8px 18px; font-size: 0.82rem;
+    font-weight: 700; color: var(--muted); cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+  }
+  .interval-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .interval-btn small { display: block; font-weight: 500; font-size: 0.65rem; opacity: .85; }
 
-    /* ── PLAN / PACK CARDS (step 1) ── */
-    .plan-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
-    .plan-card {
-      background: var(--surface); border: 2px solid var(--border);
-      border-radius: 14px; padding: 14px 16px; cursor: pointer;
-      display: flex; align-items: center; justify-content: space-between;
-      transition: border-color .15s, box-shadow .15s;
-    }
-    .plan-card.base { cursor: default; }
-    .plan-card:hover:not(.base) { border-color: var(--soft, var(--accent)); }
-    .plan-card.selected { border-color: var(--accent); box-shadow: 0 4px 16px rgba(42,125,111,.15); background: linear-gradient(160deg,#f0faf7 0%,#fff 100%); }
-    .plan-card .radio {
-      width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border);
-      flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 12px;
-    }
-    .plan-card.base .radio { border-radius: 50%; }
-    .plan-card.selected .radio { border-color: var(--accent); background: var(--accent); }
-    .plan-card.selected .radio::after { content:'✓'; color:#fff; font-size: .68rem; font-weight: 800; }
-    .plan-card.base.selected .radio::after { content:''; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
-    .plan-info { display: flex; align-items: center; flex: 1; }
-    .plan-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .92rem; }
-    .plan-tag {
-      font-size: .6rem; font-weight: 700; color: var(--accent); background: var(--accent-light);
-      border-radius: 6px; padding: 1px 6px; margin-left: 7px; vertical-align: middle;
-    }
-    .plan-desc { font-size: .72rem; color: var(--muted); margin-top: 1px; }
-    .plan-price { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.05rem; text-align: right; white-space: nowrap; }
-    .plan-price small { display: block; font-size: .62rem; font-weight: 600; color: var(--muted); }
+  /* Plan chooser grid */
+  .plans-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px; margin-bottom: 10px;
+  }
+  .plan-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 22px 20px; position: relative;
+  }
+  .plan-card.popular { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+  .plan-popular-badge {
+    position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #fff; font-size: 0.62rem; font-weight: 800;
+    letter-spacing: .6px; padding: 4px 10px; border-radius: 999px;
+    font-family: 'Nunito', sans-serif;
+  }
+  .plan-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem; margin-bottom: 4px; }
+  .plan-price { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.6rem; }
+  .plan-price small { font-size: .78rem; font-weight: 600; color: var(--muted); }
+  .plan-save { font-size: .72rem; color: var(--accent); font-weight: 700; margin: 2px 0 14px; min-height: 1em; }
 
-    .bundle-hint {
-      font-size: .68rem; color: var(--accent); background: var(--accent-light);
-      border-radius: 8px; padding: 8px 10px; margin: 10px 0; line-height: 1.5; display: none;
-    }
-    .bundle-hint.show { display: block; }
+  /* Confirm card (deep-linked from marketing site with ?plan&interval) */
+  .confirm-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .confirm-plan { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.15rem; }
+  .confirm-price { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.15rem; }
+  .confirm-sub { font-size: .78rem; color: var(--muted); margin-bottom: 20px; }
+  .signed-in-text { text-align: center; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px; }
+  .change-plan-link { text-align: center; font-size: 0.76rem; color: var(--muted); text-decoration: underline; cursor: pointer; margin-top: 14px; }
 
-    .total-row {
-      display: flex; align-items: baseline; justify-content: space-between;
-      background: var(--surface3); border-radius: 12px; padding: 12px 16px; margin: 16px 0;
-    }
-    .total-lbl { font-size: .76rem; color: var(--muted); font-weight: 700; }
-    .total-amt { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.2rem; }
-    .total-amt small { font-size: .68rem; font-weight: 600; color: var(--muted); }
-
-    /* ── SIGN IN (step 2) ── */
-    .google-btn {
-      width: 100%; background: var(--surface); color: var(--text);
-      border: 1.5px solid var(--border); border-radius: 12px; padding: 13px;
-      font-family: 'Quicksand', sans-serif; font-size: 0.92rem; font-weight: 600;
-      cursor: pointer; transition: all 0.2s;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-    }
-    .google-btn:hover { border-color: var(--accent); background: var(--accent-light); }
-    .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .google-btn img { width: 18px; height: 18px; }
-    .signed-in-box {
-      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
-      padding: 14px 16px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    }
-    .signed-in-box .who { font-size: .84rem; }
-    .signed-in-box .who small { display:block; color: var(--muted); font-size: .68rem; }
-    .link-btn { background:none; border:none; color: var(--muted); font-size: .72rem; text-decoration: underline; cursor: pointer; }
-    .error-box {
-      background: var(--error-bg); border: 1px solid #f5c6c4; border-radius: 10px;
-      padding: 10px 14px; font-size: 0.82rem; color: var(--error); margin-bottom: 14px; display: none;
-    }
-    .error-box.show { display: block; }
-
-    /* ── PAYMENT (step 3) ── */
-    .confirm-summary {
-      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
-      padding: 14px 16px; text-align: left; margin: 0 0 16px; font-size: .8rem; line-height: 2;
-    }
-    .confirm-summary .row { display: flex; justify-content: space-between; }
-    .confirm-summary .lbl { color: var(--muted); }
-    .pay-note {
-      font-size: .68rem; color: var(--muted); text-align: center; line-height: 1.5; margin-top: 10px;
-    }
-
-    .redirect-box { display: none; text-align: center; padding: 30px 10px; }
-    .redirect-box.active { display: block; }
-    .spinner {
-      width: 30px; height: 30px; border-radius: 50%;
-      border: 3px solid var(--border); border-top-color: var(--accent);
-      margin: 0 auto 14px; animation: spin 0.8s linear infinite;
-    }
-    .btn-spinner {
-      display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
-      margin-right: 6px; vertical-align: middle; animation: spin .7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .redirect-title { font-family:'Nunito',sans-serif; font-weight: 800; font-size: .95rem; margin-bottom: 4px; }
-    .redirect-sub { font-size: .76rem; color: var(--muted); }
-
-    /* ── BUTTONS ── */
-    .btn-primary {
-      width: 100%; padding: 13px 8px;
-      background: var(--accent); color: #fff;
-      border: none; border-radius: 14px;
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .92rem;
-      cursor: pointer;
-      box-shadow: 0 4px 16px rgba(42,125,111,.25);
-    }
-    .btn-primary:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
-    .btn-text {
-      width: 100%; padding: 10px 8px; margin-top: 8px;
-      background: none; border: none; color: var(--muted);
-      font-family: 'Quicksand', sans-serif; font-weight: 600; font-size: .78rem;
-      cursor: pointer;
-    }
-  </style>
+  [hidden] { display: none !important; }
+</style>
 </head>
 <body>
-<button class="theme-toggle" onclick="toggleTheme()" title="Change color theme" aria-label="Change color theme">🌿</button>
-
-<div class="top-bar">
-  <a class="back-link" href="daily-tools-landing.html">← Back</a>
-  <div class="brand">🌿 You the Winner</div>
-</div>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
 
 <div class="wrap">
+  <div class="monogram"><span>M</span></div>
+  <div class="heading">Daily Tools subscription</div>
+  <p class="sub">Choose the plan that matches how you'll use it.</p>
 
-  <div class="canceled-note" id="canceledNote">Checkout was canceled — no charge was made. Pick your plan below to try again.</div>
-
-  <!-- Trial-expired banner (added 2026-09-04) -- Export/Delete work off the
-       Firebase session that's already signed in from before the redirect
-       here (auth-guard.js deliberately does NOT sign a trial-expired
-       visitor out), so both buttons are live immediately, no re-sign-in
-       needed, unless the session happens to be old enough that Firebase
-       itself requires a fresh one for account deletion (handled in
-       confirmDeleteMyAccount()'s own error message below). -->
-  <div class="trial-expired-note" id="trialExpiredNote">
-    <div class="ten-title">⏳ Your 14-day trial has ended</div>
-    <div>Pick a plan below to keep using Daily Tools. Not ready? Your data is yours — download a copy or delete your account below, no subscription required either way.</div>
-    <div class="ten-actions">
-      <button class="ten-btn" onclick="window.exportMyData()" id="tenExportBtn">⬇️ Export my data</button>
-      <button class="ten-btn danger" onclick="window.confirmDeleteMyAccount()" id="tenDeleteBtn">🗑️ Delete my account &amp; data</button>
-    </div>
-    <div id="tenDeadline" style="margin-top:8px;font-size:.72rem;color:var(--muted);"></div>
-    <div id="tenStatus" style="margin-top:8px;font-size:.72rem;"></div>
+  <div class="narrow">
+    <div class="error-box" id="error-box"></div>
+    <div class="notice-box" id="canceled-notice">Checkout was canceled — you can pick a plan and try again anytime.</div>
   </div>
 
-  <div class="steps" id="stepIndicator">
-    <div class="step-dot active" data-step="1"><span class="num">1</span><span class="label">Plan</span></div>
-    <div class="step-line"></div>
-    <div class="step-dot" data-step="2"><span class="num">2</span><span class="label">Sign in</span></div>
-    <div class="step-line"></div>
-    <div class="step-dot" data-step="3"><span class="num">3</span><span class="label">Payment</span></div>
-  </div>
-
-  <!-- ── STEP 1: PLAN & PACKS ── -->
-  <div class="step-panel active" id="panel-1">
-    <div class="panel-title">Build your plan</div>
-    <div class="panel-sub">The Base plan is always included. Add any packs you want — cancel or change anytime.</div>
-
+  <!-- Plan chooser: shown when the URL has no valid ?plan -->
+  <div id="chooser-view">
     <div class="interval-toggle">
-      <div class="interval-btn active" data-interval="month" onclick="selectInterval('month')">Monthly</div>
-      <div class="interval-btn" data-interval="year" onclick="selectInterval('year')">Annual<small>save on packs</small></div>
+      <button class="interval-btn active" id="int-month-btn" onclick="selectInterval('month')">Monthly</button>
+      <button class="interval-btn" id="int-year-btn" onclick="selectInterval('year')">Annual<small>save 2 months</small></button>
     </div>
-
-    <div class="plan-grid">
-      <div class="plan-card base selected">
-        <div class="plan-info">
-          <div class="radio"></div>
-          <div>
-            <div class="plan-name">Base Plan <span class="plan-tag">Included</span></div>
-            <div class="plan-desc">Core Daily Tools — always part of every plan</div>
-          </div>
-        </div>
-        <div class="plan-price" id="price-base">$7.99<small>/ month</small></div>
-      </div>
-      <div class="plan-card" data-pack="wellness" onclick="togglePack('wellness')">
-        <div class="plan-info">
-          <div class="radio"></div>
-          <div>
-            <div class="plan-name">Wellness Pack</div>
-            <div class="plan-desc">Cycle tracking, mood &amp; wellbeing tools</div>
-          </div>
-        </div>
-        <div class="plan-price" id="price-wellness">$10.98<small>/ month</small></div>
-      </div>
-      <div class="plan-card" data-pack="goals" onclick="togglePack('goals')">
-        <div class="plan-info">
-          <div class="radio"></div>
-          <div>
-            <div class="plan-name">Goals &amp; Motivation Pack</div>
-            <div class="plan-desc">Roadmap, rewards &amp; goal tracking</div>
-          </div>
-        </div>
-        <div class="plan-price" id="price-goals">$11.98<small>/ month</small></div>
-      </div>
-      <div class="plan-card" data-pack="calendar" onclick="togglePack('calendar')">
-        <div class="plan-info">
-          <div class="radio"></div>
-          <div>
-            <div class="plan-name">Calendar</div>
-            <div class="plan-desc">Shared schedule &amp; agenda tools</div>
-          </div>
-        </div>
-        <div class="plan-price" id="price-calendar">$9.48<small>/ month</small></div>
-      </div>
-    </div>
-
-    <div class="bundle-hint" id="bundleHint">🎉 All three packs selected — you're automatically getting the <b>Complete</b> bundle price instead of paying for each separately.</div>
-
-    <div class="total-row">
-      <div class="total-lbl">Total due today</div>
-      <div class="total-amt" id="totalAmt">$7.99<small>/ month</small></div>
-    </div>
-
-    <button class="btn-primary" onclick="goToStep(2)">Continue</button>
+    <div class="plans-grid" id="plans-grid"></div>
   </div>
 
-  <!-- ── STEP 2: SIGN IN ── -->
-  <div class="step-panel" id="panel-2">
-    <div class="panel-title">Sign in</div>
-    <div class="panel-sub">This creates your private account — separate from the free demo — and attaches your purchase to it.</div>
+  <!-- Confirm + sign-in view: shown once a plan is chosen (or deep-linked) -->
+  <div id="confirm-view" class="narrow" hidden>
+    <div class="card">
+      <div class="confirm-row">
+        <span class="confirm-plan" id="confirm-plan-name"></span>
+        <span class="confirm-price" id="confirm-plan-price"></span>
+      </div>
+      <div class="confirm-sub" id="confirm-plan-sub"></div>
 
-    <div class="error-box" id="signinError"></div>
-    <p class="footer-note" id="try-different-account" style="margin-top:0; margin-bottom:10px; cursor:pointer; text-decoration:underline; display:none;" onclick="signInWithDifferentAccount()">Choose a different Google account</p>
-
-    <div id="signin-needed">
-      <button class="google-btn" id="googleBtn" onclick="signInWithGoogle()">
-        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='18' height='18'%3E%3Cpath fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%23FF3D00' d='M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z'/%3E%3C/svg%3E" alt="" />
-        <span id="googleBtnLabel">Continue with Google</span>
-      </button>
-    </div>
-
-    <div class="signed-in-box" id="signin-done" style="display:none;">
-      <div class="who">Signed in as<small id="signedInEmail"></small></div>
-      <button class="link-btn" onclick="signOutNow()">Sign out</button>
-    </div>
-
-    <button class="btn-primary" id="continueToPayBtn" style="display:none;margin-top:6px;" onclick="goToStep(3)">Continue to payment</button>
-    <button class="btn-text" onclick="goToStep(1)">← Back to plan</button>
-  </div>
-
-  <!-- ── STEP 3: PAYMENT ── -->
-  <div class="step-panel" id="panel-3">
-    <div id="pay-summary">
-      <div class="panel-title">Review &amp; pay</div>
-      <div class="panel-sub">Handled securely by Stripe — your card or bank details never touch our servers.</div>
-
-      <div class="confirm-summary">
-        <div class="row"><span class="lbl">Plan</span> <b id="sumPlan">—</b></div>
-        <div class="row"><span class="lbl">Billing</span> <b id="sumInterval">—</b></div>
-        <div class="row"><span class="lbl">Total</span> <b id="sumTotal">—</b></div>
-        <div class="row"><span class="lbl">Account</span> <b id="sumEmail">—</b></div>
+      <div id="signed-out-block">
+        <button class="google-btn" id="google-btn" onclick="signInAndCheckout()">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='18' height='18'%3E%3Cpath fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%23FF3D00' d='M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z'/%3E%3C/svg%3E" alt="" />
+          <span id="google-btn-label">Continue with Google to subscribe</span>
+        </button>
       </div>
 
-      <div class="error-box" id="payError"></div>
-
-      <button class="btn-primary" id="payBtn" onclick="goToCheckout()">Continue to secure payment</button>
-      <div class="pay-note">You'll be taken to Stripe's secure checkout page to enter payment details.</div>
-      <button class="btn-text" onclick="goToStep(2)">← Back</button>
+      <div id="signed-in-block" hidden>
+        <p class="signed-in-text">Signed in as <strong id="signed-in-email"></strong></p>
+        <button class="btn" id="checkout-btn" onclick="startCheckout()">Continue to secure checkout</button>
+      </div>
     </div>
-
-    <div class="redirect-box" id="redirectBox">
-      <div class="spinner"></div>
-      <div class="redirect-title">Taking you to secure payment…</div>
-      <div class="redirect-sub">One moment.</div>
-    </div>
+    <p class="change-plan-link" onclick="backToChooser()">Choose a different plan</p>
   </div>
 
+  <p class="footer-note">Payment is handled by Stripe — Daily Tools never sees or stores your card details.</p>
 </div>
 
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence, deleteUser }
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, setPersistence, browserLocalPersistence }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { CLIENT } from "./client.config.js";
 
-  const app  = getApps().find(a => a.name === 'guard') || initializeApp(CLIENT.firebase, 'guard');
+  const FB_CONFIG = CLIENT.firebase;
+  const app  = getApps().find(a => a.name === 'guard') || initializeApp(FB_CONFIG, 'guard');
   const auth = getAuth(app);
   const db   = getDatabase(app);
 
-  let currentUser = null;
-
   try { await setPersistence(auth, browserLocalPersistence); } catch (e) { console.warn('[subscribe] setPersistence failed:', e); }
 
-  // Same denylist-only access policy as login.html / auth-guard.js: anyone
-  // can sign in by default, the denylist is the only cutoff mechanism.
-  async function isDenylisted(email) {
-    if (!email || email.toLowerCase() === (CLIENT.primaryAdminEmail || '').toLowerCase()) return false;
-    try {
-      const snap = await get(ref(db, CLIENT.dbRootPath + '/denylist'));
-      const list = snap.val();
-      return Array.isArray(list) && list.map(e => String(e).toLowerCase()).includes(email.toLowerCase());
-    } catch (e) {
-      // Fail-closed, same as login.html.
-      return true;
-    }
+  // Display-only copies of the real Stripe Prices -- keep in sync by hand
+  // with pricing.html and with the STRIPE_PRICE_* Netlify env vars.
+  const PLANS = {
+    personal: { key: 'personal', label: 'Personal',           monthly: 9.99,  annual: 99,  save: 20.88, popular: false, blurb: 'For one person using Daily Tools day to day.' },
+    family:   { key: 'family',   label: 'Family',              monthly: 19.99, annual: 199, save: 40.88, popular: true,  blurb: 'Everything in Personal, plus family/supporter collaboration.' },
+    pro:      { key: 'pro',      label: 'Professional Pro',    monthly: 29,    annual: 290, save: 58,    popular: false, blurb: 'For a professional managing multiple client relationships.' },
+  };
+  const money = (n) => '$' + (Number.isInteger(n) ? n : n.toFixed(2));
+
+  let state = { interval: 'month', plan: null };
+
+  const errorBox      = document.getElementById('error-box');
+  const canceledNotice= document.getElementById('canceled-notice');
+  const chooserView   = document.getElementById('chooser-view');
+  const confirmView   = document.getElementById('confirm-view');
+  const plansGrid     = document.getElementById('plans-grid');
+  const signedOutBlock= document.getElementById('signed-out-block');
+  const signedInBlock = document.getElementById('signed-in-block');
+  const signedInEmail = document.getElementById('signed-in-email');
+  const googleBtn     = document.getElementById('google-btn');
+  const checkoutBtn   = document.getElementById('checkout-btn');
+
+  function showError(msg) { errorBox.textContent = msg; errorBox.classList.add('show'); }
+  function hideError() { errorBox.classList.remove('show'); errorBox.textContent = ''; }
+
+  function renderPlansGrid() {
+    plansGrid.innerHTML = '';
+    Object.values(PLANS).forEach(function(p) {
+      const price = state.interval === 'year' ? p.annual : p.monthly;
+      const div = document.createElement('div');
+      div.className = 'plan-card' + (p.popular ? ' popular' : '');
+      div.innerHTML =
+        (p.popular ? '<div class="plan-popular-badge">MOST POPULAR</div>' : '') +
+        '<div class="plan-name">' + p.label + '</div>' +
+        '<div class="plan-price">' + money(price) + ' <small>/' + (state.interval === 'year' ? 'year' : 'month') + '</small></div>' +
+        '<div class="plan-save">' + (state.interval === 'year' ? 'Save ' + money(p.save) + '/year' : '&nbsp;') + '</div>' +
+        '<button class="btn">Choose ' + p.label + '</button>';
+      div.querySelector('button').onclick = function() { choosePlan(p.key); };
+      plansGrid.appendChild(div);
+    });
   }
 
-  function describeSignInError(err) {
-    const code = err && err.code ? err.code : '';
-    if (code === 'auth/unauthorized-domain') return "This site isn't authorized for sign-in yet. Contact the site owner.";
-    if (code === 'auth/popup-blocked') return 'Your browser blocked the sign-in popup. Please try again.';
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return 'Sign-in was closed before finishing. Please try again.';
-    if (code === 'auth/network-request-failed') return 'Network error — check your connection and try again.';
-    if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
-    if (code === 'auth/user-disabled') return 'This account has been disabled. Contact the site owner.';
-    return 'Sign-in failed. Please try again.';
+  window.selectInterval = function(interval) {
+    state.interval = interval;
+    document.getElementById('int-month-btn').classList.toggle('active', interval === 'month');
+    document.getElementById('int-year-btn').classList.toggle('active', interval === 'year');
+    renderPlansGrid();
+  };
+
+  function showConfirm(planKey) {
+    const p = PLANS[planKey];
+    if (!p) return;
+    state.plan = planKey;
+    const price = state.interval === 'year' ? p.annual : p.monthly;
+    document.getElementById('confirm-plan-name').textContent = p.label;
+    document.getElementById('confirm-plan-price').textContent = money(price) + '/' + (state.interval === 'year' ? 'yr' : 'mo');
+    document.getElementById('confirm-plan-sub').textContent = p.blurb;
+    chooserView.hidden = true;
+    confirmView.hidden = false;
+    hideError();
   }
 
-  function showSigninError(msg) {
-    const box = document.getElementById('signinError');
-    box.textContent = msg; box.classList.add('show');
-  }
-  function hideSigninError() {
-    const box = document.getElementById('signinError');
-    box.classList.remove('show'); box.textContent = '';
-    const tryDiff = document.getElementById('try-different-account');
-    if (tryDiff) tryDiff.style.display = 'none';
-  }
-  function setSigninLoading(isLoading) {
-    const btn = document.getElementById('googleBtn');
-    const label = document.getElementById('googleBtnLabel');
-    btn.disabled = isLoading;
-    label.innerHTML = isLoading ? '<span class="btn-spinner"></span>Signing in…' : 'Continue with Google';
-  }
+  window.choosePlan = function(planKey) { showConfirm(planKey); };
+  window.backToChooser = function() {
+    confirmView.hidden = true;
+    chooserView.hidden = false;
+    hideError();
+  };
 
-  // 2026-08-30 postmortem (see login.html for the full writeup): forcing
-  // prompt:'select_account' on every attempt broke sign-in outright, so
-  // that's reverted to the original default-path behavior here too. The
-  // "choose a different account" capability now lives only in
-  // window.signInWithDifferentAccount, reachable through a link that
-  // appears after a denial instead of being forced on every attempt.
-  async function doGoogleSignIn(forceAccountPicker) {
-    hideSigninError();
-    setSigninLoading(true);
+  window.signInAndCheckout = async function() {
+    hideError();
+    googleBtn.disabled = true;
+    const label = document.getElementById('google-btn-label');
+    if (label) label.innerHTML = '<span class="spinner"></span>Signing in…';
     const provider = new GoogleAuthProvider();
-    if (forceAccountPicker) provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const result = await signInWithPopup(auth, provider);
-      const blocked = await isDenylisted(result.user.email);
-      setSigninLoading(false);
-      if (blocked) {
-        await signOut(auth);
-        showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
-        const tryDiff = document.getElementById('try-different-account');
-        if (tryDiff) tryDiff.style.display = 'block';
-      }
-    } catch (err) {
-      console.warn('[subscribe] sign-in error:', err);
-      setSigninLoading(false);
-      if (err && err.code === 'auth/popup-blocked') {
-        try { await signInWithRedirect(auth, provider); } catch (redirectErr) { showSigninError(describeSignInError(redirectErr)); }
-      } else {
-        showSigninError(describeSignInError(err));
-      }
-    }
-  }
-  window.signInWithGoogle = function() { return doGoogleSignIn(false); };
-  window.signInWithDifferentAccount = function() { return doGoogleSignIn(true); };
-
-  window.signOutNow = async function() {
-    try { await signOut(auth); } catch (e) {}
-  };
-
-  (async () => {
-    try {
-      const result = await getRedirectResult(auth);
-      if (result) {
-        const blocked = await isDenylisted(result.user.email);
-        if (blocked) {
+      const email = (result.user.email || '').toLowerCase();
+      if (email !== CLIENT.primaryAdminEmail) {
+        const snap = await get(ref(db, CLIENT.dbRootPath + '/denylist'));
+        const list = snap.val();
+        const denied = Array.isArray(list) && list.map(function(e){ return String(e).toLowerCase(); }).includes(email);
+        if (denied) {
           await signOut(auth);
-          showSigninError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+          showError("This account doesn't have access. Contact the site owner if you think this is a mistake.");
+          googleBtn.disabled = false;
+          if (label) label.textContent = 'Continue with Google to subscribe';
+          return;
         }
       }
+      // onAuthStateChanged below flips the UI to the signed-in block.
     } catch (err) {
-      console.warn('[subscribe] redirect result error:', err);
-    } finally {
-      setSigninLoading(false);
+      console.warn('[subscribe] sign-in error:', err);
+      googleBtn.disabled = false;
+      if (label) label.textContent = 'Continue with Google to subscribe';
+      showError(err && err.code === 'auth/popup-closed-by-user' ? 'Sign-in was closed before finishing. Please try again.' : 'Sign-in failed. Please try again.');
+    }
+  };
+
+  window.startCheckout = async function() {
+    hideError();
+    const user = auth.currentUser;
+    if (!user || !state.plan) return;
+    checkoutBtn.disabled = true;
+    checkoutBtn.innerHTML = '<span class="spinner"></span>Redirecting to secure checkout…';
+    try {
+      const resp = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid, email: user.email, interval: state.interval, plan: state.plan }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.url) {
+        throw new Error(data && data.error ? data.error : 'Could not start checkout.');
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      console.error('[subscribe] checkout error:', err);
+      checkoutBtn.disabled = false;
+      checkoutBtn.textContent = 'Continue to secure checkout';
+      showError(err.message || 'Could not start checkout. Please try again.');
+    }
+  };
+
+  onAuthStateChanged(auth, function(user) {
+    if (user) {
+      signedOutBlock.hidden = true;
+      signedInBlock.hidden = false;
+      signedInEmail.textContent = user.email || '';
+      // If a sign-in just completed from signInAndCheckout(), move straight
+      // into checkout rather than making the person click twice.
+      if (state.plan && state._autoCheckoutPending) {
+        state._autoCheckoutPending = false;
+        window.startCheckout();
+      }
+    } else {
+      signedOutBlock.hidden = false;
+      signedInBlock.hidden = true;
+    }
+  });
+
+  // Wrap signInAndCheckout so a successful sign-in auto-continues to
+  // checkout instead of requiring a second click on "Continue to secure
+  // checkout" -- the onAuthStateChanged handler above checks this flag.
+  const _origSignIn = window.signInAndCheckout;
+  window.signInAndCheckout = function() {
+    state._autoCheckoutPending = true;
+    return _origSignIn();
+  };
+
+  // ---- Entry point: parse the URL and decide chooser vs. confirm view ----
+  (function init() {
+    const params = new URLSearchParams(window.location.search);
+    const urlPlan = String(params.get('plan') || '').toLowerCase();
+    const urlInterval = params.get('interval') === 'year' ? 'year' : 'month';
+    if (params.get('checkout') === 'canceled') canceledNotice.classList.add('show');
+
+    state.interval = urlInterval;
+    document.getElementById('int-month-btn').classList.toggle('active', urlInterval === 'month');
+    document.getElementById('int-year-btn').classList.toggle('active', urlInterval === 'year');
+    renderPlansGrid();
+
+    if (PLANS[urlPlan]) {
+      showConfirm(urlPlan);
     }
   })();
-
-  onAuthStateChanged(auth, (user) => {
-    currentUser = user;
-    const needed = document.getElementById('signin-needed');
-    const done = document.getElementById('signin-done');
-    const continueBtn = document.getElementById('continueToPayBtn');
-    if (user) {
-      needed.style.display = 'none';
-      done.style.display = 'flex';
-      document.getElementById('signedInEmail').textContent = user.email || '';
-      continueBtn.style.display = '';
-    } else {
-      needed.style.display = 'block';
-      done.style.display = 'none';
-      continueBtn.style.display = 'none';
-    }
-    window._subscribeGetUser = () => currentUser;
-    if (user) {
-      try {
-        var params = new URLSearchParams(window.location.search);
-        if (params.get('trial') === 'expired') renderTrialDeadline(user);
-      } catch (e) {}
-    }
-  });
-
-  window._subscribeGetUser = () => currentUser;
-
-  // Fills in #tenDeadline on the trial-expired banner with the date the
-  // account BECOMES ELIGIBLE for deletion (tools-you-the-winner/config/trial
-  // -- same config the Admin "Trial & Data Retention" card edits). Phrased
-  // as "eligible for," not "will be deleted on," because the actual
-  // scheduled deletion sweep is a separate server-side job that doesn't
-  // exist yet as of this writing -- see the you-the-winner-tools skill.
-  async function renderTrialDeadline(user) {
-    var el = document.getElementById('tenDeadline');
-    if (!el) return;
-    try {
-      var results = await Promise.all([
-        get(ref(db, 'users/' + user.uid + '/daily-tools/trial')),
-        get(ref(db, 'tools-you-the-winner/config/trial')),
-      ]);
-      var trial = results[0].val() || {};
-      var cfg = results[1].val() || {};
-      var graceDays = typeof cfg.graceDays === 'number' ? cfg.graceDays : 90;
-      var trialDays = typeof cfg.trialDays === 'number' ? cfg.trialDays : 14;
-      if (!trial.firstSignInAt) return;
-      var deadline = trial.firstSignInAt + (trialDays + graceDays) * 24 * 60 * 60 * 1000;
-      var dateStr = new Date(deadline).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-      el.textContent = 'If nothing changes by ' + dateStr + ', this account becomes eligible for deletion.';
-    } catch (e) {
-      // Leave the banner's generic copy as-is if this can't be computed.
-    }
-  }
-
-  // ── Trial-expired self-service: export & delete (added 2026-09-04) ──
-  // Wired to the #trialExpiredNote banner shown by the plain-script IIFE
-  // below when ?trial=expired is present. auth-guard.js's isTrialExpired()
-  // redirects here WITHOUT signing the user out, so `currentUser`/`auth`/
-  // `db` above are already live for a trial-expired visitor -- no extra
-  // sign-in step needed for either action. This exists because a
-  // subscription gate must never feel like the app is holding someone's
-  // data hostage: anyone can leave with a full copy of their data, or
-  // erase it and their account, with no subscription required either way.
-  window.exportMyData = async function() {
-    var btn = document.getElementById('tenExportBtn');
-    var status = document.getElementById('tenStatus');
-    var user = currentUser;
-    if (!user) { if (status) status.textContent = 'Please sign in first.'; return; }
-    if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
-    if (status) status.textContent = '';
-    try {
-      var snap = await get(ref(db, 'users/' + user.uid));
-      var data = snap.val() || {};
-      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'daily-tools-export-' + (user.email || user.uid) + '.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
-      if (status) status.textContent = 'Download started.';
-    } catch (err) {
-      console.error('[subscribe] export error:', err);
-      if (status) status.textContent = 'Could not export your data. Please try again.';
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '⬇️ Export my data'; }
-    }
-  };
-
-  window.confirmDeleteMyAccount = function() {
-    var status = document.getElementById('tenStatus');
-    if (!currentUser) { if (status) status.textContent = 'Please sign in first.'; return; }
-    var ok = window.confirm(
-      'Delete your account and all your Daily Tools data?\n\n' +
-      'This permanently removes your entries, settings and account -- there is no undo. ' +
-      'If you just want a copy first, use "Export my data" before continuing.\n\n' +
-      'Delete everything now?'
-    );
-    if (ok) window._deleteMyAccountNow();
-  };
-
-  // Same SHA-256-of-lowercased-email anti-abuse hash as auth-guard.js's
-  // hashEmailForCooldown() -- kept as a separate copy here (no shared
-  // module to import from) rather than the plaintext email, so the ledger
-  // entry below doesn't itself read as "their data."
-  async function hashEmailForCooldown(email) {
-    var bytes = new TextEncoder().encode((email || '').toLowerCase().trim());
-    var digest = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
-  }
-
-  window._deleteMyAccountNow = async function() {
-    var status = document.getElementById('tenStatus');
-    var delBtn = document.getElementById('tenDeleteBtn');
-    var user = currentUser;
-    if (!user) return;
-    if (delBtn) { delBtn.disabled = true; delBtn.textContent = 'Deleting…'; }
-    if (status) status.textContent = 'Deleting your data…';
-    var uid = user.uid;
-    var dataRemoved = false;
-
-    // Record the re-trial cooldown FIRST, best-effort -- this is the only
-    // thing that's allowed to survive "delete everything," and it's
-    // deliberately not tied to the uid being deleted (it's keyed by an
-    // email hash) so it still works as an anti-abuse check even after
-    // this account and its data are fully gone.
-    try {
-      var cfgSnap = await get(ref(db, 'tools-you-the-winner/config/trial'));
-      var cfg = cfgSnap.val() || {};
-      var cooldownDays = typeof cfg.cooldownDays === 'number' ? cfg.cooldownDays : 365;
-      var hash = await hashEmailForCooldown(user.email);
-      await set(ref(db, 'tools-you-the-winner/trial-cooldown/' + hash), {
-        expiresAt: Date.now() + cooldownDays * 24 * 60 * 60 * 1000,
-      });
-    } catch (e) {
-      console.warn('[subscribe] cooldown ledger write failed (continuing with deletion):', e);
-    }
-
-    try {
-      await remove(ref(db, 'users/' + uid));
-      await remove(ref(db, CLIENT.dbRootPath + '/user-index/' + uid)).catch(function() {});
-      dataRemoved = true;
-      if (status) status.textContent = 'Data removed — finishing account deletion…';
-      await deleteUser(user);
-      if (status) status.textContent = 'Your account and data have been deleted.';
-      window.setTimeout(function() {
-        window.location.replace('daily-tools-landing.html?deleted=1');
-      }, 1500);
-    } catch (err) {
-      console.error('[subscribe] delete error:', err);
-      if (!dataRemoved) {
-        if (status) status.textContent = 'Could not delete your data. Please try again.';
-        if (delBtn) { delBtn.disabled = false; delBtn.textContent = '🗑️ Delete my account & data'; }
-      } else if (err && err.code === 'auth/requires-recent-login') {
-        if (status) status.textContent = 'Your data has been deleted. To finish removing your sign-in, please sign out, sign back in, then click delete once more.';
-        if (delBtn) { delBtn.disabled = false; delBtn.textContent = '🗑️ Delete my account & data'; }
-      } else {
-        if (status) status.textContent = 'Your data was deleted, but the sign-in itself could not be removed automatically. Please try again, or contact support.';
-        if (delBtn) { delBtn.disabled = false; delBtn.textContent = '🗑️ Delete my account & data'; }
-      }
-    }
-  };
 </script>
-
-<script>
-// ── Plan/pack state and pricing display ──
-// These are DISPLAY prices only, matching the real Stripe Prices set up in
-// Netlify (see netlify/functions/_packs.js) -- the actual amount charged
-// always comes from Stripe's own Price object server-side; nothing here
-// determines what a card is actually billed for. If Marcelo changes a
-// Stripe Price, update the numbers below to match so the display stays
-// honest, but a mismatch here can never cause an over/undercharge.
-var PRICES = {
-  month: { base: 7.99, wellness: 10.98, goals: 11.98, calendar: 9.48, complete: 12.99 },
-  year:  { base: 69,   wellness: 69,    goals: 69,    calendar: 69,   complete: 119 }
-};
-var PACK_LABELS = { wellness: 'Wellness Pack', goals: 'Goals & Motivation Pack', calendar: 'Calendar' };
-
-var state = { interval: 'month', packs: { wellness: false, goals: false, calendar: false } };
-
-function fmt(n) {
-  return '$' + (Number.isInteger(n) ? n : n.toFixed(2));
-}
-
-function selectInterval(interval) {
-  state.interval = interval;
-  document.querySelectorAll('.interval-btn').forEach(function(b) {
-    b.classList.toggle('active', b.getAttribute('data-interval') === interval);
-  });
-  renderPrices();
-}
-
-function togglePack(pack) {
-  state.packs[pack] = !state.packs[pack];
-  document.querySelector('.plan-card[data-pack="' + pack + '"]').classList.toggle('selected', state.packs[pack]);
-  renderPrices();
-}
-
-function renderPrices() {
-  var p = PRICES[state.interval];
-  var suffix = state.interval === 'year' ? '/ year' : '/ month';
-  document.getElementById('price-base').innerHTML = fmt(p.base) + '<small>' + suffix + '</small>';
-  document.getElementById('price-wellness').innerHTML = fmt(p.wellness) + '<small>' + suffix + '</small>';
-  document.getElementById('price-goals').innerHTML = fmt(p.goals) + '<small>' + suffix + '</small>';
-  document.getElementById('price-calendar').innerHTML = fmt(p.calendar) + '<small>' + suffix + '</small>';
-
-  var allThree = state.packs.wellness && state.packs.goals && state.packs.calendar;
-  document.getElementById('bundleHint').classList.toggle('show', allThree);
-
-  var total = allThree ? p.complete : (p.base + (state.packs.wellness ? p.wellness : 0) + (state.packs.goals ? p.goals : 0) + (state.packs.calendar ? p.calendar : 0));
-  document.getElementById('totalAmt').innerHTML = fmt(total) + '<small>' + suffix + '</small>';
-}
-
-function planSummaryText() {
-  var names = [];
-  if (state.packs.wellness && state.packs.goals && state.packs.calendar) return 'Complete bundle (Base + all packs)';
-  names.push('Base');
-  Object.keys(PACK_LABELS).forEach(function(k) { if (state.packs[k]) names.push(PACK_LABELS[k]); });
-  return names.join(' + ');
-}
-
-function goToStep(n) {
-  document.querySelectorAll('.step-panel').forEach(function(p){ p.classList.remove('active'); });
-  document.getElementById('panel-'+n).classList.add('active');
-  document.querySelectorAll('.step-dot').forEach(function(d){
-    var s = parseInt(d.getAttribute('data-step'), 10);
-    d.classList.toggle('active', s === n);
-    d.classList.toggle('done', s < n);
-  });
-  if (n === 3) {
-    var p = PRICES[state.interval];
-    var allThree = state.packs.wellness && state.packs.goals && state.packs.calendar;
-    var total = allThree ? p.complete : (p.base + (state.packs.wellness ? p.wellness : 0) + (state.packs.goals ? p.goals : 0) + (state.packs.calendar ? p.calendar : 0));
-    document.getElementById('sumPlan').textContent = planSummaryText();
-    document.getElementById('sumInterval').textContent = state.interval === 'year' ? 'Annual' : 'Monthly';
-    document.getElementById('sumTotal').textContent = fmt(total) + (state.interval === 'year' ? '/yr' : '/mo');
-    var u = window._subscribeGetUser && window._subscribeGetUser();
-    document.getElementById('sumEmail').textContent = (u && u.email) || '—';
-  }
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-
-function showPayError(msg) {
-  var box = document.getElementById('payError');
-  box.textContent = msg; box.classList.add('show');
-}
-function hidePayError() {
-  var box = document.getElementById('payError');
-  box.classList.remove('show'); box.textContent = '';
-}
-
-async function goToCheckout() {
-  hidePayError();
-  var user = window._subscribeGetUser && window._subscribeGetUser();
-  if (!user) { goToStep(2); return; }
-
-  var payBtn = document.getElementById('payBtn');
-  payBtn.disabled = true;
-  payBtn.innerHTML = '<span class="btn-spinner"></span>Preparing checkout…';
-
-  try {
-    var res = await fetch('/.netlify/functions/create-checkout-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        interval: state.interval,
-        packs: state.packs
-      })
-    });
-    var data = await res.json().catch(function() { return {}; });
-    if (!res.ok || !data.url) {
-      throw new Error(data.error || ('Checkout could not be started (HTTP ' + res.status + ').'));
-    }
-    document.getElementById('pay-summary').style.display = 'none';
-    document.getElementById('redirectBox').classList.add('active');
-    window.location.href = data.url;
-  } catch (err) {
-    console.error('[subscribe] checkout error:', err);
-    payBtn.disabled = false;
-    payBtn.textContent = 'Continue to secure payment';
-    showPayError(err.message || 'Something went wrong starting checkout. Please try again.');
-  }
-}
-
-// Show the "checkout canceled" banner if Stripe sent us back here.
-(function() {
-  var params = new URLSearchParams(window.location.search);
-  if (params.get('checkout') === 'canceled') {
-    document.getElementById('canceledNote').classList.add('show');
-  }
-})();
-
-// Show the "trial expired" banner if auth-guard.js redirected us here
-// (see isTrialExpired() there). The banner's Export/Delete buttons use
-// the module script's exportMyData()/confirmDeleteMyAccount() above.
-(function() {
-  var params = new URLSearchParams(window.location.search);
-  if (params.get('trial') === 'expired') {
-    document.getElementById('trialExpiredNote').classList.add('show');
-  }
-})();
-
-// Pre-select all three add-on packs when linked from the "Complete" card on
-// daily-tools-landing.html (subscribe.html?plan=complete), so a visitor who
-// already chose Complete there doesn't have to click all three toggles
-// again here. create-checkout-session.js auto-detects all-three-selected
-// and swaps in the discounted Complete bundle Price -- see that file's
-// header comment -- so this is purely a UX shortcut, not a pricing change.
-(function() {
-  var params = new URLSearchParams(window.location.search);
-  if (params.get('plan') !== 'complete') return;
-  ['wellness', 'goals', 'calendar'].forEach(function(pack) {
-    state.packs[pack] = true;
-    var card = document.querySelector('.plan-card[data-pack="' + pack + '"]');
-    if (card) card.classList.add('selected');
-  });
-})();
-
-renderPrices();
-</script>
-
 </body>
 </html>

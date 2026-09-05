@@ -1,29 +1,21 @@
 /**
  * Stripe webhook handler -- Netlify serverless Function.
  *
- * Adapted from GoTuned's internal/business/stripe-integration.js
- * (webhookHandler / handleStripeWebhook), which does the same job for
- * GoTuned's licensing product: verify the Stripe signature, then branch on
- * event.type. What's different here:
- *   - GoTuned signs an Ed25519 license file and writes to its own SQLite
- *     database (subscriptions-db.js) from an always-running Express server.
- *     This project has no server of its own -- it's a static Netlify site
- *     -- so this runs as a Netlify Function instead, and "entitlement" is
- *     a Firebase Realtime Database write, not a signed file.
- *   - GoTuned grants one tier per subscription (PRICE_ID_TO_TIER). This
- *     product sells Base + independent add-on packs as multiple line items
- *     on ONE Stripe Subscription (see SUBSCRIPTION-ARCHITECTURE.md point 1),
- *     so entitlement here is the union of every line item's packs
- *     (packsFromSubscription(), in ./_packs.js).
- *   - GoTuned emails a license key on every grant. There's no license file
- *     concept here -- once tab-nav-shared.js's isEnabled() is extended per
- *     SUBSCRIPTION-ARCHITECTURE.md step 3, the app itself reads the
- *     Firebase entitlement record directly on every page load, so nothing
- *     needs to be emailed out for the app to work. Not building a
- *     confirmation email in this pass -- add one later the same way
- *     GoTuned's emailLicenseToCustomer() does, via nodemailer, if wanted.
+ * Verifies the Stripe signature, then branches on event.type. This
+ * project has no server of its own -- it's a static Netlify site -- so
+ * this runs as a Netlify Function, and "entitlement" is a Firebase
+ * Realtime Database write, not a signed license file.
  *
- * ── TEST / LIVE MODE (added 2026-08-21) ──
+ * ── PLAN MODEL (rebuilt 2026-09-05) ──
+ * This used to grant a union of independent add-on "packs" from a
+ * multi-item Subscription (packsFromSubscription() in ./_packs.js). The
+ * marketing site's pricing now sells flat plan tiers instead -- Personal,
+ * Family, Professional Pro, each a single-item Subscription -- so
+ * entitlement here is just "which one Price is on this subscription"
+ * (planFromSubscription(), in ./_packs.js), written as a `plan` string
+ * field instead of a `packs` object.
+ *
+ * ── TEST / LIVE MODE (added 2026-08-21, unchanged) ──
  * This project can hold a Test-mode AND a Live-mode Stripe account's
  * credentials at the same time (see ./_packs.js's header comment) --
  * admin-settings.html's "Stripe billing mode" toggle picks which one
@@ -36,20 +28,18 @@
  * file tries verifying against BOTH STRIPE_WEBHOOK_SECRET_TEST and
  * STRIPE_WEBHOOK_SECRET_LIVE and accepts whichever one actually matches
  * (see verifyStripeEvent() below). Whichever mode's checkout created the
- * subscription is implicit in which Price IDs show up on it -- since
- * PRICE_ID_TO_PACKS in ./_packs.js merges both modes' Price IDs into one
- * map, packsFromSubscription() resolves correctly either way with no
+ * subscription is implicit in which Price ID shows up on it -- since
+ * PRICE_ID_TO_PLAN in ./_packs.js merges both modes' Price IDs into one
+ * map, planFromSubscription() resolves correctly either way with no
  * extra bookkeeping needed.
  *
  * NOT FULLY LIVE YET. Requires, all as Netlify environment variables:
  *   STRIPE_SECRET_KEY_TEST and/or STRIPE_SECRET_KEY_LIVE
  *   STRIPE_WEBHOOK_SECRET_TEST and/or STRIPE_WEBHOOK_SECRET_LIVE
  *   FIREBASE_SERVICE_ACCOUNT_KEY, FIREBASE_DATABASE_URL (see ./_packs.js)
- *   The STRIPE_PRICE_*_TEST / STRIPE_PRICE_*_LIVE variables listed in
- *     ./_packs.js, once real Prices exist in the Stripe Dashboard for that
- *     mode (see PRICING-STRATEGY.md for what to create: Base, Wellness
- *     Pack, Goals & Motivation Pack, Calendar, Complete -- each monthly +
- *     annual).
+ *   The STRIPE_PRICE_{PERSONAL,FAMILY,PRO}_{MONTHLY,ANNUAL}_{TEST,LIVE}
+ *     variables listed in ./_packs.js, once real Prices exist in the
+ *     Stripe Dashboard for that mode.
  *
  * Also requires, per mode you want live: registering this function's URL
  * (https://<your-netlify-domain>/.netlify/functions/stripe-webhook) as a
@@ -61,12 +51,10 @@
  *   invoice.payment_failed
  * then copying that endpoint's signing secret into STRIPE_WEBHOOK_SECRET_TEST
  * or STRIPE_WEBHOOK_SECRET_LIVE to match.
- *
- * See SUBSCRIPTION-ARCHITECTURE.md for the full sequencing this fits into.
  */
 
 const admin = require('firebase-admin');
-const { getFirebaseAdmin, getWebhookSecrets, packsFromSubscription, mapStatus } = require('./_packs');
+const { getFirebaseAdmin, getWebhookSecrets, planFromSubscription, mapStatus } = require('./_packs');
 
 /**
  * A Stripe client instance is only needed here for its .webhooks helper,
@@ -112,11 +100,7 @@ function verifyStripeEvent(stripe, rawBody, sig) {
  * create-checkout-session.js sets via subscription_data.metadata at
  * checkout time -- Stripe carries that metadata onto the Subscription it
  * creates, so every later event for this subscription already has it, with
- * no separate Stripe-customer-id -> Firebase-uid lookup table needed
- * (GoTuned doesn't need one either, but only because its own SQLite db
- * uses the Stripe customer id as its own primary key -- this project keys
- * everything off the Firebase uid instead, so the same shortcut doesn't
- * apply and metadata is what closes the gap).
+ * no separate Stripe-customer-id -> Firebase-uid lookup table needed.
  */
 async function writeEntitlement(subscription) {
   const uid = subscription.metadata && subscription.metadata.firebaseUid;
@@ -156,13 +140,13 @@ async function writeEntitlement(subscription) {
     status: mapStatus(subscription.status),
     stripeCustomerId: subscription.customer,
     stripeSubscriptionId: subscription.id,
-    packs: packsFromSubscription(subscription),
+    plan: planFromSubscription(subscription),
     currentPeriodEnd: subscription.current_period_end ? subscription.current_period_end * 1000 : null,
     updatedAt: admin.database.ServerValue.TIMESTAMP,
   };
   update['stripeCustomerId_' + modeKey] = subscription.customer;
   await subRef.update(update);
-  console.log('Wrote entitlement for uid', uid, '- status:', mapStatus(subscription.status), '- mode:', modeKey);
+  console.log('Wrote entitlement for uid', uid, '- status:', mapStatus(subscription.status), '- plan:', update.plan, '- mode:', modeKey);
 }
 
 async function handleEvent(event) {
@@ -172,8 +156,7 @@ async function handleEvent(event) {
       // customer.subscription.created (below) does the actual entitlement
       // write, using the same subscription_data.metadata this session set
       // at creation time -- this case is just a log line / a place to hook
-      // a welcome email later if wanted, mirroring GoTuned's
-      // emailLicenseToCustomer() step (not built here, see header comment).
+      // a welcome email later if wanted.
       const session = event.data.object;
       console.log('Checkout completed for uid', session.client_reference_id, '- session', session.id);
       break;
