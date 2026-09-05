@@ -265,6 +265,15 @@ button{cursor:pointer;font-family:'Quicksand',sans-serif;}
 .settings-tab.active{background:none;color:var(--accent);border-bottom-color:var(--accent);}
 .settings-tabpage{display:none;}
 .settings-tabpage.active{display:block;}
+/* Desktop/wide screens (2026-09-05): the bar above scrolls sideways with no
+   visible scrollbar and no drag-to-scroll, which works fine on mobile via
+   touch swipe but silently hides trailing tabs on desktop, where there's no
+   way to reach them with a mouse. At >=560px (matches the mobile/desktop
+   breakpoint used elsewhere, e.g. .tab-bar) let the bar wrap onto a second
+   row instead, so every tab stays visible and clickable. */
+@media(min-width:560px){
+  .settings-tabbar{flex-wrap:wrap;overflow-x:visible;}
+}
 /* Overflow "More" menu — once more than TB_MAX_VISIBLE tabs are enabled,
    the extras collapse behind a hamburger-style button so the bar itself
    never grows past a handful of icons. */

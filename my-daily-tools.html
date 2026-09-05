@@ -7268,10 +7268,11 @@ window.removeRmMilestone = function(pi, mi) {
        read this data at all, same reasoning as Cycle Tracker being left
        off it. -->
   <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
-    <div class="txn-collapse-header" style="padding:14px 16px;cursor:default;">
+    <div class="txn-collapse-header" onclick="toggleSettingsSection('weight')" style="padding:14px 16px;">
       <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">⚖️ Weight &amp; Height Tracking</span>
+      <span class="txn-collapse-chevron" id="settings-chevron-weight">▼</span>
     </div>
-    <div style="padding:0 16px 14px;">
+    <div id="settings-section-weight" style="display:none;padding:0 16px 14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
         <div>
           <div style="font-size:.84rem;font-weight:700;">Track in My Day</div>
