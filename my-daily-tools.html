@@ -7824,6 +7824,52 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
+  <!-- Trial & Data Retention (admin only) -- added 2026-09-04, per Marcelo
+       ("make it configurable, we may decide to change for one reason or
+       another"). Reads/writes tools-you-the-winner/config/trial, which is
+       the single source of truth auth-guard.js's isTrialExpired() and
+       subscribe.html's delete flow both read (with the same fallback
+       defaults baked into each of those files, used only if this config
+       node doesn't exist yet or can't be read). Changing values here takes
+       effect immediately, no deploy needed -- but note this only changes
+       the trial LENGTH and the numbers shown/used elsewhere; the actual
+       scheduled deletion sweep and email reminders are a separate,
+       not-yet-built server-side job (see the you-the-winner-tools skill). -->
+  <div id="trial-config-card" style="display:none;margin-bottom:12px;">
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="txn-collapse-header" onclick="toggleSettingsSection('trial-config')" style="padding:14px 16px;">
+        <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">⏳ Trial &amp; Data Retention</span>
+        <span class="txn-collapse-chevron" id="settings-chevron-trial-config">▼</span>
+      </div>
+      <div id="settings-section-trial-config" style="display:none;padding:0 16px 14px;">
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;">Controls the free trial length and what happens after it ends. Applies to new sign-ins going forward.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.8rem;">
+            <span>Free trial length (days)</span>
+            <input type="number" id="trial-cfg-trialDays" min="1" step="1" style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);text-align:right;">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.8rem;">
+            <span>Grace period after trial ends, before data may be deleted (days)</span>
+            <input type="number" id="trial-cfg-graceDays" min="0" step="1" style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);text-align:right;">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.8rem;">
+            <span>Re-trial cooldown after a deleted account's email (days)</span>
+            <input type="number" id="trial-cfg-cooldownDays" min="0" step="1" style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.82rem;background:var(--surface2);text-align:right;">
+          </label>
+          <label style="display:flex;align-items:center;gap:9px;font-size:.8rem;cursor:not-allowed;opacity:.6;" title="Not built yet -- needs a transactional email provider set up first">
+            <input type="checkbox" id="trial-cfg-emailReminders" disabled>
+            <span>Send email reminders before deletion <em>(not wired up yet)</em></span>
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px;">
+          <button onclick="window.saveTrialConfig()" style="background:var(--accent);color:#fff;border:none;border-radius:99px;padding:8px 18px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;">Apply Now</button>
+          <span id="trial-cfg-saved-msg" style="font-size:.72rem;color:var(--accent);display:none;">✓ Saved!</span>
+          <span id="trial-cfg-error-msg" style="font-size:.72rem;color:var(--error, #c0392b);display:none;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Clone Config (admin only) -->
   <div id="clone-config-card" style="display:none;margin-bottom:12px;">
     <div class="card" style="padding:0;overflow:hidden;">
@@ -23936,6 +23982,65 @@ alert('Failed — ' + (e.message || 'make sure you are signed in as admin.'));
 }
 };
 
+// ── Trial & Data Retention config (added 2026-09-04) ────────────────────
+// Reads/writes tools-you-the-winner/config/trial -- see auth-guard.js's
+// TRIAL_DEFAULTS comment for why this lives in Firebase rather than a
+// code constant, and subscribe.html's delete flow, which reads the same
+// cooldownDays value when writing a re-trial cooldown ledger entry.
+var TRIAL_CONFIG_DEFAULTS = { trialDays: 14, graceDays: 90, cooldownDays: 365, emailRemindersEnabled: false };
+
+window._loadTrialConfigIntoForm = async function() {
+try {
+var snap = await get(ref(db, 'tools-you-the-winner/config/trial'));
+var cfg = snap.val() || {};
+var trialDaysEl = document.getElementById('trial-cfg-trialDays');
+var graceDaysEl = document.getElementById('trial-cfg-graceDays');
+var cooldownDaysEl = document.getElementById('trial-cfg-cooldownDays');
+var emailEl = document.getElementById('trial-cfg-emailReminders');
+if (trialDaysEl) trialDaysEl.value = (typeof cfg.trialDays === 'number') ? cfg.trialDays : TRIAL_CONFIG_DEFAULTS.trialDays;
+if (graceDaysEl) graceDaysEl.value = (typeof cfg.graceDays === 'number') ? cfg.graceDays : TRIAL_CONFIG_DEFAULTS.graceDays;
+if (cooldownDaysEl) cooldownDaysEl.value = (typeof cfg.cooldownDays === 'number') ? cfg.cooldownDays : TRIAL_CONFIG_DEFAULTS.cooldownDays;
+if (emailEl) emailEl.checked = cfg.emailRemindersEnabled === true;
+} catch(e) {
+console.warn('_loadTrialConfigIntoForm failed:', e);
+}
+};
+
+window.saveTrialConfig = async function() {
+var errEl = document.getElementById('trial-cfg-error-msg');
+var okEl = document.getElementById('trial-cfg-saved-msg');
+if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+if (okEl) okEl.style.display = 'none';
+
+var trialDays = parseInt(document.getElementById('trial-cfg-trialDays').value, 10);
+var graceDays = parseInt(document.getElementById('trial-cfg-graceDays').value, 10);
+var cooldownDays = parseInt(document.getElementById('trial-cfg-cooldownDays').value, 10);
+
+if (!Number.isFinite(trialDays) || trialDays < 1 ||
+    !Number.isFinite(graceDays) || graceDays < 0 ||
+    !Number.isFinite(cooldownDays) || cooldownDays < 0) {
+  if (errEl) { errEl.textContent = 'Please enter valid, non-negative numbers (trial length must be at least 1 day).'; errEl.style.display = 'inline'; }
+  return;
+}
+
+try {
+  await set(ref(db, 'tools-you-the-winner/config/trial'), {
+    trialDays: trialDays,
+    graceDays: graceDays,
+    cooldownDays: cooldownDays,
+    emailRemindersEnabled: false, // not wired up yet -- checkbox is disabled in the UI
+    updatedAt: Date.now(),
+  });
+  if (okEl) {
+    okEl.style.display = 'inline';
+    setTimeout(function(){ okEl.style.display = 'none'; }, 3000);
+  }
+} catch(e) {
+  console.warn('saveTrialConfig failed:', e);
+  if (errEl) { errEl.textContent = 'Failed to save — ' + (e.message || 'make sure you are signed in as admin.'); errEl.style.display = 'inline'; }
+}
+};
+
 /* Bootstrap / Init */
 
 window._doSignOut = async function() {
@@ -25272,6 +25377,11 @@ var radio = document.querySelector('input[name="demo-plans-mode"][value="'+mode+
 if (radio) radio.checked = true;
 }).catch(function(){});
 }
+var trialConfigCard = document.getElementById('trial-config-card');
+if (trialConfigCard) {
+trialConfigCard.style.display = '';
+window._loadTrialConfigIntoForm && window._loadTrialConfigIntoForm();
+}
 var cloneCard = document.getElementById('clone-config-card');
 if (cloneCard) {
 cloneCard.style.display = '';
@@ -25287,7 +25397,7 @@ if (dangerJump) dangerJump.style.display = '';
 // Non-admin account: make sure admin-only cards are hidden even if this
 // browser tab previously had an admin session signed in (account switch
 // without a full page reload).
-['demo-refresh-card','demo-setup-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
+['demo-refresh-card','demo-setup-card','trial-config-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
 var el = document.getElementById(id);
 if (el) el.style.display = 'none';
 });
@@ -27596,7 +27706,7 @@ try { await set(ref(db, RmUP+'/daily-tools/settings/roadmap-config'), cfg); } ca
 // Guest / signed-out: hide admin-only cards (Demo setup, Clone config,
 // Data Cleanup) in case an admin was signed in on this tab before signing
 // out, mirroring the same reset done above for a non-admin account switch.
-['demo-refresh-card','demo-setup-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
+['demo-refresh-card','demo-setup-card','trial-config-card','clone-config-card','settings-group-danger','settings-card-danger','settings-jump-danger'].forEach(function(id) {
 var el = document.getElementById(id);
 if (el) el.style.display = 'none';
 });

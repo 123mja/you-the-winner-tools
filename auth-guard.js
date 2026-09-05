@@ -6,7 +6,7 @@
 
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { CLIENT } from "./client.config.js";
 
 // Sourced from client.config.js so a new client instance only has to edit
@@ -124,6 +124,149 @@ async function isDenylisted(db, user) {
   const list = snap?.val();
   if (!Array.isArray(list)) return false;
   return list.map(e => String(e).toLowerCase()).includes((user.email || '').toLowerCase());
+}
+
+// ── FREE TRIAL GATE (added 2026-09-04, per Marcelo) ──────────────────────
+// Every account gets a free trial from its first-ever sign-in before it
+// needs a real Stripe subscription (users/{uid}/subscription/status ===
+// 'active' | 'comp' | 'past_due' — see netlify/functions/_packs.js's
+// mapStatus() and SUBSCRIPTION-ARCHITECTURE.md) to keep using any
+// 'auth'-gated page.
+//
+// Deliberately does NOT sign the person out or touch the Denylist — a
+// trial-expired visitor stays signed in and is redirected to
+// subscribe.html?trial=expired instead, which offers Subscribe, Export My
+// Data, and Delete My Account & Data. The goal is "please subscribe," not
+// "you're banned" — nobody should end up feeling like their data was taken
+// hostage; see that page's own comments for the export/delete flow.
+//
+// Grandfathering: an account is only ever timed if its very first sign-in
+// happens AFTER this feature shipped. That's detected without a separate
+// migration step: tools-you-the-winner/user-index/{uid} (written by
+// my-daily-tools.html on every real sign-in, long before this feature
+// existed) already exists for every pre-existing account, so the first
+// time THIS code sees such an account with no trial record yet, it marks
+// it trial.exempt = true once instead of starting a clock. Only a uid with
+// no user-index entry AND no trial record is treated as brand new.
+//
+// Configurable policy (added 2026-09-04, same day, per Marcelo — "make it
+// configurable, we may decide to change for one reason or another"):
+// trial length, the grace period before an unsubscribed account becomes
+// eligible for deletion, whether email reminders are on, and the re-trial
+// cooldown after a deletion all live in Firebase at
+// tools-you-the-winner/config/trial, editable from Settings > Admin >
+// "Trial & Data Retention" in my-daily-tools.html — no code deploy needed
+// to change them. TRIAL_DEFAULTS below are ONLY the fallback used if that
+// config node is missing or unreadable; they are not the source of truth.
+// NOTE: graceDays/emailRemindersEnabled are read and shown to the user
+// (subscribe.html's banner) but the actual scheduled deletion sweep and
+// email sending are a separate, not-yet-built server-side job — see the
+// you-the-winner-tools skill for that design writeup.
+const TRIAL_DEFAULTS = {
+  trialDays: 14,
+  graceDays: 90,
+  cooldownDays: 365,
+  emailRemindersEnabled: false,
+};
+
+async function loadTrialConfig(db) {
+  try {
+    const snap = await get(ref(db, 'tools-you-the-winner/config/trial'));
+    const cfg = snap.val() || {};
+    return {
+      trialDays: typeof cfg.trialDays === 'number' ? cfg.trialDays : TRIAL_DEFAULTS.trialDays,
+      graceDays: typeof cfg.graceDays === 'number' ? cfg.graceDays : TRIAL_DEFAULTS.graceDays,
+      cooldownDays: typeof cfg.cooldownDays === 'number' ? cfg.cooldownDays : TRIAL_DEFAULTS.cooldownDays,
+      emailRemindersEnabled: cfg.emailRemindersEnabled === true,
+    };
+  } catch (e) {
+    return TRIAL_DEFAULTS; // fail open toward defaults, same asymmetry as isTrialExpired() below
+  }
+}
+
+// SHA-256 hex hash of a lowercased email — used ONLY as an anti-abuse key
+// in the re-trial cooldown ledger (tools-you-the-winner/trial-cooldown/
+// {hash}), never the plaintext email. Without this, "Delete my account &
+// data" on subscribe.html (which really does remove everything, including
+// the Auth account) would let anyone reset their own trial clock forever
+// by deleting and signing up again. The ledger entry is deliberately just
+// {expiresAt} keyed by a hash — nothing that reads as "their data" once
+// they've asked for it gone. subscribe.html's _deleteMyAccountNow() writes
+// this same ledger entry at delete time.
+async function hashEmailForCooldown(email) {
+  const bytes = new TextEncoder().encode((email || '').toLowerCase().trim());
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function isTrialExpired(db, user) {
+  if (!user) return false;
+  const myEmail = (user.email || '').toLowerCase();
+  const adminEmails = (CLIENT.adminEmails || []).map(e => (e || '').toLowerCase());
+  if (adminEmails.includes(myEmail)) return false; // admin account(s) never gated
+
+  const uid = user.uid;
+  const cfg = await loadTrialConfig(db);
+  const trialMs = cfg.trialDays * 24 * 60 * 60 * 1000;
+
+  let subStatus, trial, hasUserIndex;
+  try {
+    const [subSnap, trialSnap, indexSnap] = await Promise.all([
+      get(ref(db, 'users/' + uid + '/subscription/status')),
+      get(ref(db, 'users/' + uid + '/daily-tools/trial')),
+      get(ref(db, 'tools-you-the-winner/user-index/' + uid)),
+    ]);
+    subStatus = subSnap.val();
+    trial = trialSnap.val() || {};
+    hasUserIndex = indexSnap.exists();
+  } catch (e) {
+    // Fail OPEN, not closed — a Firebase read error should never lock a
+    // real (possibly paying) account out of their own app. Contrast with
+    // isDenylisted() above, which fails closed, because that check
+    // protects against a different, higher-stakes failure mode (a banned
+    // account slipping through) than this one does.
+    return false;
+  }
+
+  if (subStatus === 'active' || subStatus === 'comp' || subStatus === 'past_due') return false; // has (or recently had) a real subscription
+  if (trial.exempt === true) return false;
+
+  if (trial.firstSignInAt) {
+    return (Date.now() - trial.firstSignInAt) >= trialMs;
+  }
+
+  // No trial record yet for this uid — first time this code has ever seen
+  // them. Decide grandfather vs. brand-new, then never re-decide it again.
+  if (hasUserIndex) {
+    set(ref(db, 'users/' + uid + '/daily-tools/trial/exempt'), true).catch(() => {});
+    return false;
+  }
+
+  // Brand new account (no user-index, no trial record). Before starting a
+  // fresh trial, check the re-trial cooldown ledger — an email that
+  // deleted its account recently doesn't get another full trial window.
+  try {
+    const hash = await hashEmailForCooldown(myEmail);
+    const cooldownSnap = await get(ref(db, 'tools-you-the-winner/trial-cooldown/' + hash));
+    const cooldown = cooldownSnap.val();
+    if (cooldown && typeof cooldown.expiresAt === 'number' && Date.now() < cooldown.expiresAt) {
+      // Start this account already at the end of its trial rather than at
+      // day 0, so it goes straight to subscribe.html instead of getting a
+      // brand-new free window.
+      set(ref(db, 'users/' + uid + '/daily-tools/trial/firstSignInAt'), Date.now() - trialMs - 1).catch(() => {});
+      return true;
+    }
+  } catch (e) {
+    // Fail open here too — an unreadable cooldown ledger should never
+    // block a genuinely new signup from getting their trial.
+  }
+
+  set(ref(db, 'users/' + uid + '/daily-tools/trial/firstSignInAt'), Date.now()).catch(() => {});
+  return false; // day 0 of a brand-new trial — definitely not expired yet
+}
+
+function redirectToSubscribe() {
+  window.location.replace('/subscribe.html?trial=expired');
 }
 
 // Shows a full-screen PIN overlay over the page (used when page has PIN access enabled).
@@ -293,6 +436,19 @@ try {
       if (await isDenylisted(db, user)) {
         await signOut(auth);
         accessDenied();
+        return;
+      }
+
+      // Free trial gate — ahead of either permission system below, same as
+      // the Denylist check above, so it applies no matter which access-
+      // control path (legacy DEFAULTS or the newer R/W/X permissions
+      // system) currently governs this page. Only ever evaluated for a
+      // signed-in user; an anonymous/demo visitor has no trial to expire.
+      // See isTrialExpired()'s own header comment above for the full
+      // design (grandfathering, admin exemption, subscription exemption,
+      // and why this redirects instead of signing out / denylisting).
+      if (user && await isTrialExpired(db, user)) {
+        redirectToSubscribe();
         return;
       }
 

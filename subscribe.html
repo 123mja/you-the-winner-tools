@@ -92,6 +92,24 @@
     }
     .canceled-note.show { display: block; }
 
+    /* Trial-expired banner (added 2026-09-04) -- gold/warning tone rather
+       than the red error style above, since this isn't a failure or a
+       ban, just "time to subscribe" -- with a way to leave with your data
+       intact if you'd rather not. See auth-guard.js's isTrialExpired()
+       for what redirects here (?trial=expired). */
+    .trial-expired-note {
+      display: none; font-size: .8rem; color: #7a5b00; background: var(--gold-bg);
+      border: 1px solid #f3dfa0; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
+    }
+    .trial-expired-note.show { display: block; }
+    .trial-expired-note .ten-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .88rem; margin-bottom: 4px; color: var(--text); }
+    .trial-expired-note .ten-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .ten-btn {
+      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .74rem; cursor: pointer;
+      border-radius: 8px; padding: 7px 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text);
+    }
+    .ten-btn.danger { border-color: #e3b3ac; color: var(--error); }
+
     /* ── STEP INDICATOR ── */
     .steps {
       display: flex; align-items: center; justify-content: center;
@@ -263,6 +281,24 @@
 
   <div class="canceled-note" id="canceledNote">Checkout was canceled — no charge was made. Pick your plan below to try again.</div>
 
+  <!-- Trial-expired banner (added 2026-09-04) -- Export/Delete work off the
+       Firebase session that's already signed in from before the redirect
+       here (auth-guard.js deliberately does NOT sign a trial-expired
+       visitor out), so both buttons are live immediately, no re-sign-in
+       needed, unless the session happens to be old enough that Firebase
+       itself requires a fresh one for account deletion (handled in
+       confirmDeleteMyAccount()'s own error message below). -->
+  <div class="trial-expired-note" id="trialExpiredNote">
+    <div class="ten-title">⏳ Your 14-day trial has ended</div>
+    <div>Pick a plan below to keep using Daily Tools. Not ready? Your data is yours — download a copy or delete your account below, no subscription required either way.</div>
+    <div class="ten-actions">
+      <button class="ten-btn" onclick="window.exportMyData()" id="tenExportBtn">⬇️ Export my data</button>
+      <button class="ten-btn danger" onclick="window.confirmDeleteMyAccount()" id="tenDeleteBtn">🗑️ Delete my account &amp; data</button>
+    </div>
+    <div id="tenDeadline" style="margin-top:8px;font-size:.72rem;color:var(--muted);"></div>
+    <div id="tenStatus" style="margin-top:8px;font-size:.72rem;"></div>
+  </div>
+
   <div class="steps" id="stepIndicator">
     <div class="step-dot active" data-step="1"><span class="num">1</span><span class="label">Plan</span></div>
     <div class="step-line"></div>
@@ -389,8 +425,8 @@
 
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence }
+  import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence, deleteUser }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { CLIENT } from "./client.config.js";
 
@@ -515,9 +551,153 @@
       continueBtn.style.display = 'none';
     }
     window._subscribeGetUser = () => currentUser;
+    if (user) {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('trial') === 'expired') renderTrialDeadline(user);
+      } catch (e) {}
+    }
   });
 
   window._subscribeGetUser = () => currentUser;
+
+  // Fills in #tenDeadline on the trial-expired banner with the date the
+  // account BECOMES ELIGIBLE for deletion (tools-you-the-winner/config/trial
+  // -- same config the Admin "Trial & Data Retention" card edits). Phrased
+  // as "eligible for," not "will be deleted on," because the actual
+  // scheduled deletion sweep is a separate server-side job that doesn't
+  // exist yet as of this writing -- see the you-the-winner-tools skill.
+  async function renderTrialDeadline(user) {
+    var el = document.getElementById('tenDeadline');
+    if (!el) return;
+    try {
+      var results = await Promise.all([
+        get(ref(db, 'users/' + user.uid + '/daily-tools/trial')),
+        get(ref(db, 'tools-you-the-winner/config/trial')),
+      ]);
+      var trial = results[0].val() || {};
+      var cfg = results[1].val() || {};
+      var graceDays = typeof cfg.graceDays === 'number' ? cfg.graceDays : 90;
+      var trialDays = typeof cfg.trialDays === 'number' ? cfg.trialDays : 14;
+      if (!trial.firstSignInAt) return;
+      var deadline = trial.firstSignInAt + (trialDays + graceDays) * 24 * 60 * 60 * 1000;
+      var dateStr = new Date(deadline).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      el.textContent = 'If nothing changes by ' + dateStr + ', this account becomes eligible for deletion.';
+    } catch (e) {
+      // Leave the banner's generic copy as-is if this can't be computed.
+    }
+  }
+
+  // ── Trial-expired self-service: export & delete (added 2026-09-04) ──
+  // Wired to the #trialExpiredNote banner shown by the plain-script IIFE
+  // below when ?trial=expired is present. auth-guard.js's isTrialExpired()
+  // redirects here WITHOUT signing the user out, so `currentUser`/`auth`/
+  // `db` above are already live for a trial-expired visitor -- no extra
+  // sign-in step needed for either action. This exists because a
+  // subscription gate must never feel like the app is holding someone's
+  // data hostage: anyone can leave with a full copy of their data, or
+  // erase it and their account, with no subscription required either way.
+  window.exportMyData = async function() {
+    var btn = document.getElementById('tenExportBtn');
+    var status = document.getElementById('tenStatus');
+    var user = currentUser;
+    if (!user) { if (status) status.textContent = 'Please sign in first.'; return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+    if (status) status.textContent = '';
+    try {
+      var snap = await get(ref(db, 'users/' + user.uid));
+      var data = snap.val() || {};
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'daily-tools-export-' + (user.email || user.uid) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
+      if (status) status.textContent = 'Download started.';
+    } catch (err) {
+      console.error('[subscribe] export error:', err);
+      if (status) status.textContent = 'Could not export your data. Please try again.';
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '⬇️ Export my data'; }
+    }
+  };
+
+  window.confirmDeleteMyAccount = function() {
+    var status = document.getElementById('tenStatus');
+    if (!currentUser) { if (status) status.textContent = 'Please sign in first.'; return; }
+    var ok = window.confirm(
+      'Delete your account and all your Daily Tools data?\n\n' +
+      'This permanently removes your entries, settings and account -- there is no undo. ' +
+      'If you just want a copy first, use "Export my data" before continuing.\n\n' +
+      'Delete everything now?'
+    );
+    if (ok) window._deleteMyAccountNow();
+  };
+
+  // Same SHA-256-of-lowercased-email anti-abuse hash as auth-guard.js's
+  // hashEmailForCooldown() -- kept as a separate copy here (no shared
+  // module to import from) rather than the plaintext email, so the ledger
+  // entry below doesn't itself read as "their data."
+  async function hashEmailForCooldown(email) {
+    var bytes = new TextEncoder().encode((email || '').toLowerCase().trim());
+    var digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  window._deleteMyAccountNow = async function() {
+    var status = document.getElementById('tenStatus');
+    var delBtn = document.getElementById('tenDeleteBtn');
+    var user = currentUser;
+    if (!user) return;
+    if (delBtn) { delBtn.disabled = true; delBtn.textContent = 'Deleting…'; }
+    if (status) status.textContent = 'Deleting your data…';
+    var uid = user.uid;
+    var dataRemoved = false;
+
+    // Record the re-trial cooldown FIRST, best-effort -- this is the only
+    // thing that's allowed to survive "delete everything," and it's
+    // deliberately not tied to the uid being deleted (it's keyed by an
+    // email hash) so it still works as an anti-abuse check even after
+    // this account and its data are fully gone.
+    try {
+      var cfgSnap = await get(ref(db, 'tools-you-the-winner/config/trial'));
+      var cfg = cfgSnap.val() || {};
+      var cooldownDays = typeof cfg.cooldownDays === 'number' ? cfg.cooldownDays : 365;
+      var hash = await hashEmailForCooldown(user.email);
+      await set(ref(db, 'tools-you-the-winner/trial-cooldown/' + hash), {
+        expiresAt: Date.now() + cooldownDays * 24 * 60 * 60 * 1000,
+      });
+    } catch (e) {
+      console.warn('[subscribe] cooldown ledger write failed (continuing with deletion):', e);
+    }
+
+    try {
+      await remove(ref(db, 'users/' + uid));
+      await remove(ref(db, CLIENT.dbRootPath + '/user-index/' + uid)).catch(function() {});
+      dataRemoved = true;
+      if (status) status.textContent = 'Data removed — finishing account deletion…';
+      await deleteUser(user);
+      if (status) status.textContent = 'Your account and data have been deleted.';
+      window.setTimeout(function() {
+        window.location.replace('daily-tools-landing.html?deleted=1');
+      }, 1500);
+    } catch (err) {
+      console.error('[subscribe] delete error:', err);
+      if (!dataRemoved) {
+        if (status) status.textContent = 'Could not delete your data. Please try again.';
+        if (delBtn) { delBtn.disabled = false; delBtn.textContent = '🗑️ Delete my account & data'; }
+      } else if (err && err.code === 'auth/requires-recent-login') {
+        if (status) status.textContent = 'Your data has been deleted. To finish removing your sign-in, please sign out, sign back in, then click delete once more.';
+        if (delBtn) { delBtn.disabled = false; delBtn.textContent = '🗑️ Delete my account & data'; }
+      } else {
+        if (status) status.textContent = 'Your data was deleted, but the sign-in itself could not be removed automatically. Please try again, or contact support.';
+        if (delBtn) { delBtn.disabled = false; delBtn.textContent = '🗑️ Delete my account & data'; }
+      }
+    }
+  };
 </script>
 
 <script>
@@ -647,6 +827,16 @@ async function goToCheckout() {
   var params = new URLSearchParams(window.location.search);
   if (params.get('checkout') === 'canceled') {
     document.getElementById('canceledNote').classList.add('show');
+  }
+})();
+
+// Show the "trial expired" banner if auth-guard.js redirected us here
+// (see isTrialExpired() there). The banner's Export/Delete buttons use
+// the module script's exportMyData()/confirmDeleteMyAccount() above.
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('trial') === 'expired') {
+    document.getElementById('trialExpiredNote').classList.add('show');
   }
 })();
 
