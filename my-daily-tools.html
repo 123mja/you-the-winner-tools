@@ -7516,6 +7516,23 @@ window.removeRmMilestone = function(pi, mi) {
     </div>
   </div>
 
+  </div>
+  <!-- ^ closes settings-tabpage-appearance. 2026-09-05 correction: the
+       previous fix for "Picture Frame Mode showing on every Settings tab"
+       removed a stray </div> that sat right after Home Quick Links,
+       which WAS the closing tag for settings-tabpage-appearance -- just
+       positioned too early (before Picture Frame Mode got moved in
+       underneath it), so simply deleting it left this tabpage never
+       closed at all, swallowing every tab after it (Calendar, Content,
+       Money, Sharing, Admin) as its own descendants instead of siblings.
+       Once nested that way, switching to any tab other than Appearance
+       set .active on the nested tabpage but removed it from this outer
+       one, hiding this whole subtree (display:none) and taking every
+       later tab down with it -- matching "all sections besides the
+       first are not loading". The right fix was to MOVE the closing div
+       here, right after Picture Frame Mode (now the last card in
+       Appearance), not delete it outright. Verified via an actual HTML
+       parse that every settings-tabpage is a sibling again. -->
 
   <div class="settings-tabpage" id="settings-tabpage-calendar">
   <!-- ── Group: Calendar & Schedule ── -->
