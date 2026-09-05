@@ -7384,6 +7384,52 @@ window.removeRmMilestone = function(pi, mi) {
 
   </div>
 
+  <!-- Picture Frame / Kiosk Mode (added 2026-09-04, per Marcelo's "digital
+       picture frame" idea) — a read-only, auto-rotating full-screen view
+       (kiosk.html) meant for a spare tablet or old phone propped up
+       somewhere shared, like a kitchen counter. Sign in on that device once,
+       open the link below, leave it running. Which cards show + seconds per
+       slide are stored as ordinary synced settings (kiosk-slide-*,
+       kiosk-interval-seconds, added to SYNCED_SETTINGS_KEYS above) so
+       kiosk.html — running as a signed-in page of its own — can read them
+       straight from Firebase without this device needing to touch anything
+       else. Cycle Tracker is deliberately not offered as a slide choice at
+       all here, unlike every other data source in this app — a shared/
+       family display is not the place for it, opt-in or not.
+
+       Moved here from the Calendar & Schedule tab (2026-09-05, per
+       Marcelo) — it's a display/appearance feature (what a shared tablet
+       looks like), not something calendar-specific, and it isn't
+       admin-gated so it doesn't belong on the Admin tab either. Same
+       reasoning applies to the Background picker added the same day
+       (KIOSK_BACKGROUNDS/_setKioskBackground below, kiosk-background in
+       SYNCED_SETTINGS_KEYS, and the body[data-kiosk-bg] palettes in
+       kiosk.html) — the kiosk previously always mirrored the signed-in
+       device's own app-wide theme, which for a shared family display
+       often meant a flat dark navy-and-teal look with no way to pick
+       something warmer just for this one screen. -->
+  <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
+    <div class="txn-collapse-header" onclick="toggleSettingsSection('kiosk'); window.renderKioskSettingsSection && window.renderKioskSettingsSection();" style="padding:14px 16px;">
+      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">🖼️ Picture Frame Mode</span>
+      <span class="txn-collapse-chevron" id="settings-chevron-kiosk">▼</span>
+    </div>
+    <div id="settings-section-kiosk" style="display:none;padding:0 16px 14px;">
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:12px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">A slow-rotating, read-only display for a spare tablet or old phone propped up somewhere shared, like a kitchen counter — including a rotating slide of free, beautiful nature photos. Sign in on that device once, then open the Kiosk View link below and leave it running. Choose what shows:</div>
+      <div id="kiosk-slide-toggles" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <label for="kiosk-interval-input" style="font-size:.78rem;font-weight:700;color:var(--text);">Seconds per slide</label>
+        <input id="kiosk-interval-input" type="number" min="5" max="120" step="5" onchange="window._setKioskInterval(this.value)" style="width:64px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:8px;">Background</div>
+        <div id="kiosk-bg-picker" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+      </div>
+      <a href="kiosk.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;text-decoration:none;">🖼️ Open Kiosk View ↗</a>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:8px;line-height:1.4;">Cycle Tracker is never shown here, even on a device shared with family.</div>
+    </div>
+  </div>
+
+
   <div class="settings-tabpage" id="settings-tabpage-calendar">
   <!-- ── Group: Calendar & Schedule ── -->
   <div id="settings-group-calendar" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px;scroll-margin-top:76px;">📅 Calendar &amp; Schedule</div>
@@ -7426,35 +7472,6 @@ window.removeRmMilestone = function(pi, mi) {
         </div>
       </div>
       <div id="calendar-url-msg" style="font-size:.72rem;margin-top:8px;color:var(--muted);"></div>
-    </div>
-  </div>
-
-  <!-- Picture Frame / Kiosk Mode (added 2026-09-04, per Marcelo's "digital
-       picture frame" idea) — a read-only, auto-rotating full-screen view
-       (kiosk.html) meant for a spare tablet or old phone propped up
-       somewhere shared, like a kitchen counter. Sign in on that device once,
-       open the link below, leave it running. Which cards show + seconds per
-       slide are stored as ordinary synced settings (kiosk-slide-*,
-       kiosk-interval-seconds, added to SYNCED_SETTINGS_KEYS above) so
-       kiosk.html — running as a signed-in page of its own — can read them
-       straight from Firebase without this device needing to touch anything
-       else. Cycle Tracker is deliberately not offered as a slide choice at
-       all here, unlike every other data source in this app — a shared/
-       family display is not the place for it, opt-in or not. -->
-  <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
-    <div class="txn-collapse-header" onclick="toggleSettingsSection('kiosk'); window.renderKioskSettingsSection && window.renderKioskSettingsSection();" style="padding:14px 16px;">
-      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.92rem;">🖼️ Picture Frame Mode</span>
-      <span class="txn-collapse-chevron" id="settings-chevron-kiosk">▼</span>
-    </div>
-    <div id="settings-section-kiosk" style="display:none;padding:0 16px 14px;">
-      <div style="font-size:.76rem;color:var(--muted);margin-bottom:12px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);">A slow-rotating, read-only display for a spare tablet or old phone propped up somewhere shared, like a kitchen counter — including a rotating slide of free, beautiful nature photos. Sign in on that device once, then open the Kiosk View link below and leave it running. Choose what shows:</div>
-      <div id="kiosk-slide-toggles" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <label for="kiosk-interval-input" style="font-size:.78rem;font-weight:700;color:var(--text);">Seconds per slide</label>
-        <input id="kiosk-interval-input" type="number" min="5" max="120" step="5" onchange="window._setKioskInterval(this.value)" style="width:64px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:'Quicksand',sans-serif;background:var(--surface2);color:var(--text);">
-      </div>
-      <a href="kiosk.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;text-decoration:none;">🖼️ Open Kiosk View ↗</a>
-      <div style="font-size:.7rem;color:var(--muted);margin-top:8px;line-height:1.4;">Cycle Tracker is never shown here, even on a device shared with family.</div>
     </div>
   </div>
 
@@ -13277,7 +13294,7 @@ const SYNCED_SETTINGS_KEYS = [
   'calendar-tab-enabled','calendar-view-mode','calm-tab-enabled','cycle-tracker-enabled',
   'daily-tools-tab-order','default-landing-tab','dt-hide-nav',
   'home-tab-enabled','home-today-message-enabled','myday-tab-enabled',
-  'kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-dadjoke','kiosk-slide-healthtip','kiosk-slide-messages',
+  'kiosk-background','kiosk-interval-seconds','kiosk-slide-calendar','kiosk-slide-dadjoke','kiosk-slide-healthtip','kiosk-slide-messages',
   'kiosk-slide-money','kiosk-slide-nature','kiosk-slide-plans','kiosk-slide-weather',
   'plans-tab-enabled',
   'token-banner-user-enabled',
@@ -14006,6 +14023,31 @@ window.setCalendarUrl = async function(slot, url) {
 // purpose — it is never offered as a kiosk slide choice, not even off by
 // default.
 var KIOSK_SLIDES = { nature: '🌿 Nature', dadjoke: '😄 Dad Joke', healthtip: '💡 Health Tip', calendar: '📅 Calendar', plans: '🎯 Plans', money: '💰 Money', messages: "💌 Today's Message", weather: '🌤️ Weather' };
+
+// Picture Frame background presets (2026-09-05, per Marcelo: the kiosk was
+// always mirroring the signed-in device's own app-wide theme (plain --bg/
+// --text from theme.css), which for a shared family display often just
+// means whatever dark/light theme the device owner happens to use day to
+// day for the actual tools -- fine there, but not especially warm or
+// "picture-frame-inviting" on its own, and there was no way to pick
+// something different just for this one screen. Each preset is a
+// self-contained palette covering the exact 7 CSS vars kiosk.html uses
+// (--bg/--surface/--surface2/--border/--text/--muted/--accent) plus a
+// --kiosk-scrim wash (see kiosk.html's body[data-kiosk-bg="..."] blocks) so
+// plain text with no card behind it (Weather/Plans/Money/Dad Joke) stays
+// legible no matter which part of the gradient ends up behind it. "theme"
+// (the default) keeps the exact original "mirrors the app theme" behavior.
+// swatch below is just the small preview circle's CSS background, reused
+// as-is from each preset's --bg gradient.
+var KIOSK_BACKGROUNDS = {
+  theme:    { label: '🎨 Match App Theme', swatch: 'var(--surface2)' },
+  sunset:   { label: '🌅 Sunset Glow',      swatch: 'linear-gradient(160deg,#ffb199,#ff6f91,#6a3d9a)' },
+  ocean:    { label: '🌊 Ocean Breeze',     swatch: 'linear-gradient(160deg,#8fe3da,#4a90c2,#1e4f7a)' },
+  meadow:   { label: '🌿 Meadow',           swatch: 'linear-gradient(160deg,#e3f7cf,#8fd39c,#3f8f6b)' },
+  lavender: { label: '🌸 Lavender Dream',   swatch: 'linear-gradient(160deg,#f6e3f9,#cba7e8,#8a6bc9)' },
+  golden:   { label: '☀️ Golden Hour',      swatch: 'linear-gradient(160deg,#fff3b0,#ffcc66,#ff9142)' },
+  aurora:   { label: '🌌 Aurora Night',     swatch: 'linear-gradient(160deg,#1b1035,#2b1f5e,#124a5c,#0c2a3a)' }
+};
 window.renderKioskSettingsSection = function() {
   var wrap = document.getElementById('kiosk-slide-toggles');
   if (wrap) {
@@ -14016,9 +14058,24 @@ window.renderKioskSettingsSection = function() {
   }
   var intervalInput = document.getElementById('kiosk-interval-input');
   if (intervalInput) intervalInput.value = localStorage.getItem('kiosk-interval-seconds') || '20';
+  var bgWrap = document.getElementById('kiosk-bg-picker');
+  if (bgWrap) {
+    var curBg = localStorage.getItem('kiosk-background') || 'theme';
+    bgWrap.innerHTML = Object.keys(KIOSK_BACKGROUNDS).map(function(key) {
+      var b = KIOSK_BACKGROUNDS[key];
+      var active = key === curBg;
+      return '<button type="button" onclick="window._setKioskBackground(\'' + key + '\')" title="' + b.label + '" style="display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:2px;width:66px;">' +
+        '<span style="display:block;width:44px;height:44px;border-radius:50%;background:' + b.swatch + ';border:2.5px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';"></span>' +
+        '<span style="font-size:.62rem;font-weight:700;color:' + (active ? 'var(--accent)' : 'var(--muted)') + ';text-align:center;line-height:1.2;">' + b.label + '</span></button>';
+    }).join('');
+  }
 };
 window._setKioskSlide = function(key, on) {
   try { localStorage.setItem('kiosk-slide-' + key, on ? '1' : '0'); } catch (e) {}
+};
+window._setKioskBackground = function(key) {
+  try { localStorage.setItem('kiosk-background', key); } catch (e) {}
+  window.renderKioskSettingsSection && window.renderKioskSettingsSection();
 };
 window._setKioskInterval = function(v) {
   var n = parseInt(v, 10);

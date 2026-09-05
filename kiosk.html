@@ -47,7 +47,7 @@
     background: var(--bg); color: var(--text);
     font-family: 'Quicksand', sans-serif;
   }
-  #kiosk-root { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  #kiosk-root { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--kiosk-scrim, transparent); }
 
   /* Top bar: clock + date, always visible */
   #kiosk-topbar {
@@ -158,6 +158,47 @@
     background: var(--accent); color: #fff; text-decoration: none; border-radius: 10px;
     padding: 12px 26px; font-weight: 700; font-size: 1rem;
   }
+
+  /* Picture Frame background presets (2026-09-05) — chosen in Settings →
+     Appearance → Picture Frame Mode → Background (see KIOSK_BACKGROUNDS /
+     window._setKioskBackground in my-daily-tools.html). Each preset
+     redefines the exact 7 vars this page uses elsewhere (--bg/--surface/
+     --surface2/--border/--text/--muted/--accent) plus --kiosk-scrim, a
+     translucent wash over #kiosk-root so plain text with no card behind it
+     (Weather/Plans/Money/Dad Joke) stays legible no matter which part of
+     the gradient ends up underneath it. No attribute (or "theme") keeps
+     the original behavior of mirroring the signed-in device's own
+     app-wide theme from theme.css. */
+  body[data-kiosk-bg="sunset"] {
+    --bg: linear-gradient(160deg,#ffb199 0%,#ff6f91 45%,#6a3d9a 100%);
+    --kiosk-scrim: rgba(255,248,244,.55);
+    --text: #3a2432; --muted: #7a5568; --surface: rgba(255,255,255,.85); --surface2: rgba(255,255,255,.55); --border: rgba(58,36,50,.18); --accent: #e8563f;
+  }
+  body[data-kiosk-bg="ocean"] {
+    --bg: linear-gradient(160deg,#8fe3da 0%,#4a90c2 55%,#1e4f7a 100%);
+    --kiosk-scrim: rgba(240,250,255,.45);
+    --text: #0d2b3d; --muted: #3a5f75; --surface: rgba(255,255,255,.85); --surface2: rgba(255,255,255,.55); --border: rgba(13,43,61,.18); --accent: #1c7a8c;
+  }
+  body[data-kiosk-bg="meadow"] {
+    --bg: linear-gradient(160deg,#e3f7cf 0%,#8fd39c 50%,#3f8f6b 100%);
+    --kiosk-scrim: rgba(250,255,244,.45);
+    --text: #1c3a24; --muted: #4a6b52; --surface: rgba(255,255,255,.85); --surface2: rgba(255,255,255,.55); --border: rgba(28,58,36,.18); --accent: #2f8f52;
+  }
+  body[data-kiosk-bg="lavender"] {
+    --bg: linear-gradient(160deg,#f6e3f9 0%,#cba7e8 50%,#8a6bc9 100%);
+    --kiosk-scrim: rgba(252,247,255,.45);
+    --text: #2f1f45; --muted: #61507a; --surface: rgba(255,255,255,.85); --surface2: rgba(255,255,255,.55); --border: rgba(47,31,69,.18); --accent: #8a4fd1;
+  }
+  body[data-kiosk-bg="golden"] {
+    --bg: linear-gradient(160deg,#fff3b0 0%,#ffcc66 50%,#ff9142 100%);
+    --kiosk-scrim: rgba(255,251,240,.4);
+    --text: #3a2405; --muted: #7a5726; --surface: rgba(255,255,255,.85); --surface2: rgba(255,255,255,.55); --border: rgba(58,36,5,.18); --accent: #e8791f;
+  }
+  body[data-kiosk-bg="aurora"] {
+    --bg: linear-gradient(160deg,#1b1035 0%,#2b1f5e 40%,#124a5c 75%,#0c2a3a 100%);
+    --kiosk-scrim: rgba(10,6,25,.35);
+    --text: #f4eefc; --muted: #c6b8e0; --surface: rgba(255,255,255,.10); --surface2: rgba(255,255,255,.06); --border: rgba(255,255,255,.18); --accent: #7dd3c0;
+  }
 </style>
 </head>
 <body>
@@ -246,7 +287,8 @@ async function loadKioskSettings(UP) {
     plans: on('kiosk-slide-plans'),
     money: on('kiosk-slide-money'),
     messages: on('kiosk-slide-messages'),
-    intervalSec: intervalSec
+    intervalSec: intervalSec,
+    background: s['kiosk-background'] || 'theme'
   };
 }
 
@@ -636,6 +678,11 @@ async function start(uid) {
   var UP = 'users/' + uid;
   showCenter('<div class="big">Loading your picture frame view…</div>');
   var cfg = await loadKioskSettings(UP);
+  if (cfg.background && cfg.background !== 'theme') {
+    document.body.setAttribute('data-kiosk-bg', cfg.background);
+  } else {
+    document.body.removeAttribute('data-kiosk-bg');
+  }
   intervalMs = cfg.intervalSec * 1000;
   slides = await buildAllSlides(UP, cfg);
   if (!slides.length) {
