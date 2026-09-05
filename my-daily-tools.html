@@ -5285,23 +5285,42 @@
      sits shorter without dropping any content or making chips harder to
      tap. -->
 <div id="flow-picker-overlay" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
-  <div style="background:var(--surface);border-radius:18px;width:100%;max-width:420px;padding:16px 16px 18px;max-height:85vh;overflow-y:auto;box-sizing:border-box;box-shadow:0 8px 32px rgba(0,0,0,.18);">
-    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;margin-bottom:3px;" id="flow-picker-title">Plan this block</div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;">Tap to select one or more activities. Saved automatically.</div>
+  <!-- 2026-09-05 fix, per Marcelo: "taking the complete screen... fit in a
+       single screen so we can see close/save without scrolling". Root
+       cause: this box scrolled AS A WHOLE (overflow-y:auto on the outer
+       box), with the Done button as the very last element in that scroll —
+       on a block with a long activity chip list, Done ended up below the
+       fold and needed scrolling to reach even though the box itself was
+       "on screen". Fix: turn the box into a column flex layout with the
+       title/subtitle pinned at top, ONLY the chip grid scrolling in the
+       middle (min-height:0 is required for a flex child to actually
+       shrink/scroll instead of growing to fit its content), and the
+       custom-activity input + Done button pinned in a non-scrolling footer
+       — so Done (and Cancel via the backdrop) is always visible no matter
+       how many chips a block has. -->
+  <div style="background:var(--surface);border-radius:18px;width:100%;max-width:420px;max-height:85vh;box-sizing:border-box;box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:16px 16px 0;flex:0 0 auto;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;margin-bottom:3px;" id="flow-picker-title">Plan this block</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;">Tap to select one or more activities. Saved automatically.</div>
+    </div>
     <!-- Work/Training, Helped someone, and Exercise render first here, via
          FLOW_QUICK_PRESETS in renderFlowChips() — pre-selected by default on
          an untouched block (see openFlowPicker) instead of living in a
          separate act-grid section like before 2026-08-13. -->
-    <div id="flow-chips-grid" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;"></div>
+    <div style="padding:0 16px;overflow-y:auto;flex:1 1 auto;min-height:0;">
+      <div id="flow-chips-grid" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;"></div>
+    </div>
 
-    <div style="font-size:.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">+ Add something custom</div>
-    <!-- 2026-08-14, per Marcelo: auto-save instead of a separate Save
-         button — press Enter (or just tap Done below) to add and save
-         immediately; see addFlowCustom()/_persistFlowPick(). -->
-    <input id="flow-custom-input" placeholder="e.g. Doctor appointment… (press Enter to add)"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();addFlowCustom();}"
-      style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.88rem;background:var(--surface);color:var(--text);margin-bottom:10px;">
-    <button onclick="closeFlowPicker()" style="width:100%;padding:9px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:800;font-size:.88rem;cursor:pointer;">Done &#10003;</button>
+    <div style="padding:10px 16px 18px;flex:0 0 auto;border-top:1px solid var(--border);background:var(--surface);">
+      <div style="font-size:.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">+ Add something custom</div>
+      <!-- 2026-08-14, per Marcelo: auto-save instead of a separate Save
+           button — press Enter (or just tap Done below) to add and save
+           immediately; see addFlowCustom()/_persistFlowPick(). -->
+      <input id="flow-custom-input" placeholder="e.g. Doctor appointment… (press Enter to add)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addFlowCustom();}"
+        style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:10px;font-family:'Quicksand',sans-serif;font-size:.88rem;background:var(--surface);color:var(--text);margin-bottom:10px;">
+      <button onclick="closeFlowPicker()" style="width:100%;padding:9px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:800;font-size:.88rem;cursor:pointer;">Done &#10003;</button>
+    </div>
   </div>
 </div>
 </div>
@@ -5697,7 +5716,7 @@
     <!-- Header — standardized 2026-08-31, see Roadmap's header comment above for why. -->
     <div style="text-align:center;background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
       <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">⚖️ Value of Things</div>
-      <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Add anything and see how it compares in size</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">Compare anything by size — bills, pay, time, or things you want</div>
     </div>
 
     <!-- Add button — Quick Add is now the single entry point (2026-08-08):
@@ -6941,7 +6960,7 @@ window.removeRmMilestone = function(pi, mi) {
       <!-- Value of Things -->
       <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:14px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;margin-bottom:4px;">⚖️ Value of Things</div>
-        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> Add anything (big or small, expensive or cheap) and see how it compares in size next to everything else you've added, using a visual Size Map.<br><strong style="color:var(--text);">How to use:</strong> Tap 🗂️ Quick Add to pick from presets or add a one-off item. Tap any item in your list to edit or remove it.<br><strong style="color:var(--text);">Accessibility tip:</strong> A visual size comparison (instead of just numbers) can make "is this a big deal or a small deal" much easier to judge — useful for understanding relative cost or importance.</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;"><strong style="color:var(--text);">What it does:</strong> Add any number and see how it compares in size next to everything else — a bill, a paycheck, an hour of work, or something you want to buy — using a visual Size Map. Unlike Wishes, this is not only for things to save toward.<br><strong style="color:var(--text);">How to use:</strong> Tap 🗂️ Quick Add to pick from presets — including bills, pay, and time, not just purchases — or add a one-off item of your own. Tap any item in your list to edit or remove it.<br><strong style="color:var(--text);">Accessibility tip:</strong> A visual size comparison (instead of just numbers) can make "is this a big deal or a small deal" much easier to judge — for cost, for time, or for anything else with a number attached.</div>
       </div>
 
       <!-- Rewards -->
@@ -10057,6 +10076,14 @@ function _isCalendarEmbedUrl(url) {
 // moved into _renderCalendarGoogleView() unchanged, and the native "My
 // Schedule" grid gets its own render pass. See the "MY SCHEDULE" block
 // further below for everything that feeds window.renderScheduleNative().
+// 2026-09-05: manual escape hatch for the _lastCalendarEmbedKey cache
+// added just above -- lets someone force the Google Calendar embed to
+// reload right now (e.g. right after adding an event) without waiting on
+// a calendar-selection change to trigger it naturally.
+window.refreshCalendarEmbed = function() {
+  _lastCalendarEmbedKey = null;
+  _renderCalendarGoogleView();
+};
 window.renderCalendarPane = function() {
   // 2026-08-24 bugfix: _getCalendarViewMode/_getSchedViewMode are declared in
   // the later <script type="module"> block (see window.setCalendarViewMode
@@ -10129,6 +10156,19 @@ function _buildCombinedCalendarEmbedUrl(embedUrls) {
   if (ctz) qs += '&ctz=' + encodeURIComponent(ctz);
   return 'https://calendar.google.com/calendar/embed?' + qs;
 }
+// 2026-09-05 perf fix (Marcelo: "the calendar tab takes a while when I
+// click on it") -- switchTab('calendar') calls renderCalendarPane() on
+// EVERY visit to the tab, not just the first, and in Google Calendar mode
+// that unconditionally called _renderCalendarGoogleView() below, which
+// rebuilt bodyEl.innerHTML from scratch every time -- destroying and
+// recreating the <iframe> even when you'd just left the tab seconds
+// earlier. A fresh Google Calendar embed iframe takes a few seconds to
+// load (Google's own JS/CSS, not anything this app controls), so every
+// single tab visit paid that full cost again. _lastCalendarEmbedKey lets
+// _renderCalendarGoogleView() below skip the rebuild (and the reload it
+// causes) when the selected calendar URLs haven't changed since the last
+// render -- the iframe just stays mounted and already-loaded.
+var _lastCalendarEmbedKey = null;
 function _renderCalendarGoogleView() {
   var subEl = document.getElementById('calendar-pane-sub');
   var bodyEl = document.getElementById('calendar-pane-body');
@@ -10137,13 +10177,22 @@ function _renderCalendarGoogleView() {
   if (!slotUrls[0]) slotUrls[0] = DEFAULT_CAL_URL; // slot 1 keeps its original fallback default
   var embedUrls = slotUrls.filter(function(u) { return u && _isCalendarEmbedUrl(u); });
   var nonEmbedSlots = ['1', '2', '3'].filter(function(slot, i) { return slotUrls[i] && !_isCalendarEmbedUrl(slotUrls[i]); });
+  // Skip rebuilding entirely (and thus skip forcing the iframe to reload)
+  // when the calendar selection is unchanged from the last render and an
+  // iframe/content is already sitting in the pane.
+  var _embedCacheKey = JSON.stringify(slotUrls);
+  if (_embedCacheKey === _lastCalendarEmbedKey && bodyEl.firstChild) {
+    return;
+  }
+  _lastCalendarEmbedKey = _embedCacheKey;
   var html = '';
   var anyEmbed = false;
   var combined = embedUrls.length ? _buildCombinedCalendarEmbedUrl(embedUrls) : null;
   if (combined) {
     anyEmbed = true;
     html += '<iframe src="' + combined.replace(/"/g, '&quot;') + '" style="width:100%;height:600px;border:1.5px solid var(--border);border-radius:14px;" loading="lazy"></iframe>'
-      + '<div style="text-align:center;margin-top:10px;margin-bottom:14px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'1\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a></div>';
+      + '<div style="text-align:center;margin-top:10px;margin-bottom:14px;"><a href="javascript:void(0)" onclick="openGoogleCalendar(\'1\')" style="font-size:.78rem;color:var(--accent);font-weight:700;">Open in a new tab / app ↗</a>'
+      + ' &nbsp;·&nbsp; <a href="javascript:void(0)" onclick="window.refreshCalendarEmbed()" style="font-size:.78rem;color:var(--accent);font-weight:700;">🔄 Refresh</a></div>';
   } else {
     html += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;text-align:center;margin-bottom:14px;">'
       + '<div style="font-size:2rem;margin-bottom:8px;">📅</div>'
@@ -17249,7 +17298,12 @@ var THINGS_CATALOG_DEFAULTS = [
 
   { id:'movie',       cat:'Fun & Extras',    icon:'🎬', name:'Movie Ticket',       value:15,   unit:'dollars' },
   { id:'planeticket', cat:'Fun & Extras',    icon:'✈️', name:'Plane Ticket',       value:300,  unit:'dollars' },
-  { id:'gift',        cat:'Fun & Extras',    icon:'🎂', name:'Birthday Gift',      value:40,   unit:'dollars' }
+  { id:'gift',        cat:'Fun & Extras',    icon:'🎂', name:'Birthday Gift',      value:40,   unit:'dollars' },
+
+  { id:'paycheck',    cat:'Pay & Time',      icon:'💵', name:'Paycheck (1 week)',  value:400,  unit:'dollars' },
+  { id:'workshift',   cat:'Pay & Time',      icon:'⏰', name:'Work Shift',         value:4,    unit:'hours' },
+  { id:'schoolday',   cat:'Pay & Time',      icon:'🏫', name:'School Day',         value:7,    unit:'hours' },
+  { id:'sleep',       cat:'Pay & Time',      icon:'😴', name:'Sleep (1 night)',    value:8,    unit:'hours' }
 ];
 // Per-user catalog customization layer (2026-08-08 addition, in response
 // to "we need to be able to add/edit/delete the price of the items in the
