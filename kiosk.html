@@ -700,12 +700,32 @@ async function start(uid) {
   startTimer();
 
   // Periodic refresh so a display left running all day doesn't go stale.
+  // 2026-09-05 bugfix, per Marcelo ("frame mode is opening on all the
+  // [slides] instead of just one"): this used to call buildAllSlides(UP,
+  // cfg) with the SAME `cfg` object captured once back in start() above,
+  // never re-reading Settings -- so a kiosk tablet left open across a
+  // change to Settings -> Appearance -> Picture Frame Mode (turning slides
+  // off, changing the interval or background) would keep showing every
+  // slide that was enabled at the moment the page first loaded, forever,
+  // until someone manually reloaded that tab. Verified the actual
+  // active/opacity rotation CSS/JS itself was already correct (only one
+  // .kiosk-slide.active at a time) -- the stale enabled/disabled
+  // CONFIGURATION was the real bug, not the rotation. Now re-reads
+  // Settings on every refresh tick, same as a fresh page load would.
   setInterval(async function() {
+    cfg = await loadKioskSettings(UP);
+    if (cfg.background && cfg.background !== 'theme') {
+      document.body.setAttribute('data-kiosk-bg', cfg.background);
+    } else {
+      document.body.removeAttribute('data-kiosk-bg');
+    }
+    intervalMs = cfg.intervalSec * 1000;
     var fresh = await buildAllSlides(UP, cfg);
     if (fresh.length) {
       slides = fresh;
       if (slideIdx >= slides.length) slideIdx = 0;
       renderStage();
+      startTimer(); // interval length may have just changed too
     }
   }, 5 * 60 * 1000);
 }

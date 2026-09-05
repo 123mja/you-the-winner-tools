@@ -7111,6 +7111,18 @@ window.removeRmMilestone = function(pi, mi) {
         <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Pick a color theme</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;" id="theme-btn-group"></div>
       </div>
+      <div id="settings-row-tokenstrip" style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 9px;gap:10px;">
+        <div>
+          <div style="font-size:.84rem;font-weight:700;">Show tokens progress bar</div>
+          <div style="font-size:.72rem;color:var(--muted);">Shows the reward-progress strip at the top of Plans and My Day. Off by default. This is your own preference, separate from whether it's enabled site-wide.</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+          <input type="checkbox" id="toggle-token-banner-user-enabled" onchange="setTokenBannerUserEnabled(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
+          <span id="token-banner-user-enabled-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
+            <span id="token-banner-user-enabled-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+          </span>
+        </label>
+      </div>
 
       <!-- ── Navigation ── -->
       <div style="padding:8px 0 3px;border-top:1px solid var(--border);">
@@ -7330,38 +7342,6 @@ window.removeRmMilestone = function(pi, mi) {
           <input type="checkbox" id="toggle-today-message-open" onchange="setTodayMessageStartExpanded(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
           <span id="today-message-open-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
             <span id="today-message-open-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Reward tokens strip — added 2026-08-06, per-user override of the
-       admin's site-wide token-banner-visible flag. OFF by default so the
-       Plans/My Day header stays uncluttered unless someone specifically
-       wants to see progress toward the reward goal.
-       2026-08-09: made collapsible, closed by default — was previously the
-       only always-expanded one-setting card on this page (every other
-       multi-setting section here, e.g. Tabs — Visibility & Order below,
-       already collapses), per Marcelo. Same collapse pattern as that
-       section (txn-collapse-header + chevron, plain show/hide, no data to
-       (re)render on open since the checkbox's state is already synced by
-       renderSettings() regardless of whether this card is open). -->
-  <div class="card" id="settings-card-tokenstrip" style="padding:0;overflow:hidden;margin-top:12px;">
-    <div class="txn-collapse-header" onclick="openTokenStripSettingsSection()" style="padding:14px 16px;">
-      <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;">🪙 Reward Tokens Strip</span>
-      <span class="txn-collapse-chevron" id="settings-chevron-tokenstrip">▼</span>
-    </div>
-    <div id="settings-section-tokenstrip" style="display:none;padding:0 16px 14px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
-        <div>
-          <div style="font-size:.84rem;font-weight:700;">Show tokens progress bar</div>
-          <div style="font-size:.72rem;color:var(--muted);">Shows the reward-progress strip at the top of Plans and My Day. Off by default. This is your own preference, separate from whether it's enabled site-wide.</div>
-        </div>
-        <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
-          <input type="checkbox" id="toggle-token-banner-user-enabled" onchange="setTokenBannerUserEnabled(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
-          <span id="token-banner-user-enabled-track" style="position:absolute;inset:0;border-radius:99px;background:var(--border);transition:.2s;cursor:pointer;">
-            <span id="token-banner-user-enabled-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
           </span>
         </label>
       </div>
@@ -10852,18 +10832,11 @@ window.openTabOrderSection = function() {
   if (!open) renderTabOrderList();
 };
 
-// 2026-08-09: same collapse pattern as openTabOrderSection above, for the
-// Reward Tokens Strip settings card — nothing needs (re)rendering on open,
-// the checkbox's checked/track/thumb state is already kept in sync by
-// renderSettings() whether or not this card happens to be expanded.
-window.openTokenStripSettingsSection = function() {
-  const panel = document.getElementById('settings-section-tokenstrip');
-  const chevron = document.getElementById('settings-chevron-tokenstrip');
-  if (!panel) return;
-  const open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : '';
-  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
-};
+// 2026-09-05: openTokenStripSettingsSection() removed -- the Reward Tokens
+// Strip toggle no longer has its own collapsible card to open/close, see
+// its new home inside App Settings' "Appearance" sub-section above
+// (#settings-row-tokenstrip), per Marcelo ("token strip can be part of
+// appearance instead of having its own section").
 
 window.moveTab = function(tab, dir) {
   const reorderable = [...new Set([..._tabOrder, ...DEFAULT_TAB_ORDER])]
@@ -18896,7 +18869,7 @@ window._isSupportedIndividualRole = _isSupportedIndividualRole;
 
 function _applyCaregiverOnlySettingsVisibility() {
   var hide = _isSupportedIndividualRole();
-  var tsCard = document.getElementById('settings-card-tokenstrip');
+  var tsCard = document.getElementById('settings-row-tokenstrip');
   if (tsCard) tsCard.style.display = hide ? 'none' : '';
   var rmCard = document.getElementById('settings-card-rmconfig');
   if (rmCard) rmCard.style.display = hide ? 'none' : '';
