@@ -516,7 +516,17 @@ async function buildScheduleSlide(UP) {
   var snap = await get(ref(db, UP + '/schedule')).catch(function(){ return null; });
   var data = (snap && snap.val()) || {};
   var entries = Object.keys(data).map(function(id){ return Object.assign({ id: id }, data[id]); });
-  if (!entries.length) return null;
+  // 2026-09-05 fix, per Marcelo ("only saw the Settings flag, no slide"):
+  // this used to return null (hide the slide entirely) whenever the WHOLE
+  // /schedule node was empty, matching Money/Calendar's "nothing configured
+  // yet" behavior. But those need real setup (an account, a calendar link)
+  // before there's anything to show, while an empty week here is a normal,
+  // common state (no shifts entered yet, or a genuinely open week) --
+  // hiding the slide made it look like the toggle was doing nothing at
+  // all rather than working correctly with nothing to display. Now always
+  // renders, same as buildPlansSlide's "Nothing open right now" pattern
+  // below -- each day just shows its own em-dash placeholder (see the
+  // chips fallback further down) when it has no shifts.
   var monday = kioskSchedMonday(new Date());
   var today = localDateStr();
   var dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
